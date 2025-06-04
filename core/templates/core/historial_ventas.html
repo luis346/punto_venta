@@ -1,0 +1,42 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Historial de Ventas{% endblock %}
+
+{% block content %}
+
+<h2 class="text-center mb-4" style="font-family: 'Poppins', sans-serif; color: #333;">HISTORIAL DE VENTAS</h2>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Folio</th>
+            <th>Nombre del vendedor</th>
+            <th>Fecha de Venta</th>
+            <th>Estado</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for venta in ventas %}
+        <tr class="{% if venta.cancelada %}table-danger{% endif %}">
+            <td>{{ venta.no_venta }}</td>
+            <td>{{ venta.vendedor }}</td>
+            <td>{{ venta.fecha }}</td>
+            <td>
+                {% if venta.cancelada %}
+                <span class="badge bg-danger">Cancelada</span>
+                {% elif venta.pagado %}
+                <span class="badge bg-success">Pagada</span>
+                {% else %}
+                <span class="badge bg-warning text-dark">Pendiente</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" class="text-center">No hay ventas registradas.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

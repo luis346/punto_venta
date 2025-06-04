@@ -1,0 +1,79 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}
+Login - PUNTO DE VENTA
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5" style="max-width: 400px;">
+    <form method="POST" id="loginForm" class="shadow p-4 rounded bg-light">
+        <h2 class="mb-4 text-center">Inicio de sesión</h2>
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="id_username" class="form-label">Usuario</label>
+            <input type="text" name="username" maxlength="15" required id="id_username" class="form-control" autocomplete="username">
+        </div>
+
+        <div class="mb-3">
+            <label for="id_password" class="form-label">Contraseña</label>
+            <input type="password" name="password" maxlength="15" required id="id_password" class="form-control" autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100" id="submitBtn">
+            Iniciar sesión
+        </button>
+
+        <!-- Spinner oculto por defecto -->
+         <div id="loadingSpinner" class="justify-content-center mt-3" style="display:none;">
+            <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+            <span class="ms-2">Cargando...</span>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Spinner y envío diferido -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('loginForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const spinner = document.getElementById('loadingSpinner');
+
+    spinner.style.display = 'none';
+    submitBtn.style.display = 'block';
+
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        submitBtn.style.display = 'none';
+        spinner.style.display = 'flex';
+        spinner.classList.add('d-flex');
+
+
+        setTimeout(() => {
+            form.submit();
+        }, 200);
+    });
+});
+</script>
+
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% if messages %}
+    {% for message in messages %}
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    icon: "{% if message.tags == 'success' %}success{% elif message.tags == 'error' %}error{% else %}info{% endif %}",
+                    title: "{{ message|escapejs }}",
+                    confirmButtonText: 'OK'
+                });
+            });
+        </script>
+    {% endfor %}
+{% endif %}
+{% endblock %}

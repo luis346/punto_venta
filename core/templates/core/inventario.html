@@ -1,0 +1,139 @@
+{% extends 'core/base.html' %}
+{% block content %}
+<h2 class="text-center mb-4" style="font-family: 'Poppins', sans-serif; color: #333;">INVENTARIO</h2>
+
+<!-- Botón para abrir el modal -->
+<button type="button" class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#modalCategoria">
+    Agregar Categoría
+</button>
+<!-- Modal con formulario de categoría -->
+<div class="modal fade" id="modalCategoria" tabindex="-1" aria-labelledby="modalCategoriaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCategoriaLabel">Agregar Categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="col-md-4">
+                        <label for="{{ form_categoria.nombre.id_for_label }}" class="form-label">Nombre</label>
+                        {{ form_categoria.nombre }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" name="guardar_categoria" class="btn btn-success">Guardar Categoría</button>
+                </div>
+            </form>
+            <h5>Categorías Registradas</h5>
+            <table class="table mt-4">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for categoria in categorias %}
+                    <tr>
+                        <td>{{ categoria.nombre }}</td>
+                        <td>
+                            <form method="POST" action="{% url 'eliminar_categoria' categoria.id %}"
+                                style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2">No hay categorías registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- Formulario para Producto -->
+<form method="POST">
+<div class="card mb-3" style="width: 70rem;">
+<div class="card-body">
+    {% csrf_token %}
+   <h5>{% if producto_editando %}Editar Producto{% else %}Agregar Producto{% endif %}</h5>
+
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label for="{{ form_producto.no_folio.id_for_label }}" class="form-label">No.folio</label>
+            {{ form_producto.no_folio }}
+        </div>
+        <div class="col-md-3">
+            <label for="{{ form_producto.nombre.id_for_label }}" class="form-label">Nombre</label>
+            {{ form_producto.nombre }}
+        </div>
+        <div class="col-md-3">
+            <label for="{{ form_producto.descripcion.id_for_label }}" class="form-label">Descripcion</label>
+            {{ form_producto.descripcion }}
+        </div>
+        <div class="col-md-3">
+            <label for="{{ form_producto.categoria.id_for_label }}" class="form-label">Categoria</label>
+            {{ form_producto.categoria }}
+        </div>
+        <div class="col-md-3">
+            <label for="{{ form_producto.precio.id_for_label }}" class="form-label">Precio</label>
+            {{ form_producto.precio }}
+        </div>
+        <div class="col-md-3">
+            <label for="{{ form_producto.stock.id_for_label }}" class="form-label">Stock</label>
+            {{ form_producto.stock }}
+        </div>
+        <div class="g-3">
+            <button name="guardar_producto" class="btn btn-primary">
+            {% if producto_editando %}Guardar Cambios{% else %}Agregar Producto{% endif %}
+        </div>
+    </div>
+    </div>
+</div>
+</form>
+
+<a href="{% url 'exportar_excel' %}" class="btn btn-info mb-3">Exportar a Excel</a>
+<!-- Tabla de productos -->
+<table class="table mt-4">
+    <thead>
+        <tr>
+            <th>No. Folio</th>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Categoría</th>
+            <th>Precio</th>
+            <th>Stock</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for producto in productos %}
+        <tr>
+            <td>{{ producto.no_folio }}</td>
+            <td>{{ producto.nombre }}</td>
+            <td>{{ producto.descripcion }}</td>
+            <td>{{ producto.categoria }}</td>
+            <td>${{ producto.precio }}</td>
+            <td>{{ producto.stock }}</td>
+            <td>
+                <form method="POST" action="{% url 'eliminar_producto' producto.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-trash"></i></button>
+                </form>
+                <a href="{% url 'inventario' %}?editar={{ producto.id }}" class="btn btn-sm btn-warning">Editar</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

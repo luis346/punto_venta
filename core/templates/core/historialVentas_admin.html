@@ -1,0 +1,95 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Historial de Ventas{% endblock %}
+
+{% block content %}
+
+<h2 class="text-center mb-4" style="font-family: 'Poppins', sans-serif; color: #333;">HISTORIAL DE VENTAS</h2>
+
+<form method="get" class="row g-3 mb-4" id="form-filtros">
+    <div class="col-md-3">
+        <label for="fecha_inicio" class="form-label">Desde:</label>
+        <input type="date" id="fecha_inicio" name="fecha_inicio" class="form-control" value="{{ request.GET.fecha_inicio_dt }}">
+    </div>
+    <div class="col-md-3">
+        <label for="fecha_fin" class="form-label">Hasta:</label>
+        <input type="date" id="fecha_fin" name="fecha_fin" class="form-control" value="{{ request.GET.fecha_fin_dt }}">
+    </div>
+    <div class="col-md-3">
+        <label for="vendedor" class="form-label">Vendedor:</label>
+        <select id="vendedor" name="vendedor" class="form-select">
+            <option value="">Todos</option>
+            {% for v in vendedores %}
+            <option value="{{ v.id }}" {% if request.GET.vendedor == v.id|stringformat:"s" %}selected{% endif %}>{{ v }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3 d-flex align-items-end gap-2">
+        <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+        <button type="button" id="btn-limpiar" class="btn btn-secondary w-100">Limpiar</button>
+    </div>
+</form>
+<div class="mt-4">
+    <form method="get" action="{% url 'arqueo_caja' %}">
+        <button class="btn btn-secondary mt-2">Generar Arqueo de Caja</button>
+    </form>
+</div>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Folio</th>
+            <th>Nombre del vendedor</th>
+            <th>Fecha de Venta</th>
+            <th>Estado</th>
+            <th>Acciones</th> <!-- Nueva columna -->
+        </tr>
+    </thead>
+    <tbody>
+        {% for venta in ventas %}
+        <tr class="{% if venta.cancelada %}table-danger{% endif %}">
+            <td>{{ venta.no_venta }}</td>
+            <td>{{ venta.vendedor }}</td>
+            <td>{{ venta.fecha }}</td>
+            <td>
+                {% if venta.cancelada %}
+                <span class="badge bg-danger">Cancelada</span>
+                {% elif venta.pagado %}
+                <span class="badge bg-success">Pagada</span>
+                {% else %}
+                <span class="badge bg-warning text-dark">Pendiente</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if venta.cancelada %}
+                <form method="POST" action="{% url 'eliminar_venta' venta.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-danger"
+                        onclick="return confirm('¿Estás seguro de eliminar esta venta cancelada?')">Eliminar</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+
+    <div class="mt-4 text-end">
+        <h4>Total recaudado:
+            <span class="badge bg-success">${{ total_recaudado|floatformat:2 }}</span>
+        </h4>
+    </div>
+
+    <script>
+    document.getElementById('btn-limpiar').addEventListener('click', function() {
+        // Opcional: limpiar manualmente inputs y selects
+        document.getElementById('fecha_inicio').value = '';
+        document.getElementById('fecha_fin').value = '';
+        document.getElementById('vendedor').value = '';
+
+        // Luego enviar el formulario (se enviará sin parámetros de filtro)
+        document.getElementById('form-filtros').submit();
+    });
+</script>
+
+
+    {% endblock %}

@@ -1,0 +1,75 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Arqueo de Caja{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Arqueo de Caja</h2>
+
+<form method="get" class="row g-3 mb-4" id="form-filtros">
+    <div class="col-md-3">
+        <label for="fecha_inicio" class="form-label">Desde:</label>
+        <input type="date" id="fecha_inicio" name="fecha_inicio" class="form-control" value="{{ request.GET.fecha_inicio }}">
+    </div>
+    <div class="col-md-3">
+        <label for="fecha_fin" class="form-label">Hasta:</label>
+        <input type="date" id="fecha_fin" name="fecha_fin" class="form-control" value="{{ request.GET.fecha_fin }}">
+    </div>
+    <div class="col-md-3">
+        <label for="vendedor" class="form-label">Vendedor:</label>
+        <select id="vendedor" name="vendedor" class="form-select">
+            <option value="">Todos</option>
+            {% for v in vendedores %}
+            <option value="{{ v.id }}" {% if request.GET.vendedor == v.id|stringformat:"s" %}selected{% endif %}>{{ v }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3 d-flex align-items-end gap-2">
+        <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+        <button type="button" id="btn-limpiar" class="btn btn-secondary w-100">Limpiar</button>
+    </div>
+</form>
+<table class="table">
+    <thead>
+        <tr>
+            <th>No. Venta</th>
+            <th>Vendedor</th>
+            <th>Fecha</th>
+            <th>Total Productos</th>
+            <th>Total Venta</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for venta in ventas %}
+        <tr>
+            <td>{{ venta.no_venta }}</td>
+            <td>{{ venta.vendedor }}</td>
+            <td>{{ venta.fecha }}</td>
+            <td>{{ venta.productos }}</td>
+            <td>${{ venta.total|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="3"><strong>Totales generales</strong></td>
+            <td><strong>{{ total_productos }}</strong></td>
+            <td><strong>${{ total_arqueo|floatformat:2 }}</strong></td>
+        </tr>
+    </tfoot>
+</table>
+<div class="mt-4 text-center">
+    <h4>Total en caja: <span class="badge bg-success">${{ total_arqueo|floatformat:2 }}</span></h4>
+</div>
+
+<script>
+    document.getElementById('btn-limpiar').addEventListener('click', function() {
+        // Opcional: limpiar manualmente inputs y selects
+        document.getElementById('fecha_inicio').value = '';
+        document.getElementById('fecha_fin').value = '';
+        document.getElementById('vendedor').value = '';
+
+        // Luego enviar el formulario (se enviará sin parámetros de filtro)
+        document.getElementById('form-filtros').submit();
+    });
+</script>
+{% endblock %}
