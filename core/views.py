@@ -64,8 +64,7 @@ def home_admin(request):
     return render(request, 'core/home_admin.html') 
 
 
-@login_required
-@user_passes_test(es_admin)
+
 @csrf_exempt
 def registro(request):
     if request.method == "POST":
