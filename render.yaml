@@ -3,10 +3,10 @@ services:
     name: mi-app-django
     env: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "python manage.py migrate && gunicorn punto_venta.wsgi"
+    startCommand: "python manage.py migrate && gunicorn punto_venta.wsgi:application --bind 0.0.0.0:10000"
     envVars:
       - key: DJANGO_SETTINGS_MODULE
-        value: tu_proyecto.settings
+        value: punto_venta.settings  # Asegúrate que sea correcto
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL

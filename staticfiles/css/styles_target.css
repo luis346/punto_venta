@@ -1,0 +1,28 @@
+
+.container {
+    margin-top: 50px;
+}
+
+.card {
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.3s ease-in-out;
+}
+
+.card:hover {
+    transform: scale(1.05);
+}
+
+.card img {
+    height: 200px;
+    object-fit: cover;
+}
+
+.btn-primary {
+    background-color: #1ac1c7;
+    border: none;
+}
+
+.btn-primary:hover {
+    background-color: #0f4c75;
+}
