@@ -1,16 +1,34 @@
 {% extends 'core/base.html' %}
 {% load static %}
 {% block title %}Ventas{% endblock %}
-
 {% block content %}
-<h2 class="text-center mb-4" style="font-family: 'Poppins', sans-serif; color: #333;">VENTAS</h2>
-<!-- Formulario para ventas -->
-<form method="POST">
+
+<!-- Modal para contraseña -->
+<div class="modal fade" id="modalPassword" tabindex="-1" aria-labelledby="modalPasswordLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="formPagoConPassword">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Autorización del Administrador</h5>
+        </div>
+        <div class="modal-body">
+          <input type="password" id="password_admin_input" class="form-control" placeholder="Contraseña del administrador" required>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Confirmar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Aquí se integran los pasos de registrar y pagar al instante -->
+<form method="POST" id="formVentaCompleta">
+    {% csrf_token %}
     <div class="card mb-3" style="width: 70rem;">
         <div class="card-body">
-            {% csrf_token %}
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Registro de Ventas</h5>
+                <h5 class="mb-0">Caja Rápida</h5>
                 <span class="fw-bold text-danger">No. de venta: {{ no_venta }}</span>
             </div>
 
@@ -36,6 +54,7 @@
             </div>
         </div>
     </div>
+
     <table class="table table-bordered" id="tabla-productos">
         <thead>
             <tr>
@@ -47,83 +66,130 @@
             </tr>
         </thead>
         <tbody>
-
+            <!-- Se agregan filas dinámicamente con JS -->
         </tbody>
     </table>
-    <div class="d-grid gap-2 d-md-flex justify-content-md-end g-3">
-        <button type="submit" class="btn btn-primary">Registrar Venta</button>
+
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <input type="number" step="0.01" name="monto_pagado" class="form-control" placeholder="Monto pagado" id="monto_pagado" required>
+        </div>
+        <div class="col-md-4">
+            <select id="forma_pago" name="forma_pago" class="form-select" required>
+                <option value="">Forma de pago</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="transferencia">Transferencia</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <button type="submit" class="btn btn-success w-100" id="btn-registrar-venta">Registrar y Cobrar</button>
+        </div>
+    </div>
+
+    <div class="row mt-2">
+        <div class="col-md-4">
+            <input type="text" id="cambio" class="form-control" placeholder="Cambio" readonly>
+        </div>
     </div>
 </form>
 
+<!-- Este DIV solo se muestra para imprimir -->
+<div id="ticket-content" style="display: none;"></div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- jQuery UI CSS -->
-<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
-
-<!-- jQuery + jQuery UI JS -->
 <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
-<!-- Asegúrate de tener jQuery UI CSS y JS en tu plantilla -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
-<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 
 <script>
-    $(document).ready(function () {
+$(document).ready(function () {
+    // Función para calcular el total general
+    function actualizarTotales() {
+        let total = 0;
+        $('#tabla-productos tbody tr').each(function () {
+            const precio = parseFloat($(this).find('.precio').text()) || 0;
+            const cantidad = parseInt($(this).find('.cantidad').val()) || 0;
+            const totalFila = precio * cantidad;
+            $(this).find('.total').text(totalFila.toFixed(2));
+            total += totalFila;
+        });
+        return total;
+    }
 
-        function agregarFila() {
-            const nuevaFila = `
-        <tr>
+    
+        $('#tabla-productos').on('input', '.cantidad', function () {
+            const cantidad = parseInt($(this).val()) || 0;
+            const precio = parseFloat($(this).data('precio')) || 0;
+            const stock_fisico = parseInt($(this).data('stock_fisico')) || 0;
+
+            if (cantidad > stock_fisico) {
+                Swal.fire({
+                    title: "Stock insuficiente",
+                    text: "No hay suficiente stock. Solo hay " + stock_fisico + " unidades disponibles.",
+                    icon: "warning"
+                });
+                $(this).val(stock_fisico);
+                return;
+            }
+        });
+
+    // Función para calcular cambio
+    $('#monto_pagado').on('input', function () {
+        const total = actualizarTotales();
+        const pagado = parseFloat($(this).val()) || 0;
+        const cambio = pagado - total;
+        $('#cambio').val(cambio >= 0 ? cambio.toFixed(2) : '');
+    });
+
+    // Agrega fila inicial automáticamente
+    agregarFila();
+
+    function agregarFila() {
+        const fila = `<tr>
             <td contenteditable="true" class="busqueda" data-tipo="no_folio"></td>
             <td contenteditable="true" class="busqueda" data-tipo="nombre"></td>
             <td class="precio"></td>
             <td><input type="number" class="form-control cantidad" min="1" value="1" disabled></td>
-            <td class="total"></td>
+            <td id="total" class="total"></td>
         </tr>`;
+        $('#tabla-productos tbody').append(fila);
+    }
 
-            $('#tabla-productos tbody').append(nuevaFila);
+    $('#tabla-productos').on('focus', '.busqueda', function () {
+        const celda = $(this);
+        const tipo = celda.data('tipo');
 
-            // Esperamos un momento y enfocamos la primera celda editable
-            setTimeout(() => {
-                $('#tabla-productos tbody tr:last td[contenteditable="true"]').first().focus();
-            }, 50);
-        }
+        if (!celda.data('autocomplete')) {
+            celda.autocomplete({
+                minLength: 1,
+                delay: 300,
+                source: function (request, response) {
+                    $.ajax({
+                        url: '{% url "buscar_producto" %}',
+                        data: { q: request.term, tipo: tipo },
+                        success: function (data) {
+                            response($.map(data, function (item) {
+                                return {
+                                    label: item.nombre + ' - ' + item.descripcion + ' ($' + item.precio.toFixed(2) + ')' + ' / Stock:' + item.stock_fisico,
+                                    value: item[tipo],
+                                    item: item
+                                };
+                            }));
+                        }
+                    });
+                },
+                select: function (event, ui) {
+                    const fila = celda.closest('tr');
+                    const data = ui.item.item;
+                    fila.find('td[data-tipo="no_folio"]').text(data.no_folio);
+                    fila.find('td[data-tipo="nombre"]').text(data.nombre);
+                    fila.find('.precio').text(data.precio.toFixed(2));
+                    fila.find('.cantidad').val(1).prop('disabled', false).data('precio', data.precio).data('stock_fisico', data.stock_fisico);
+                    fila.find('.total').text((data.precio).toFixed(2));
+                    actualizarTotales();
 
-     // Elimina el evento keydown Enter para buscar producto
-// En su lugar, usa autocomplete para celdas editables
-$('#tabla-productos').on('focus', '.busqueda', function () {
-    const celda = $(this);
-    const tipo = celda.data('tipo');
-
-    // Inicializa autocomplete solo una vez para esta celda
-    if (!celda.data('autocomplete')) {
-        celda.autocomplete({
-            minLength: 1,
-            delay: 300,
-            source: function (request, response) {
-                $.ajax({
-                    url: '{% url "buscar_producto" %}',
-                    data: { q: request.term, tipo: tipo },
-                    success: function (data) {
-                        response($.map(data, function (item) {
-                            return {
-                                label: item.nombre + ' - ' + item.descripcion + ' ($' + item.precio.toFixed(2) + ')'+ ' / Stock:' + item.stock_fisico,
-                                value: item[tipo],  // Para poner el valor en la celda
-                                item: item
-                            };
-                        }));
-                    }
-                });
-            },
-            select: function (event, ui) {
-                const fila = celda.closest('tr');
-                const data = ui.item.item;
-
-                fila.find('td[data-tipo="no_folio"]').text(data.no_folio);
-                fila.find('td[data-tipo="nombre"]').text(data.nombre);
-                fila.find('.precio').text(data.precio.toFixed(2));
-                fila.find('.cantidad').val(1).prop('disabled', false).data('precio', data.precio).data('stock_fisico', data.stock_fisico);
-                fila.find('.total').text(data.precio.toFixed(2));
-
-                // 👉 Enfocar cantidad antes de agregar fila
+                     // 👉 Enfocar cantidad antes de agregar fila
                 const inputCantidad = fila.find('.cantidad');
                 if (inputCantidad.length) {
                     inputCantidad.focus().select();
@@ -140,110 +206,20 @@ $('#tabla-productos').on('focus', '.busqueda', function () {
                         }
                     });
                 }
-                return false; // Evitar que autocomplete modifique contenido
             }
-        });
-        celda.data('autocomplete', true);
-    }
-});
-
-// ➕ NUEVO: Buscar por número de folio al presionar Enter
-$('#tabla-productos').on('keydown', '.busqueda[data-tipo="no_folio"]', function (e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();  // Prevenir salto de línea o submit
-
-        const celda = $(this);
-        const valor = celda.text().trim();
-
-        if (valor === '') return;
-
-        // Evitar múltiples ejecuciones
-        if (celda.data('procesando')) return;
-        celda.data('procesando', true);
-
-        $.ajax({
-            url: '{% url "buscar_producto" %}',
-            data: { q: valor, tipo: 'no_folio' },
-            success: function (data) {
-                if (data.length > 0) {
-                    const producto = data[0];
-                    const fila = celda.closest('tr');
-
-                    fila.find('td[data-tipo="no_folio"]').text(producto.no_folio);
-                    fila.find('td[data-tipo="nombre"]').text(producto.nombre);
-                    fila.find('.precio').text(producto.precio.toFixed(2));
-                    fila.find('.cantidad').val(1).prop('disabled', false).data('precio', producto.precio).data('stock_fisico', producto.stock_fisico);
-                    fila.find('.total').text(producto.precio.toFixed(2));
-
-                    // 👉 Enfocar cantidad antes de agregar fila
-                    const inputCantidad = fila.find('.cantidad');
-                    if (inputCantidad.length) {
-                        inputCantidad.focus().select();
-
-                        inputCantidad.off('keydown.enterFila').on('keydown.enterFila', function (e2) {
-                            if (e2.key === 'Enter') {
-                                e2.preventDefault();
-                                agregarFila();
-
-                                setTimeout(() => {
-                                    const nuevaFila = $('#tabla-productos tbody tr').last();
-                                    nuevaFila.find('td[data-tipo="no_folio"]').focus();
-                                }, 50);
-                            }
-                        });
-                    }
-                } else {
-                    Swal.fire('No encontrado', 'No se encontró ningún producto con ese folio.', 'warning');
-                }
-            },
-            complete: function () {
-                celda.data('procesando', false);
-            }
-        });
-    }
-});
-
-
-
-        // Calcular total cuando se cambia cantidad
-        $('#tabla-productos').on('input', '.cantidad', function () {
-            const cantidad = parseInt($(this).val()) || 0;
-            const precio = parseFloat($(this).data('precio')) || 0;
-            const total = cantidad * precio;
-            $(this).closest('tr').find('.total').text(total.toFixed(2));
-        });
-
-        $('#tabla-productos').on('input', '.cantidad', function () {
-            const cantidad = parseInt($(this).val()) || 0;
-            const precio = parseFloat($(this).data('precio')) || 0;
-            const stock_fisico = parseInt($(this).data('stock_fisico')) || 0;
-
-            if (cantidad > stock_fisico) {
-                Swal.fire({
-                    title: "Stock insuficiente",
-                    text: "No hay suficiente stock. Solo hay " + stock_fisico + " unidades disponibles.",
-                    icon: "warning"
-                });
-                $(this).val(stock_fisico);
-                return;
-            }
-
-            const total = cantidad * precio;
-            $(this).closest('tr').find('.total').text(total.toFixed(2));
-        });
-
-        // Eliminar fila con botón
-        $('#tabla-productos').on('click', '.eliminar', function () {
-            $(this).closest('tr').remove();
-        });
-
-        // Cargar una fila al inicio
-        agregarFila();
-
-
+            });
+            celda.data('autocomplete', true);
+        }
     });
 
-    let filaSeleccionada = null;
+    $('#tabla-productos').on('input', '.cantidad', function () {
+        actualizarTotales();
+        $('#monto_pagado').trigger('input');
+    });
+});
+
+
+let filaSeleccionada = null;
 
     // Navegación con flechas arriba y abajo
     $(document).on('keydown', function (e) {
@@ -388,10 +364,14 @@ $('#tabla-productos').on('keydown', '.busqueda[data-tipo="no_folio"]', function 
             fila.addClass('table-primary');
         }
     }
+
 </script>
 
 <script>
     $(document).ready(function () {
+        let productos_temporales = null;
+        let password_admin = '';
+
         // Función para recopilar productos de la tabla
         function obtenerProductos() {
             const productos = [];
@@ -403,12 +383,11 @@ $('#tabla-productos').on('keydown', '.busqueda[data-tipo="no_folio"]', function 
                 const cantidad = parseInt(fila.find('.cantidad').val()) || 0;
                 const total = parseFloat(fila.find('.total').text()) || 0;
 
-
                 if (no_folio && cantidad > 0) {
                     productos.push({
                         no_folio,
                         nombre,
-                        precio_unitario,  // cambiamos 'precio' por 'precio_unitario'
+                        precio_unitario,
                         cantidad,
                         total
                     });
@@ -417,18 +396,7 @@ $('#tabla-productos').on('keydown', '.busqueda[data-tipo="no_folio"]', function 
             return productos;
         }
 
-        function registrarVenta() {
-            const productos = obtenerProductos();
-
-            if (productos.length === 0) {
-                Swal.fire({
-                    title: "Ups!",
-                    text: "Agrega al menos un producto con cantidad mayor a 0.",
-                    icon: "error"
-                });
-                return;
-            }
-
+        function enviarVenta(productos) {
             const tipo_cliente = $('select[name="tipo_cliente"]').val();
 
             const data = {
@@ -438,28 +406,36 @@ $('#tabla-productos').on('keydown', '.busqueda[data-tipo="no_folio"]', function 
                 productos: JSON.stringify(productos),
                 csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val(),
                 descuento: $('select[name="descuento"]').val(),
+                monto_pagado: $('#monto_pagado').val(),
+                forma_pago: $('#forma_pago').val(),
+                total: $('#total').text(),
+                password_admin: password_admin
             };
 
-
             $.ajax({
-                url: '', // misma URL del formulario actual
+                url: '',
                 method: 'POST',
                 data: data,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
-
                 },
-                success: function (response) {
-                    if (response.success) {
-                        if (response.success) {
-                            Swal.fire({
-                                title: "¡Éxito!",
-                                text: "Venta registrada correctamente con folio: " + data.no_venta,
-                                icon: "success"
-                            }).then(() => {
-                                location.reload();
-                            });
+              success: function (response) {
+                if (response.success) {
+                    Swal.fire({
+                        title: "¡Venta registrada!",
+                        text: "¿Deseas imprimir el ticket?",
+                        icon: "success",
+                        showCancelButton: true,
+                        confirmButtonText: "Imprimir",
+                        cancelButtonText: "No"
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            armarYImprimirTicket(data);  // aquí usas los datos reales
+                        } else {
+                            location.reload();
                         }
+                    });
+
                     } else if (response.error) {
                         Swal.fire({
                             title: "Error!",
@@ -487,10 +463,52 @@ $('#tabla-productos').on('keydown', '.busqueda[data-tipo="no_folio"]', function 
                 }
             });
         }
-        // Evento click en botón Registrar Venta
+
+        function registrarVenta() {
+            const productos = obtenerProductos();
+
+            if (productos.length === 0) {
+                Swal.fire({
+                    title: "Ups!",
+                    text: "Agrega al menos un producto con cantidad mayor a 0.",
+                    icon: "error"
+                });
+                return;
+            }
+
+            const tipo_cliente = $('select[name="tipo_cliente"]').val();
+
+            if (tipo_cliente === 'mayorista') {
+                productos_temporales = productos;
+                $('#modalPassword').modal('show');
+            } else {
+                enviarVenta(productos);
+            }
+        }
+
+        // Evento submit del formulario principal
         $('form').on('submit', function (e) {
             e.preventDefault();
             registrarVenta();
+        });
+
+        // Confirmar en modal con contraseña
+        $('#formPagoConPassword').on('submit', function (e) {
+            e.preventDefault();
+            const inputPassword = $('#password_admin_input').val().trim();
+
+            if (!inputPassword) {
+                Swal.fire({
+                    title: "Error!",
+                    text: "Debes ingresar la contraseña del administrador.",
+                    icon: "error"
+                });
+                return;
+            }
+
+            password_admin = inputPassword;
+            $('#modalPassword').modal('hide');
+            enviarVenta(productos_temporales);
         });
 
         // Detectar tecla F10 para registrar venta
@@ -502,24 +520,86 @@ $('#tabla-productos').on('keydown', '.busqueda[data-tipo="no_folio"]', function 
         });
     });
 </script>
+
+
+
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const tipoCliente = document.getElementById("id_tipo_cliente");
-        const descuentoContainer = document.getElementById("descuento_container");
+        const formPrincipal = document.getElementById('formPagoPrincipal');
+        const modalPasswordElement = document.getElementById('modalPassword');
+        const formModal = document.getElementById('formPagoConPassword');
 
-        tipoCliente.addEventListener("change", function () {
-            if (this.value === "mayorista") {
-                descuentoContainer.classList.remove("d-none");
-            } else {
-                descuentoContainer.classList.add("d-none");
+        if (!formPrincipal || !modalPasswordElement || !formModal) {
+            console.warn('Formulario o elementos del modal no encontrados. ¿Estás seguro de que esta venta es de tipo mayorista?');
+            return;
+        }
+
+        const modalPassword = new bootstrap.Modal(modalPasswordElement);
+
+        formPrincipal.addEventListener('submit', function (e) {
+            e.preventDefault();  // Evitar el envío directo
+
+            const montoInput = document.getElementById('monto_pagado');
+            const formaPagoSelect = document.getElementById('forma_pago');
+
+            if (!montoInput || !formaPagoSelect) {
+                console.error('No se encontraron los campos monto_pagado o forma_pago');
+                return;
             }
+
+            // Obtener y copiar los valores al modal
+            document.getElementById('hidden_monto_pagado').value = montoInput.value;
+            document.getElementById('hidden_forma_pago').value = formaPagoSelect.value;
+
+            modalPassword.show();
         });
     });
 </script>
 
+<script>
+function armarYImprimirTicket(data) {
+    const productos = typeof data.productos === "string" ? JSON.parse(data.productos) : data.productos;
 
+    const ticketHtml = `
+        <div style="width: 280px; font-family: monospace; font-size: 13px;">
+            <h3 style="text-align:center;">El Ofertón</h3>
+            <p style="text-align:center;">Ticket de venta</p>
+            <hr>
+            <p><strong>Folio:</strong> ${data.no_venta}</p>
+            <p><strong>Cliente:</strong> ${data.tipo_cliente}</p>
+            <p><strong>Vendedor:</strong> ${data.vendedor}</p>
+            <hr>
+            ${productos.map(p => `
+                <p>${p.nombre.substring(0,15)}<br>
+                ${p.cantidad} x $${p.precio_unitario.toFixed(2)} = $${p.total.toFixed(2)}</p>
+            `).join('')}
+            <hr>
+            <p><strong>Total:</strong> $${parseFloat(data.total).toFixed(2)}</p>
+            ${data.descuento > 0 ? `<p><strong>Descuento:</strong> ${data.descuento}%</p>` : ''}
+            <p><strong>Forma de pago:</strong> ${data.forma_pago}</p>
+            <p><strong>Monto pagado:</strong> $${parseFloat(data.monto_pagado).toFixed(2)}</p>
+            <p style="text-align:center;">¡Gracias por su compra!</p>
+        </div>
+    `;
 
-
-
+    const ventana = window.open('', '', 'width=400,height=600');
+    ventana.document.write(`
+        <html>
+            <head>
+                <title>Ticket</title>
+                <style>
+                    body { font-family: monospace; font-size: 13px; padding: 5px; }
+                    hr { border-top: 1px dashed #000; }
+                </style>
+            </head>
+            <body onload="window.print(); window.close();">
+                ${ticketHtml}
+            </body>
+        </html>
+    `);
+    ventana.document.close();
+}
+</script>
 
 {% endblock %}

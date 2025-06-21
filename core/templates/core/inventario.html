@@ -66,12 +66,16 @@
 <div class="card mb-3" style="width: 70rem;">
 <div class="card-body">
     {% csrf_token %}
+    {{ form_producto.non_field_errors }}
    <h5>{% if producto_editando %}Editar Producto{% else %}Agregar Producto{% endif %}</h5>
 
     <div class="row g-3">
         <div class="col-md-3">
             <label for="{{ form_producto.no_folio.id_for_label }}" class="form-label">No.folio</label>
             {{ form_producto.no_folio }}
+        {% for error in form_producto.no_folio.errors %}
+            <span class="text-danger">{{ error }}</span>
+        {% endfor %}
         </div>
         <div class="col-md-3">
             <label for="{{ form_producto.nombre.id_for_label }}" class="form-label">Nombre</label>
@@ -88,19 +92,52 @@
         <div class="col-md-3">
             <label for="{{ form_producto.precio.id_for_label }}" class="form-label">Precio</label>
             {{ form_producto.precio }}
+            {% for error in form_producto.precio.errors %}
+            <span class="text-danger">{{ error }}</span>
+        {% endfor %}
         </div>
         <div class="col-md-3">
-            <label for="{{ form_producto.stock.id_for_label }}" class="form-label">Stock</label>
-            {{ form_producto.stock }}
+            <label for="{{ form_producto.stock_virtual.id_for_label }}" class="form-label">Stock Virtual</label>
+            {{ form_producto.stock_virtual }}
+            {% for error in form_producto.stock_virtual.errors %}
+            <span class="text-danger">{{ error }}</span>
+        {% endfor %}
         </div>
         <div class="g-3">
-            <button name="guardar_producto" class="btn btn-primary">
+            <button type="submit" name="guardar_producto" class="btn btn-primary">
             {% if producto_editando %}Guardar Cambios{% else %}Agregar Producto{% endif %}
+            </button>
         </div>
     </div>
     </div>
 </div>
 </form>
+
+<form method="GET" class="row g-3 mb-4">
+    <div class="col-md-3">
+    <input type="text" name="nombre" value="{{ request.GET.nombre }}" placeholder="Nombre" class="form-control">
+    </div>
+    <div class="col-md-3">
+    <input type="text" name="folio" value="{{ request.GET.folio }}" placeholder="Folio" class="form-control">
+    </div>
+    <div class="col-md-3">
+    <select name="categoria" class="form-control mr-2">
+        <option value="">Todas las categorías</option>
+        {% for cat in categorias %}
+            <option value="{{ cat.id }}" {% if request.GET.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
+                {{ cat.nombre }}
+            </option>
+        {% endfor %}
+    </select>
+    </div>
+
+
+    <div class="col-md-3 d-flex align-items-end gap-2">
+     <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+     <a href="{% url 'inventario' %}" class="btn btn-secondary w-100">Limpiar</a>    
+    </div>
+</form>
+
 
 <a href="{% url 'exportar_excel' %}" class="btn btn-info mb-3">Exportar a Excel</a>
 <!-- Tabla de productos -->
@@ -112,7 +149,8 @@
             <th>Descripción</th>
             <th>Categoría</th>
             <th>Precio</th>
-            <th>Stock</th>
+            <th>Stock Virtual</th>
+            <th>Stock Físico</th>
             <th>Acciones</th>
         </tr>
     </thead>
@@ -124,16 +162,49 @@
             <td>{{ producto.descripcion }}</td>
             <td>{{ producto.categoria }}</td>
             <td>${{ producto.precio }}</td>
-            <td>{{ producto.stock }}</td>
+            <td>{{ producto.stock_virtual }}</td>
+            <td>{{ producto.stock_fisico }}</td>
             <td>
+                 {% if request.user.groups.first.name == 'usuario' and producto.stock_virtual > 0 %}
+                <form method="POST" action="{% url 'transferir_stock' producto.id %}">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-primary">Transferir</button>
+                </form>
+                {% endif %}
+                {% if user.rol == 'ADMIN' %}
                 <form method="POST" action="{% url 'eliminar_producto' producto.id %}" style="display:inline;">
                     {% csrf_token %}
+                {% if producto_editando %}
+                    <input type="hidden" name="id_producto" value="{{ producto_editando.id }}">
+                {% endif %}
                     <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-trash"></i></button>
                 </form>
                 <a href="{% url 'inventario' %}?editar={{ producto.id }}" class="btn btn-sm btn-warning">Editar</a>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+
+{% if messages %}
+{% for message in messages %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        
+                Swal.fire({
+                    icon: "{% if message.tags == 'success' or 'success' in message.tags %}success{% elif 'error' in message.tags %}error{% else %}info{% endif %}",
+                    title: "{{ message|escapejs }}",
+                    timer: 3500,
+                    timerProgressBar: true,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false
+                });
+        
+    });
+</script>
+{% endfor %}
+{% endif %}
+
 {% endblock %}

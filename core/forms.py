@@ -38,15 +38,43 @@ class VendedorForm(forms.ModelForm):
 class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
-        fields = ['no_folio','nombre', 'descripcion', 'categoria', 'precio', 'stock']
+        fields = ['no_folio','nombre', 'descripcion', 'categoria', 'precio', 'stock_virtual']
         widgets = {
             'no_folio': forms.TextInput(attrs={'class': 'form-control'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'categoria': forms.Select(attrs={'class': 'form-select'}),
             'descripcion': forms.TextInput(attrs={'class': 'form-control'}),
             'precio': forms.NumberInput(attrs={'class': 'form-control'}),
-            'stock': forms.NumberInput(attrs={'class': 'form-control',}),
+            'stock_virtual': forms.NumberInput(attrs={'class': 'form-control',}),
         }
+
+        
+    def clean_no_folio(self):
+        no_folio = self.cleaned_data['no_folio']
+        qs = Producto.objects.filter(no_folio=no_folio)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError("Este folio ya está registrado.")
+        return no_folio
+
+    def clean_precio(self):
+        precio = self.cleaned_data['precio']
+        if precio <= 0:
+            raise forms.ValidationError("El precio debe ser mayor que cero.")
+        return precio
+    
+    def clean_stock_virtual(self):
+        stock = self.cleaned_data['stock_virtual']
+        if stock < 0:
+            raise forms.ValidationError("El stock virtual no puede ser negativo.")
+        return stock
+
+    def clean_stock_fisico(self):
+        stock = self.cleaned_data['stock_fisico']
+        if stock < 0:
+            raise forms.ValidationError("El stock físico no puede ser negativo.")
+        return stock
 
 class CategoriaForm(forms.ModelForm):
     class Meta:

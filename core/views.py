@@ -10,9 +10,11 @@ from django.urls import reverse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.contrib import messages
-from .models import Vendedor, Producto, Categoria, Venta, VentaDetalle, generar_folio_secuencial, Pago
+from .models import Vendedor, Producto, Categoria, Venta, VentaDetalle, Pago, Notificacion, Usuario
+from .utils import generar_folio_secuencial
 from django.contrib.auth import login, logout, authenticate, get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.http import require_POST
 from .forms import RegistroForm, LoginForm, VendedorForm, ProductoForm, CategoriaForm, RegistroVentasForm
 from decimal import Decimal
 from datetime import datetime
@@ -20,6 +22,15 @@ import json
 import pandas as pd
 
 
+
+def error_404(request, exception):
+    return render(request, 'core/errors/404.html', status=404)
+
+def error_500(request):
+    return render(request, 'core/errors/500.html', status=500)
+
+def error_403(request, exception):
+    return render(request, 'core/errors/403.html', status=403)
 
 # Roles 
 def es_admin(user):
@@ -63,8 +74,6 @@ def home_admin(request):
     # propiedades = Propiedad.objects.all()
     return render(request, 'core/home_admin.html') 
 
-
-
 @csrf_exempt
 def registro(request):
     if request.method == "POST":
@@ -98,6 +107,12 @@ def configuracion(request):
 
 @login_required
 @user_passes_test(es_admin)
+def usuarios_view(request):
+    usuarios = Usuario.objects.all()
+    return render(request, 'core/usuarios.html', {'usuarios': usuarios})
+
+@login_required
+@user_passes_test(es_admin)
 def editar_vendedor(request, id):
     vendedor = get_object_or_404(Vendedor, id=id)
     if request.method == 'POST':
@@ -123,59 +138,96 @@ def eliminar_vendedor(request, id):
     return redirect('configuracion')
 
 
+
 @login_required
 @user_passes_test(es_admin)
 def inventario_view(request):
     productos = Producto.objects.all()
     categorias = Categoria.objects.all()
 
-    producto_id = request.GET.get('editar')  # si llega ?editar=5 en la URL
+    nombre = request.GET.get('nombre', '')
+    folio = request.GET.get('folio', '')
+    categoria_id = request.GET.get('categoria', '')
+
+    if nombre:
+        productos = productos.filter(nombre__icontains=nombre)
+    if folio:
+        productos = productos.filter(no_folio__icontains=folio)
+    if categoria_id:
+        productos = productos.filter(categoria_id=categoria_id)
+
     producto_editando = None
 
-    if producto_id:
-        producto_editando = get_object_or_404(Producto, id=producto_id)
+    if 'editar' in request.GET:
+        producto_editando = get_object_or_404(Producto, id=request.GET.get('editar'))
+        form_producto = ProductoForm(instance=producto_editando)
+    else:
+        form_producto = ProductoForm()
+
+    form_categoria = CategoriaForm()
 
     if request.method == 'POST':
         if 'guardar_producto' in request.POST:
             if producto_editando:
+                stock_virtual_anterior = producto_editando.stock_virtual
                 form_producto = ProductoForm(request.POST, instance=producto_editando)
             else:
+                stock_virtual_anterior = 0
                 form_producto = ProductoForm(request.POST)
 
             if form_producto.is_valid():
-                form_producto.save()
+                producto_guardado = form_producto.save()
+
+                if producto_guardado.stock_virtual > stock_virtual_anterior:
+                    usuarios = Usuario.objects.filter(rol='USUARIO')
+                    for u in usuarios:
+                        Notificacion.objects.create(
+                            usuario=u,
+                            producto=producto_guardado,
+                            mensaje=f'Se ha actualizado el stock virtual del producto "{producto_guardado.nombre}".'
+                        )
+                messages.success(request, "Producto guardado correctamente.")
                 return redirect('inventario')
+            else:
+                # Los errores se mostrarán en el template
+                messages.error(request, "Hay errores en el formulario. Revisa los campos.")
 
         elif 'guardar_categoria' in request.POST:
             form_categoria = CategoriaForm(request.POST)
             if form_categoria.is_valid():
                 form_categoria.save()
+                messages.success(request, "Categoría guardada correctamente.")
                 return redirect('inventario')
-    else:
-        form_producto = ProductoForm(instance=producto_editando)
-        form_categoria = CategoriaForm()
+            else:
+                messages.error(request, "Error en el formulario de categoría.")
 
-    return render(request, 'core/inventario.html', {
+    context = {
         'form_producto': form_producto,
         'form_categoria': form_categoria,
         'productos': productos,
         'categorias': categorias,
         'producto_editando': producto_editando,
-    })
-
-@login_required
-@user_passes_test(es_admin)
-def eliminar_categoria(request, id):
-    categoria = get_object_or_404(Categoria, id=id)
-    categoria.delete()
-    return redirect('inventario')  # Usa el nombre correcto de tu URL
+    }
+    return render(request, 'core/inventario.html', context)
 
 @login_required
 @user_passes_test(es_admin)
 def eliminar_producto(request, id):
     producto = get_object_or_404(Producto, id=id)
-    producto.delete()
-    return redirect('inventario')  # Usa el nombre correcto de tu URL
+    if request.user.rol == 'ADMIN':
+        producto.delete()
+        messages.success(request, "Producto eliminado correctamente.")
+    else:
+        messages.error(request, "No tienes permiso.")
+    return redirect('inventario')
+
+@login_required
+def eliminar_categoria(request, id):
+    categoria = get_object_or_404(Categoria, id=id)
+    if request.user.is_superuser:
+        categoria.delete()
+        messages.success(request, "Categoría eliminada correctamente.")
+    return redirect('inventario')
 
 
 @login_required
@@ -404,7 +456,7 @@ def home_usuario(request):
 @login_required
 @user_passes_test(es_usuario)
 def registro_ventas(request):
-    no_venta = generar_folio_secuencial() 
+    no_venta = generar_folio_secuencial('V') 
     form = RegistroVentasForm()
     print("POST DATA:", request.POST)
 
@@ -415,8 +467,7 @@ def registro_ventas(request):
                 tipo_cliente = request.POST.get("tipo_cliente")
                 vendedor_id = request.POST.get("vendedor")
                 descuento = int(request.POST.get("descuento", 0)) if tipo_cliente == "mayorista" else 0
-
-
+                
                 if not productos:
                     return JsonResponse({"error": "No se recibieron productos"}, status=400)
                 if not tipo_cliente or not vendedor_id:
@@ -444,8 +495,8 @@ def registro_ventas(request):
                             raise ValueError(f"El producto con folio {p['no_folio']} no existe.")
                         cantidad = int(p["cantidad"])
 
-                        if producto.stock < cantidad:
-                            raise ValueError(f"Stock insuficiente para {producto.nombre}. Solo hay {producto.stock}.")
+                        if producto.stock_fisico < cantidad:
+                            raise ValueError(f"Stock insuficiente para {producto.nombre}. Solo hay {producto.stock_fisico}.")
 
                         precio_unitario = producto.precio
 
@@ -462,7 +513,7 @@ def registro_ventas(request):
                         )
 
                         # Descontar del inventario
-                        producto.stock -= cantidad
+                        producto.stock_fisico -= cantidad
                         producto.save()
 
                 return JsonResponse({"success": True, "folio_venta": venta.no_venta})
@@ -496,7 +547,7 @@ def buscar_producto(request):
             'nombre': p.nombre,
             'descripcion': p.descripcion,
             'precio': float(p.precio),
-            'stock': p.stock,
+            'stock_fisico': p.stock_fisico,
         })
     return JsonResponse(resultados, safe=False)
 
@@ -558,8 +609,7 @@ def caja(request):
                     Pago.objects.create(venta=venta, monto_pagado=monto_pagado, forma_pago=forma_pago)
                     venta.pagado = True
                     venta.save()
-                    messages.success(request, "Pago registrado exitosamente.", extra_tags="pago")
-
+                    messages.add_message(request, messages.SUCCESS, "Pago registrado exitosamente.", extra_tags="success pago")
                     return redirect(f'{reverse("caja")}?folio={folio}')
                 else:
                     messages.error(request, "El monto pagado es menor al total.")
@@ -584,6 +634,32 @@ def caja(request):
     return render(request, 'core/caja.html', context)
 
 
+@require_POST
+@login_required
+@user_passes_test(es_usuario)
+def actualizar_cantidad_producto(request):
+    detalle_id = request.POST.get("detalle_id")
+    nueva_cantidad = int(request.POST.get("cantidad", 0))
+
+    try:
+        detalle = VentaDetalle.objects.select_related("producto").get(id=detalle_id)
+    except VentaDetalle.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Producto no encontrado."})
+
+    producto = detalle.producto
+
+    if nueva_cantidad > producto.stock_fisico:
+        return JsonResponse({
+            "success": False,
+            "error": f"Stock insuficiente. Solo hay {producto.stock_fisico} disponibles."
+        })
+
+    detalle.cantidad = nueva_cantidad
+    detalle.save()
+
+    return JsonResponse({"success": True, "message": "Cantidad actualizada correctamente."})
+
+
 @login_required
 @user_passes_test(es_usuario)
 def eliminar_detalle(request, detalle_id):
@@ -599,7 +675,7 @@ def eliminar_detalle(request, detalle_id):
         with transaction.atomic():
             # Regresar al stock la cantidad del producto
             producto = detalle.producto
-            producto.stock += detalle.cantidad
+            producto.stock_fisico += detalle.cantidad
             producto.save()
 
             # Eliminar el detalle
@@ -644,7 +720,7 @@ def cancelar_venta(request, venta_id):
                     detalles = VentaDetalle.objects.filter(venta=venta)
                     for detalle in detalles:
                         producto = detalle.producto
-                        producto.stock += detalle.cantidad
+                        producto.stock_fisico += detalle.cantidad
                         producto.save()
 
                     # Marcar la venta como cancelada
@@ -692,14 +768,14 @@ def editar_detalle(request, id):
             if nueva_cantidad > 0:
                 if diferencia > 0:
                     # Se quiere aumentar cantidad → se requiere más stock
-                    if producto.stock >= diferencia:
-                        producto.stock -= diferencia
+                    if producto.stock_fisico >= diferencia:
+                        producto.stock_fisico -= diferencia
                     else:
                         messages.error(request, "No hay suficiente stock disponible.")
                         return redirect(f'{reverse("caja")}?folio={folio}')
                 elif diferencia < 0:
                     # Se quiere reducir cantidad → se regresa al stock
-                    producto.stock += abs(diferencia)
+                    producto.stock_fisico += abs(diferencia)
 
                 # Guardar cambios
                 producto.save()
@@ -745,7 +821,7 @@ def agregar_detalle(request):
             producto = Producto.objects.get(id=producto_id)
             venta = Venta.objects.get(id=venta_id)
 
-            if producto.stock < cantidad:
+            if producto.stock_fisico < cantidad:
                 return JsonResponse({'success': False, 'error': 'No hay suficiente stock disponible.'})
 
             # Crear el detalle de venta
@@ -758,7 +834,7 @@ def agregar_detalle(request):
             )
 
             # Actualizar stock
-            producto.stock -= cantidad
+            producto.stock_fisico -= cantidad
             producto.save()
 
             return JsonResponse({'success': True})
@@ -768,3 +844,188 @@ def agregar_detalle(request):
             return JsonResponse({'success': False, 'error': 'Venta no encontrada.'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(es_usuario)
+def inventario_usuario_view(request):
+    productos = Producto.objects.all()
+    notificaciones = Notificacion.objects.filter(usuario=request.user, leido=False)
+
+    hay_stock_virtual = productos.filter(stock_virtual__gt=0).exists()
+    tiene_notificaciones = notificaciones.exists()
+
+    context = {
+        'productos': productos,
+        'notificaciones': notificaciones,
+        'tiene_notificaciones': tiene_notificaciones,
+    }
+    return render(request, 'core/inventario_usuario.html', context)
+
+
+@login_required
+@user_passes_test(es_usuario)
+def transferir_stock(request, producto_id):
+    producto = get_object_or_404(Producto, id=producto_id)
+
+    if request.user.rol == 'USUARIO':
+        if producto.stock_virtual > 0:
+            producto.stock_fisico += producto.stock_virtual
+            producto.stock_virtual = 0
+            producto.save()
+
+            # Marcar notificaciones como leídas
+            Notificacion.objects.filter(usuario=request.user, producto=producto).update(leido=True)
+
+            messages.success(request, "Stock transferido al físico correctamente.")
+        else:
+            messages.warning(request, "No hay stock virtual disponible.")
+    else:
+        messages.error(request, "No tienes permiso para hacer esta acción.")
+
+    return redirect('inventario_usuario')
+
+@login_required
+@user_passes_test(es_usuario)
+def caja_completa(request):
+    no_venta = generar_folio_secuencial('C') 
+    form = RegistroVentasForm()
+    venta = None
+    folio = request.GET.get('folio')
+    print("POST DATA:", request.POST)
+
+    # CASO 1: Creación de venta y registro inmediato de pago por AJAX
+    if request.method == 'POST' and request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        try:
+            productos = json.loads(request.POST.get("productos", "[]"))
+            tipo_cliente = request.POST.get("tipo_cliente")
+            vendedor_id = request.POST.get("vendedor")
+            monto_pagado = Decimal(request.POST.get("monto_pagado", '0.00'))
+            forma_pago = request.POST.get("forma_pago", "")
+            total = Decimal(request.POST.get("total", '0.00'))
+            descuento = int(request.POST.get("descuento", 0)) if tipo_cliente == "mayorista" else 0
+
+            # ⚠️ Validación de contraseña si es mayorista
+            if tipo_cliente == 'mayorista':
+                password_admin = request.POST.get("password_admin", "").strip()
+                if not password_admin:
+                    return JsonResponse({"error": "Debes ingresar la contraseña del administrador."}, status=400)
+
+                admins = User.objects.filter(rol='ADMIN')
+                if not any(admin.check_password(password_admin) for admin in admins):
+                    return JsonResponse({"error": "Contraseña de administrador incorrecta."}, status=400)
+
+            if not productos:
+                return JsonResponse({"error": "No se recibieron productos"}, status=400)
+            if not tipo_cliente or not vendedor_id:
+                return JsonResponse({"error": "Faltan datos del formulario"}, status=400)
+            if tipo_cliente != "mayorista" and descuento > 0:
+                return JsonResponse({"error": "Solo los mayoristas pueden tener descuento"}, status=400)
+            if descuento not in [0, 10, 30, 50]:
+                return JsonResponse({"error": "El descuento debe ser 10, 30 o 50%"}, status=400)
+
+            with transaction.atomic():
+                venta = Venta.objects.create(
+                    tipo_cliente=tipo_cliente,
+                    vendedor_id=vendedor_id,
+                    no_venta=no_venta,
+                    descuento=descuento
+                )
+
+                for p in productos:
+                    try:
+                        producto = Producto.objects.get(no_folio=p["no_folio"])
+                    except Producto.DoesNotExist:
+                        raise ValueError(f"El producto con folio {p['no_folio']} no existe.")
+                    cantidad = int(p["cantidad"])
+
+                    if producto.stock_fisico < cantidad:
+                        raise ValueError(f"Stock insuficiente para {producto.nombre}. Solo hay {producto.stock_fisico}.")
+
+                    precio_unitario = producto.precio
+                    if tipo_cliente == "mayorista" and descuento > 0:
+                        precio_unitario *= (Decimal('1') - Decimal(descuento) / Decimal('100'))
+
+                    VentaDetalle.objects.create(
+                        venta=venta,
+                        producto=producto,
+                        cantidad=cantidad,
+                        precio_unitario=producto.precio  # O precio_unitario si quieres guardar el ya con descuento
+                    )
+
+                    producto.stock_fisico -= cantidad
+                    producto.save()
+
+                if monto_pagado < total:
+                    raise ValueError("El monto pagado es menor al total.")
+
+                Pago.objects.create(
+                    venta=venta,
+                    monto_pagado=monto_pagado,
+                    forma_pago=forma_pago
+                )
+
+                venta.pagado = True
+                venta.save()
+                print(f"VENTA GUARDADA COMO PAGADA: {venta.pagado}, ID: {venta.id}")
+
+            return JsonResponse({"success": True, "no_folio": venta.no_venta})
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+    # CASO 2: Visualizar y pagar venta existente por folio
+    if folio:
+        try:
+            venta = Venta.objects.prefetch_related('detalles__producto').get(no_venta=folio)
+            detalles = venta.detalles.all()
+
+            total_sin_descuento = sum([d.precio_unitario * d.cantidad for d in detalles])
+            descuento_porcentaje = Decimal(venta.descuento or 0)
+            descuento_monetario = (total_sin_descuento * descuento_porcentaje) / Decimal('100.00')
+            total = total_sin_descuento - descuento_monetario
+
+            if request.method == 'POST' and not venta.pagado:
+                monto_pagado = Decimal(request.POST.get('monto_pagado', '0.00'))
+                forma_pago = request.POST.get('forma_pago', '')
+
+                if venta.tipo_cliente == 'mayorista':
+                    password_admin = request.POST.get('password_admin', '').strip()
+                    if not password_admin:
+                        messages.error(request, "Debes ingresar la contraseña del administrador.")
+                        return redirect(f'{reverse("caja-completa")}?folio={folio}')
+                    
+                    # Revisa contra todos los usuarios con rol ADMIN
+                    admins = User.objects.filter(rol='ADMIN')
+                    admin_validado = None
+                    for admin in admins:
+                        if admin.check_password(password_admin):
+                            admin_validado = admin
+                            break
+
+                    if not admin_validado:
+                        messages.error(request, "Contraseña incorrecta o sin permisos de administrador.")
+                        return redirect(f'{reverse("caja-completa")}?folio={folio}')
+
+                if monto_pagado >= total:
+                    Pago.objects.create(venta=venta, monto_pagado=monto_pagado, forma_pago=forma_pago)
+                    venta.pagado = True
+                    venta.save()
+                    messages.success(request, "Pago registrado exitosamente.", extra_tags="pago")
+                    return redirect(f'{reverse("caja-completa")}?folio={folio}')
+                else:
+                    messages.error(request, "El monto pagado es menor al total.")
+
+            context = {
+                'venta': venta,
+                'total': total.quantize(Decimal('0.01')),
+                'total_sin_descuento': total_sin_descuento.quantize(Decimal('0.01')),
+                'descuento_porcentaje': descuento_porcentaje,
+                'descuento_monetario': descuento_monetario.quantize(Decimal('0.01')),
+            }
+            return render(request, 'core/caja_completa.html', context | {'form': form, 'no_venta': no_venta})
+
+        except Venta.DoesNotExist:
+            messages.error(request, "No se encontró la venta con ese folio.")
+
+    return render(request, 'core/caja_completa.html', {'form': form, 'no_venta': no_venta})

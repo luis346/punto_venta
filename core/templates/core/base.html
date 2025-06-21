@@ -47,6 +47,7 @@
                         <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="navbarDropdownMenuLink">
                             <li><a class="dropdown-item" href="{% url 'configuracion' %}">Agregar Vendedor</a></li>
                             <li><a class="dropdown-item" href="{% url 'register' %}">Registrar usuario</a></li>
+                            <li><a class="dropdown-item" href="{% url 'usuarios' %}">Usuarios</a></li>
                         </ul>
                     </li>
                     {% elif user.rol == 'USUARIO' %}
@@ -60,8 +61,15 @@
                     </li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'historial_ventas' %}">Historial de ventas</a></li>
                     <li class="nav-item"><a class="nav-link" href="#">Reportes</a></li>
+                      <a href="{% url 'inventario_usuario' %}" class="btn btn-outline-primary">
+                        <i class="fa fa-bell"></i>
+                        {% if num_notificaciones > 0 %}
+                            <span class="badge bg-danger">{{ num_notificaciones }}</span>
+                        {% endif %}
+                        </a>
                     {% endif %}
 
+                    
 
                     {% else %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Iniciar sesión</a></li>

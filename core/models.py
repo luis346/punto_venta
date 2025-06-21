@@ -30,6 +30,7 @@ class Vendedor(models.Model):
         return self.nombre
     
 
+
 class Categoria(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
 
@@ -43,26 +44,32 @@ class Producto(models.Model):
     descripcion = models.TextField(blank=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE)
     precio = models.DecimalField(max_digits=10, decimal_places=2)
-    stock = models.PositiveIntegerField()
+    stock_fisico = models.IntegerField(default=0)  # Stock real, para ventas
+    stock_virtual = models.IntegerField(default=0)  # Lo que el admin puede cargar sin liberar aún
 
     def __str__(self):
         return self.nombre
+    
+from django.conf import settings
+
+class Notificacion(models.Model):
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    mensaje = models.TextField()
+    leido = models.BooleanField(default=False)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notificación para {self.usuario.username}"
 
 
-def generar_folio_secuencial():
-    ultima_venta = Venta.objects.order_by('-id').first()
-    if ultima_venta and ultima_venta.no_venta.isdigit():
-        nuevo_numero = int(ultima_venta.no_venta) + 1
-    else:
-        nuevo_numero = 1
-    return str(nuevo_numero).zfill(5)  # Resultado: '00001', '00002', ...
         
 class Venta(models.Model):
     TIPO_CLIENTE_CHOICES = [
         ('publico', 'Público en general'),
         ('mayorista', 'Mayorista'),
     ]
-    no_venta = models.CharField(max_length=5, unique=True, default=generar_folio_secuencial)
+    no_venta = models.CharField(max_length=10, unique=True)
     tipo_cliente = models.CharField(max_length=10, choices=TIPO_CLIENTE_CHOICES)
     vendedor = models.ForeignKey('Vendedor', on_delete=models.PROTECT, related_name='ventas')
     fecha = models.DateTimeField(auto_now_add=True)

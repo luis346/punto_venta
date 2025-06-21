@@ -14,9 +14,18 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf import settings
+from django.conf.urls.static import static
+import os
 from django.contrib import admin
 from django.urls import path
 from core import views
+
+
+# 👇 Handlers personalizados
+handler404 = 'core.views.error_404'
+handler500 = 'core.views.error_500'
+handler403 = 'core.views.error_403'
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -47,5 +56,15 @@ urlpatterns = [
     path('eliminar-venta/<int:venta_id>/', views.eliminar_venta_view, name='eliminar_venta'),
     path('arqueo-caja/', views.arqueo_caja_view, name='arqueo_caja'),
     path('agregar-detalle/', views.agregar_detalle, name='agregar_detalle'),
-
+    path('transferir-stock/<int:producto_id>/', views.transferir_stock, name='transferir_stock'),
+    path('inventario-usuario/', views.inventario_usuario_view, name='inventario_usuario'),
+    path('usuarios/', views.usuarios_view, name='usuarios'),
+    path('caja-completa/', views.caja_completa, name='caja_completa'),
+    path("caja/actualizar-cantidad/", views.actualizar_cantidad_producto, name="actualizar_cantidad_producto"),
+    
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

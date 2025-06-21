@@ -64,12 +64,15 @@
 
     <form method="get" class="row g-3">
         <div class="col-md-6">
-            <input type="text" name="folio" class="form-control" placeholder="Folio de venta" maxlength="5" required>
+            <input type="text" name="folio" class="form-control" placeholder="Folio de venta" maxlength="10" required>
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn btn-primary">Buscar</button>
         </div>
     </form>
+    <div class="col-md-12 mt-3">
+        <a href="{% url 'caja_completa' %}" class="btn btn-danger">Caja Rapida</a>
+    </div>
 
     {% if venta and not venta.pagado %}
     <button class="btn btn-outline-danger mt-3" data-bs-toggle="modal" data-bs-target="#modalCancelarVenta" {% if venta_bloqueada %}disabled{% endif %}>❌ Cancelar
@@ -124,7 +127,7 @@
         <form method="post" action="{% url 'editar_detalle' detalle.id %}">
             <input type="hidden" name="folio" value="{{ request.GET.folio }}">
             {% csrf_token %}
-            <input type="number" name="cantidad" value="{{ detalle.cantidad }}" min="1"
+            <input type="number" name="cantidad" value="{{ detalle.cantidad }}" min="1" data-detalle-id="{{ detalle.id }}"
                 class="form-control form-control-sm" {% if venta_bloqueada %}disabled{% endif %}>
     </td>
     <td>${{ detalle.precio_unitario }}</td>
@@ -249,48 +252,49 @@
 {% if messages %}
 {% for message in messages %}
 <script>
-    const tags = '{{ message.tags }}'.split(' ');
-    const esExito = tags.includes('success');
-    const accion = tags.length > 1 ? tags[1] : null;
+const tags = '{{ message.tags }}'.split(' ');
+const esExito = tags.includes('success');
+const accion = tags.length > 1 ? tags[1] : null;
 
-    if (esExito) {
-        if (accion === 'pago') {
-            Swal.fire({
-                icon: 'success',
-                title: 'Pago exitoso',
-                text: '{{ message }}',
-                showCancelButton: true,
-                confirmButtonText: '🧾 Imprimir ticket',
-                cancelButtonText: 'Cerrar',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    window.printTicket();  // Asegúrate de tener esta función
-                }
-            });
-        } else if (accion === 'actualizar') {
-            Swal.fire({
-                icon: 'success',
-                title: 'Cantidad actualizada',
-                text: '{{ message }}',
-                confirmButtonText: 'Aceptar'
-            });
-        } else if (accion === 'cancelar') {
-            Swal.fire({
-                icon: 'success',
-                title: 'Venta cancelada',
-                text: '{{ message }}',
-                confirmButtonText: 'Aceptar'
-            });
-        }
-    } else {
-        // Error o warning
+if (esExito) {
+    if (accion === 'pago') {
         Swal.fire({
-            icon: 'error',
-            title: 'Error',
+            title: "¡Venta registrada!",
+            text: "¿Deseas imprimir el ticket?",
+            icon: "success",
+            showCancelButton: true,
+            confirmButtonText: "Imprimir",
+            cancelButtonText: "No"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                printTicket();  // ✅ Imprime el ticket HTML
+            } else {
+                location.reload();
+            }
+        });
+    } else if (accion === 'actualizar') {
+        Swal.fire({
+            icon: 'success',
+            title: 'Cantidad actualizada',
+            text: '{{ message }}',
+            confirmButtonText: 'Aceptar'
+        });
+    } else if (accion === 'cancelar') {
+        Swal.fire({
+            icon: 'success',
+            title: 'Venta cancelada',
             text: '{{ message }}',
             confirmButtonText: 'Aceptar'
         });
     }
+} else {
+    Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: '{{ message }}',
+        confirmButtonText: 'Aceptar'
+    });
+}
 </script>
 {% endfor %}
 {% endif %}
@@ -376,14 +380,17 @@
 {% endif %}
 
 <script>
-$(document).on("keydown", function(e) {
+document.addEventListener("keydown", function(e) {
     if (e.key === "F8") {
         e.preventDefault();
-        $("#productModal").modal("show");
-        setTimeout(() => {
-            $('#product_search').select2('open');
-            $('#product_search').focus();
-        }, 300);
+        const ventaBloqueada = "{{ venta_bloqueada|yesno:'true,false' }}" === "true";
+        if (!ventaBloqueada) {
+            $("#productModal").modal("show");
+            setTimeout(() => {
+                $('#product_search').select2('open');
+                $('#product_search').focus();
+            }, 300);
+        }
     }
 });
 </script>
@@ -452,6 +459,56 @@ $('#product_search').select2({
     minimumInputLength: 0
 });
 </script>
+
+<script>
+document.querySelectorAll('.cantidad-input').forEach(input => {
+    input.addEventListener('change', () => {
+        const detalleId = input.dataset.detalleId;
+        const maxStock = parseInt(input.dataset.stock);
+        const cantidad = parseInt(input.value);
+
+        if (cantidad > maxStock) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Stock insuficiente',
+                text: `Solo hay ${maxStock} unidades disponibles.`,
+                confirmButtonText: 'Aceptar'
+            });
+            input.value = maxStock;
+            return;
+        }
+
+        fetch("{% url 'actualizar_cantidad_producto' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: new URLSearchParams({
+                detalle_id: detalleId,
+                cantidad: cantidad
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    icon: "success",
+                    title: "Actualizado",
+                    text: data.message
+                }).then(() => location.reload());
+            } else {
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: data.error
+                });
+            }
+        });
+    });
+});
+</script>
+
 
 
 {% endblock %}
