@@ -27,8 +27,8 @@ SECRET_KEY = 'django-insecure-*nv_8o^m^5%vt@!7+j^b5v799b9m^+5&x=g6&h@$qov&*s%k^w
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# ALLOWED_HOSTS = ['punto-venta-qg7z.onrender.com']
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['punto-venta-qg7z.onrender.com']
+
 
 LOGIN_URL = '/login/'
 
