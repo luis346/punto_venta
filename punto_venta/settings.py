@@ -93,14 +93,14 @@ if DATABASE_URL:
             ssl_require=True
         )
     }
-else:
+#else:
     # Base de datos local (SQLite)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+    #DATABASES = {
+        #'default': {
+            #'ENGINE': 'django.db.backends.sqlite3',
+            #'NAME': BASE_DIR / 'db.sqlite3',
+        #}
+    #}
 
 
 # Password validation
