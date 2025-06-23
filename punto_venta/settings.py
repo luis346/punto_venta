@@ -83,7 +83,7 @@ WSGI_APPLICATION = 'punto_venta.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 # Configuración de base de datos: remota en Render, local en desarrollo
-DATABASE_URL = os.environ.get("postgresql://punto_venta_db_l24z_user:k6PhQGqqMmooir0m6enLMIbXrY49B2AI@dpg-d10buoa4d50c73al3vq0-a/punto_venta_db_l24z")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL:
     DATABASES = {
