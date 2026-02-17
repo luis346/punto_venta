@@ -1,0 +1,61 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<h2>Inventario</h2>
+
+{% if notificaciones %}
+<div class="alert alert-info">
+    <strong>Notificaciones:</strong>
+    <ul>
+        {% for noti in notificaciones %}
+            <li>
+                {{ noti.mensaje }}
+                <form method="POST" action="{% url 'transferir_stock' noti.producto.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-primary">Transferir</button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Producto</th>
+            <th>Stock Virtual</th>
+            <th>Stock Físico</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for producto in productos %}
+        <tr>
+            <td>{{ producto.nombre }}</td>
+            <td>{{ producto.stock_virtual }}</td>
+            <td>{{ producto.stock_fisico }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% if tiene_notificaciones %}
+<script>
+        Swal.fire({
+            title: '¡Stock nuevo disponible!',
+            text: 'Tienes productos con stock virtual pendiente de transferir.',
+            icon: 'info',
+            confirmButtonText: 'Ver productos',
+        }).then(() => {
+            // Desplaza a la tabla o sección
+            const tabla = document.querySelector('.table');
+            if (tabla) {
+                tabla.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+   
+</script>
+ {% endif %}
+
+
+{% endblock %}

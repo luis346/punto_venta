@@ -1,0 +1,187 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Ventas{% endblock %}
+
+{% block content %}
+
+<!-- ================= MODAL AUTORIZACIÓN ================= -->
+<div class="modal fade" id="modalPassword" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="formPagoConPassword">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Autorización del Administrador</h5>
+                </div>
+                <div class="modal-body">
+                    <input type="password"
+                           id="password_admin_input"
+                           class="form-control"
+                           placeholder="Contraseña del administrador"
+                           required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100">
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================= FORM VENTA ================= -->
+<form method="POST" id="formVentaCompleta">
+    {% csrf_token %}
+    <input type="hidden" name="no_venta" value="{{ no_venta }}">
+
+    <!-- ===== DATOS GENERALES ===== -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">Caja rápida</span>
+            <span class="badge bg-danger fs-6">
+                Venta #{{ no_venta }}
+            </span>
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Tipo de cliente</label>
+                    {{ form.tipo_cliente }}
+                </div>
+
+                <div class="col-md-3 d-none" id="descuento_container">
+                    <label class="form-label">Descuento</label>
+                    <select class="form-select" id="descuento" name="descuento">
+                        <option value="">Selecciona descuento</option>
+                        <option value="producto">Por producto</option>
+                        <option value="10">10%</option>
+                        <option value="30">30%</option>
+                        <option value="50">50%</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Vendedor</label>
+                    {{ form.vendedor }}
+                </div>
+
+                <div class="col-md-3 d-none" id="permiso_pieza_container">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="permitir_pieza">
+                        <label class="form-check-label" for="permitir_pieza">
+                            Permitir venta por pieza
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<div class="row g-4">
+
+    <!-- ========== COLUMNA IZQUIERDA / PRODUCTOS ========== -->
+    <div class="col-lg-8">
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header fw-semibold">
+                Productos
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-bordered table-hover mb-0" id="tabla-productos">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Folio</th>
+                            <th>Nombre</th>
+                            <th>Precio</th>
+                            <th style="width:120px;">Cantidad</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========== COLUMNA DERECHA / COBRO ========== -->
+    <div class="col-lg-4">
+
+        <!-- TOTAL GRANDE -->
+        <div class="card shadow-sm mb-3 border-danger">
+            <div class="card-body text-center">
+                <div class="text-muted">Total a pagar</div>
+                <div class="display-4 fw-bold text-danger">
+                    $<span id="total-general">0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- DATOS DE PAGO -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Monto pagado</label>
+                    <input type="number"
+                           step="0.01"
+                           name="monto_pagado"
+                           id="monto_pagado"
+                           class="form-control form-control-lg"
+                           required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Forma de pago</label>
+                    <select id="forma_pago"
+                            name="forma_pago"
+                            class="form-select form-select-lg"
+                            required>
+                        <option value="">Seleccionar</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="tarjeta">Tarjeta</option>
+                        <option value="transferencia">Transferencia</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Cambio</label>
+                    <input type="text"
+                           id="cambio"
+                           class="form-control form-control-lg"
+                           readonly>
+                </div>
+
+                <button type="submit"
+                        class="btn btn-success btn-lg w-100"
+                        id="btn-registrar-venta">
+                    Registrar y cobrar
+                </button>
+
+            </div>
+        </div>
+
+    </div>
+
+</div>
+</form>
+
+<!-- ===== TICKET OCULTO ===== -->
+<div id="ticket-content" class="d-none"></div>
+
+<!-- ================= SCRIPTS ================= -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+
+<script>
+    const BUSCAR_PRODUCTO_URL = "{% url 'buscar_producto' %}";
+</script>
+
+<script src="{% static 'js/funciones_caja.js' %}"></script>
+
+{% endblock %}

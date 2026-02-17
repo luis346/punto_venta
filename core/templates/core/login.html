@@ -1,0 +1,118 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}
+Login - Punto de Venta
+{% endblock %}
+
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center min-vh-100">
+    <div class="card shadow-lg border-0" style="max-width: 420px; width: 100%;">
+        <div class="card-body p-4">
+
+            <!-- Encabezado -->
+            <div class="text-center mb-4">
+                <div class="mb-3">
+                    <i class="bi bi-shop fs-1 text-primary"></i>
+                </div>
+                <h3 class="fw-bold">Bienvenido</h3>
+                <p class="text-muted mb-0">Inicia sesión para continuar</p>
+            </div>
+
+            <!-- Formulario -->
+            <form method="POST" id="loginForm">
+                {% csrf_token %}
+
+                <!-- Usuario -->
+                <div class="mb-3">
+                    <label for="id_username" class="form-label fw-semibold">Usuario</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light">
+                            <i class="bi bi-person"></i>
+                        </span>
+                        <input 
+                            type="text" 
+                            name="username" 
+                            required 
+                            id="id_username" 
+                            class="form-control" 
+                            placeholder="Ingresa tu usuario"
+                            autocomplete="username">
+                    </div>
+                </div>
+
+                <!-- Contraseña -->
+                <div class="mb-3">
+                    <label for="id_password" class="form-label fw-semibold">Contraseña</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light">
+                            <i class="bi bi-lock"></i>
+                        </span>
+                        <input 
+                            type="password" 
+                            name="password" 
+                            required 
+                            id="id_password" 
+                            class="form-control" 
+                            placeholder="Ingresa tu contraseña"
+                            autocomplete="current-password">
+                    </div>
+                </div>
+
+                <!-- Errores -->
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger text-center">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <!-- Botón -->
+                <button type="submit" class="btn btn-primary w-100 fw-semibold" id="submitBtn">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+                </button>
+
+                <!-- Spinner -->
+                <div id="loadingSpinner" class="justify-content-center align-items-center mt-3" style="display:none;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <span class="ms-2">Validando credenciales...</span>
+                </div>
+            </form>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="card-footer text-center bg-light small text-muted">
+            Punto de Venta • Sistema Seguro
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Bootstrap Icons -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('loginForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const spinner = document.getElementById('loadingSpinner');
+
+    window.addEventListener('pageshow', function () {
+        submitBtn.style.display = 'block';
+        spinner.style.display = 'none';
+    });
+
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        submitBtn.style.display = 'none';
+        spinner.style.display = 'flex';
+
+        setTimeout(() => {
+            form.submit();
+        }, 200);
+    });
+});
+</script>
+{% endblock %}

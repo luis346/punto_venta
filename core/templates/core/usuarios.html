@@ -1,0 +1,52 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Usuarios{% endblock %}
+
+{% block content %}
+
+<h2 class="text-center mb-4" style="font-family: 'Poppins', sans-serif; color: #333;">USUARIOS</h2>
+
+<table class="table table-bordered align-middle">
+    <thead>
+        <tr>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Sucursal</th>
+            <th>Acción</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in usuarios %}
+        <tr>
+            <td>{{ u.username }}</td>
+            <td>{{ u.get_rol_display }}</td>
+
+            <td>
+                <form method="post" class="d-flex gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="usuario_id" value="{{ u.id }}">
+
+                    <select name="sucursal" class="form-select">
+                        <option value="">-- Sin sucursal --</option>
+                        {% for s in sucursales %}
+                            <option value="{{ s.id }}"
+                                {% if u.sucursal_id == s.id %}selected{% endif %}>
+                                {{ s.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+            </td>
+
+            <td>
+                    <button class="btn btn-sm btn-primary">
+                        Guardar
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends 'core/base.html' %}
+{% block title %}Arqueo de Caja{% endblock %}
+
+{% block content %}
+
+<!-- =======================
+ ENCABEZADO
+======================= -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold">💰 Arqueo de Caja</h2>
+
+    <span class="badge bg-secondary fs-6">
+        Periodo seleccionado
+    </span>
+</div>
+
+<!-- =======================
+ FILTROS
+======================= -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">
+        🔍 Filtros de Arqueo
+    </div>
+
+    <div class="card-body">
+        <form method="get" id="form-filtros" class="row g-3 align-items-end">
+
+            <div class="col-md-3">
+                <label class="form-label">Desde</label>
+                <input type="date"
+                       name="fecha_inicio"
+                       id="fecha_inicio"
+                       class="form-control"
+                       value="{{ request.GET.fecha_inicio }}">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Hasta</label>
+                <input type="date"
+                       name="fecha_fin"
+                       id="fecha_fin"
+                       class="form-control"
+                       value="{{ request.GET.fecha_fin }}">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Vendedor</label>
+                <select name="vendedor" id="vendedor" class="form-select">
+                    <option value="">Todos</option>
+                    {% for v in vendedores %}
+                        <option value="{{ v.id }}"
+                            {% if request.GET.vendedor == v.id|stringformat:"s" %}selected{% endif %}>
+                            {{ v }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary w-100">
+                    Filtrar
+                </button>
+                <button type="button"
+                        id="btn-limpiar"
+                        class="btn btn-outline-secondary w-100">
+                    Limpiar
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<!-- =======================
+ RESUMEN GENERAL
+======================= -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm text-center">
+            <div class="card-body">
+                <h6 class="text-muted">Total Ventas</h6>
+                <h3 class="fw-bold">{{ ventas|length }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm text-center">
+            <div class="card-body">
+                <h6 class="text-muted">Productos Vendidos</h6>
+                <h3 class="fw-bold">{{ total_productos }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm text-center border-success">
+            <div class="card-body">
+                <h6 class="text-muted">Total en Caja</h6>
+                <h3 class="fw-bold text-success">
+                    ${{ total_arqueo|floatformat:2 }}
+                </h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =======================
+ TABLA DE ARQUEO
+======================= -->
+<div class="card shadow-sm">
+    <div class="card-header fw-semibold">
+        📋 Detalle de Ventas
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>No. Venta</th>
+                    <th>Vendedor</th>
+                    <th>Fecha</th>
+                    <th>Total Productos</th>
+                    <th>Total Venta</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venta in ventas %}
+                <tr>
+                    <td class="fw-semibold">{{ venta.no_venta }}</td>
+                    <td>{{ venta.vendedor }}</td>
+                    <td>{{ venta.fecha }}</td>
+                    <td>{{ venta.productos }}</td>
+                    <td class="fw-bold text-success">
+                        ${{ venta.total|floatformat:2 }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        No hay ventas en este periodo
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+            <tfoot class="table-light">
+                <tr>
+                    <td colspan="3" class="fw-bold">Totales Generales</td>
+                    <td class="fw-bold">{{ total_productos }}</td>
+                    <td class="fw-bold text-success">
+                        ${{ total_arqueo|floatformat:2 }}
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- =======================
+ SCRIPTS
+======================= -->
+<script>
+document.getElementById('btn-limpiar').addEventListener('click', function () {
+    document.getElementById('fecha_inicio').value = '';
+    document.getElementById('fecha_fin').value = '';
+    document.getElementById('vendedor').value = '';
+    document.getElementById('form-filtros').submit();
+});
+</script>
+
+{% endblock %}

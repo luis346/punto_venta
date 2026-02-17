@@ -1,0 +1,541 @@
+{% extends 'core/base.html' %}
+{% block content %}
+
+
+    <!-- Modal -->
+<div class="modal fade" id="productModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Agregar Producto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <input type="hidden" id="venta_id" value="{{ venta.id }}">
+      <div class="modal-body">
+        <input type="hidden" id="product_id">
+        <div class="mb-2">
+        <label>Buscar producto</label>
+        <select id="product_search" class="form-control" style="width: 100%;"></select>
+        </div>
+        <div class="mb-2">
+          <label>Cantidad</label>
+          <input type="number" id="product_qty" class="form-control" min="1">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="addProduct" class="btn btn-primary">Agregar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{% if venta.tipo_cliente == 'mayorista' %}
+<div class="modal fade" id="modalPassword" tabindex="-1" aria-labelledby="modalPasswordLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="" id="formPagoConPassword">
+            {% csrf_token %}
+            <!-- Aquí copiarás también los inputs ocultos para monto y forma de pago -->
+            <input type="hidden" name="monto_pagado" id="hidden_monto_pagado">
+            <input type="hidden" name="forma_pago" id="hidden_forma_pago">
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalPasswordLabel">Contraseña de Administrador</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Introduce la contraseña del administrador para autorizar el pago:</p>
+                    <input type="password" name="password_admin" class="form-control"
+                        placeholder="Contraseña de administrador" autocomplete="new-password" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Confirmar Pago</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4" style="font-family: 'Poppins', sans-serif; color: #333;">CAJA</h2>
+
+    <form method="get" class="row g-3">
+        <div class="col-md-6">
+            <input type="text" name="folio" class="form-control" placeholder="Folio de venta" maxlength="10" required>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary">Buscar</button>
+        </div>
+    </form>
+    <div class="col-md-12 mt-3">
+        <a href="{% url 'caja_completa' %}" class="btn btn-danger">Caja Rapida</a>
+    </div>
+
+    {% if venta and not venta.pagado %}
+    <button class="btn btn-outline-danger mt-3" data-bs-toggle="modal" data-bs-target="#modalCancelarVenta" {% if venta_bloqueada %}disabled{% endif %}>❌ Cancelar
+        Venta</button>
+
+    <!-- Modal -->
+    <div class="modal fade" id="modalCancelarVenta" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" action="{% url 'cancelar_venta' venta.id %}">
+                {% csrf_token %}
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalLabel">Confirmar Cancelación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Introduce la contraseña del administrador para cancelar esta venta:</p>
+                        <input type="password" name="password_admin" class="form-control" required
+                            placeholder="Contraseña de administrador" autocomplete="new-password">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-danger">Cancelar Venta</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if venta %}
+    <div class="mt-4">
+        <h4>Venta {{ venta.no_venta }} - {{ venta.get_tipo_cliente_display }}</h4>
+        <p><strong>Vendedor:</strong> {{ venta.vendedor }} | <strong>Fecha:</strong> {{ venta.fecha }}</p>
+
+        <table class="table table-bordered table-hover mt-3">
+            <thead class="table-light">
+                <tr>
+                    <th>Producto</th>
+                    <th>Descripcion</th>
+                    <th>Cantidad</th>
+                    <th>Precio Unitario</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for detalle in venta.detalles.all %}
+                <tr>
+    <td>{{ detalle.producto.nombre }}</td>
+    <td>{{ detalle.producto.descripcion }}</td>
+    <td>
+        <form method="post" action="{% url 'editar_detalle' detalle.id %}">
+            <input type="hidden" name="folio" value="{{ request.GET.folio }}">
+            {% csrf_token %}
+            <input type="number" name="cantidad" value="{{ detalle.cantidad }}" min="1" data-detalle-id="{{ detalle.id }}"
+                class="form-control form-control-sm" {% if venta_bloqueada %}disabled{% endif %}>
+    </td>
+    <td>${{ detalle.precio_unitario }}</td>
+    <td>${{ detalle.total }}</td>
+    <td>
+            <button class="btn btn-sm btn-warning" {% if venta_bloqueada %}disabled{% endif %}>💾</button>
+        </form>
+    </td>
+    <td>
+        <form method="post" action="{% url 'eliminar_detalle' detalle.id %}"
+              onsubmit="return confirm('¿Estás seguro de eliminar este producto?');">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-danger" {% if venta_bloqueada %}disabled{% endif %}>❌</button>
+        </form>
+    </td>
+</tr>
+
+                {% endfor %}
+            </tbody>
+
+        </table>
+
+        {% if venta %}
+        <h3>Resumen de venta</h3>
+        <p>Total sin descuento: ${{ total_sin_descuento }}</p>
+        <p>Descuento aplicado: {{ descuento_porcentaje }}% (${{ descuento_monetario }})</p>
+        <p><strong>Total a pagar: ${{ total }}</strong></p>
+        {% endif %}
+
+
+        {% if venta.pagado %}
+        <div class="alert alert-success">✅ Esta venta ya fue pagada.</div>
+        <button class="btn btn-secondary mt-3" onclick="window.printTicket()">🧾 Imprimir Ticket</button>
+        {% elif venta.cancelada %}
+        <div class="alert alert-danger">❌ Esta venta ha sido cancelada.</div>
+        {% else %}
+        <div class="col-md-4">
+           <input type="text" id="cambio" class="form-control" placeholder="Cambio" readonly>
+        </div>
+        <form method="post" class="mt-3" id="formPagoPrincipal">
+            {% csrf_token %}
+            <div class="row g-6">
+                <div class="col-md-4">
+                    <input type="number" step="0.01" name="monto_pagado" class="form-control" placeholder="Monto pagado"
+                        id="monto_pagado" required>
+                </div>
+                <div class="col-md-4">
+                    <select id="forma_pago" name="forma_pago" class="form-select" required>
+                        <option value="">Seleccionar forma de pago</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="tarjeta">Tarjeta</option>
+                        <option value="transferencia">Transferencia</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-success">Registrar Pago</button>
+                </div>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+    <div class="mt-5">
+
+    </div>
+    {% elif busqueda_realizada %}
+    <script>
+        Swal.fire({
+            icon: 'error',
+            title: 'Venta no encontrada',
+            text: 'No se encontró una venta con el folio proporcionado.',
+            confirmButtonText: 'Aceptar',
+        }).then(() => {
+            window.location.href = "{% url 'caja' %}";
+        });
+    </script>
+    {% endif %}
+</div>
+
+<div id="ticket" class="d-none">
+    <div style="width: 300px; font-family: monospace; font-size: 14px;">
+        <div style="text-align:center; margin-bottom: 5px;">
+    <img src="/static/img/logo.jpg"
+         style="width:220px; height:auto; margin-bottom: 5px;" />
+</div>
+
+        <h5 style="text-align: center; margin: 0;">El Ofertón</h5>
+        <p style="text-align: center; margin: 0;">Av. Siempre Viva #123, Col. Centro</p>
+        <p style="text-align: center; margin: 0;">Tel: 55-1234-5678</p>
+        <p style="text-align: center;">RFC: XAXX010101000</p>
+
+        <p style="text-align: center;">Ticket de venta</p>
+        <hr>
+
+        <p><strong>Folio:</strong> {{ venta.no_venta }}</p>
+        <p><strong>Fecha:</strong> {{ venta.fecha|date:"d/m/Y H:i" }}</p>
+        <p><strong>Cliente:</strong> {{ venta.get_tipo_cliente_display }}</p>
+        <p><strong>Vendedor:</strong> {{ venta.vendedor }}</p>
+        <hr>
+
+        <table style="width: 100%; font-size: 13px;">
+            <thead>
+                <tr>
+                    <th style="text-align: left;">Producto</th>
+                    <th style="text-align: center;">Cant</th>
+                    <th style="text-align: center;">Precio/uni</th>
+                    <th style="text-align: right;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for detalle in venta.detalles.all %}
+                <tr>
+                    <td>{{ detalle.producto.nombre|truncatechars:15 }}</td>
+                    <td style="text-align: center;">{{ detalle.cantidad }}</td>
+                    <td style="text-align: center;">{{ detalle.precio_unitario}}</td>
+                    <td style="text-align: right;">${{ detalle.total }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <hr>
+        {% if venta.descuento > 0 %}
+            <p><strong>Descuento:</strong> - {{ venta.descuento }}%</p>
+        {% endif %}
+        <p style="text-align: right;"><strong>Total: ${{ total }}</strong></p>
+
+        {% with ultimo_pago=venta.pagos.last %}
+            <p><strong>Forma de pago:</strong> {{ ultimo_pago.forma_pago }}</p>
+            <p><strong>Monto pagado:</strong> ${{ ultimo_pago.monto_pagado }}</p>
+            <p><strong>Fecha de pago:</strong> {{ ultimo_pago.fecha_pago|date:"d/m/Y H:i" }}</p>
+            <p><strong>Cambio:</strong> ${{ cambio }}</p>
+        {% endwith %}
+
+        <p style="text-align: center;">¡Gracias por su compra!</p>
+    </div>
+</div>
+
+<!-- jQuery primero -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Luego Select2 -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<!-- Bootstrap JS (después de jQuery) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+
+
+
+{% if messages %}
+{% for message in messages %}
+<script>
+const tags = '{{ message.tags }}'.split(' ');
+const esExito = tags.includes('success');
+const accion = tags.length > 1 ? tags[1] : null;
+
+if (esExito) {
+    if (accion === 'pago') {
+        Swal.fire({
+            title: "¡Venta registrada!",
+            text: "¿Deseas imprimir el ticket?",
+            icon: "success",
+            showCancelButton: true,
+            confirmButtonText: "Imprimir",
+            cancelButtonText: "No"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                printTicket();  // ✅ Imprime el ticket HTML
+            } else {
+                location.reload();
+            }
+        });
+    } else if (accion === 'actualizar') {
+        Swal.fire({
+            icon: 'success',
+            title: 'Cantidad actualizada',
+            text: '{{ message }}',
+            confirmButtonText: 'Aceptar'
+        });
+    } else if (accion === 'cancelar') {
+        Swal.fire({
+            icon: 'success',
+            title: 'Venta cancelada',
+            text: '{{ message }}',
+            confirmButtonText: 'Aceptar'
+        });
+    }
+} else {
+    Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: '{{ message }}',
+        confirmButtonText: 'Aceptar'
+    });
+}
+</script>
+{% endfor %}
+{% endif %}
+
+<script>
+    window.printTicket = function () {
+        const contenido = document.getElementById("ticket").innerHTML;
+        const ventana = window.open('', '', 'width=400,height=600');
+        ventana.document.write(`
+            <html>
+                <head>
+                    <title>Ticket de venta</title>
+                    <style>
+                        body { font-family: monospace; font-size: 14px; padding: 20px; }
+                        hr { border-top: 1px dashed #000; }
+                        table { width: 100%; }
+                        td { vertical-align: top; }
+                    </style>
+                </head>
+                <body onload="window.print(); window.close();">
+                    ${contenido}
+                </body>
+            </html>
+        `);
+        ventana.document.close();
+        console.log("Ticket preparado para impresión.");
+        ventana.focus();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const montoPagadoInput = document.getElementById('monto_pagado');
+        const cambioInput = document.getElementById('cambio');
+        const total = parseFloat("{{ total|floatformat:2 }}");
+
+        if (montoPagadoInput) {
+            montoPagadoInput.addEventListener('input', function () {
+                const pagado = parseFloat(montoPagadoInput.value);
+                if (!isNaN(pagado)) {
+                    const cambio = pagado - total;
+                    cambioInput.value = cambio >= 0 ? cambio.toFixed(2) : '';
+                } else {
+                    cambioInput.value = '';
+                }
+            });
+        }
+    });
+</script>
+
+{% if venta.tipo_cliente == 'mayorista' %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const formPrincipal = document.getElementById('formPagoPrincipal');
+        const modalPasswordElement = document.getElementById('modalPassword');
+        const formModal = document.getElementById('formPagoConPassword');
+
+        if (!formPrincipal || !modalPasswordElement || !formModal) {
+            console.warn('Formulario o elementos del modal no encontrados. ¿Estás seguro de que esta venta es de tipo mayorista?');
+            return;
+        }
+
+        const modalPassword = new bootstrap.Modal(modalPasswordElement);
+
+        formPrincipal.addEventListener('submit', function (e) {
+            e.preventDefault();  // Evitar el envío directo
+
+            const montoInput = document.getElementById('monto_pagado');
+            const formaPagoSelect = document.getElementById('forma_pago');
+
+            if (!montoInput || !formaPagoSelect) {
+                console.error('No se encontraron los campos monto_pagado o forma_pago');
+                return;
+            }
+
+            // Obtener y copiar los valores al modal
+            document.getElementById('hidden_monto_pagado').value = montoInput.value;
+            document.getElementById('hidden_forma_pago').value = formaPagoSelect.value;
+
+            modalPassword.show();
+        });
+    });
+</script>
+{% endif %}
+
+<script>
+document.addEventListener("keydown", function(e) {
+    if (e.key === "F8") {
+        e.preventDefault();
+        const ventaBloqueada = "{{ venta_bloqueada|yesno:'true,false' }}" === "true";
+        if (!ventaBloqueada) {
+            $("#productModal").modal("show");
+            setTimeout(() => {
+                $('#product_search').select2('open');
+                $('#product_search').focus();
+            }, 300);
+        }
+    }
+});
+</script>
+
+<script>
+document.getElementById('addProduct').addEventListener('click', function() {
+    const producto_id = document.getElementById('product_search').value;
+    const cantidad = document.getElementById('product_qty').value;
+    const venta_id = document.getElementById('venta_id').value;
+
+    if (!producto_id || !cantidad) {
+        Swal.fire('Error', 'Selecciona un producto y una cantidad válida', 'error');
+        return;
+    }
+
+    fetch("{% url 'agregar_detalle' %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            producto_id: producto_id,
+            cantidad: cantidad,
+            venta_id: venta_id
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire('Producto agregado', '', 'success').then(() => {
+                location.reload();  // O también puedes actualizar la tabla dinámicamente
+            });
+        } else {
+            Swal.fire('Error', data.error, 'error');
+        }
+    });
+});
+</script>
+
+
+<script>
+$('#product_search').select2({
+    placeholder: "Buscar producto...",
+    allowClear: true,
+    dropdownParent: $('#productModal'),  // <-- ESTA LÍNEA ES CLAVE
+    ajax: {
+        url: "{% url 'buscar_productos' %}",
+        dataType: 'json',
+        delay: 250,
+        data: function(params) {
+            return { q: params.term };
+        },
+        processResults: function(data) {
+            return {
+                results: data.results.map(function(item) {
+                    return {
+                        id: item.id,
+                        text: item.nombre + " - " + item.descripcion
+                    };
+                })
+            };
+        },
+        cache: true
+    },
+    minimumInputLength: 0
+});
+</script>
+
+<script>
+document.querySelectorAll('.cantidad-input').forEach(input => {
+    input.addEventListener('change', () => {
+        const detalleId = input.dataset.detalleId;
+        const maxStock = parseInt(input.dataset.stock);
+        const cantidad = parseInt(input.value);
+
+        if (cantidad > maxStock) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Stock insuficiente',
+                text: `Solo hay ${maxStock} unidades disponibles.`,
+                confirmButtonText: 'Aceptar'
+            });
+            input.value = maxStock;
+            return;
+        }
+
+        fetch("{% url 'actualizar_cantidad_producto' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: new URLSearchParams({
+                detalle_id: detalleId,
+                cantidad: cantidad
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    icon: "success",
+                    title: "Actualizado",
+                    text: data.message
+                }).then(() => location.reload());
+            } else {
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: data.error
+                });
+            }
+        });
+    });
+});
+</script>
+
+
+
+{% endblock %}

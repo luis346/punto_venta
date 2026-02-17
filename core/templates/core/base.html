@@ -1,0 +1,279 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Sistema Punto de Venta{% endblock %}</title>
+
+    <!-- BOOTSTRAP -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- ICONOS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- SWEETALERT -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- ESTILO GLOBAL PRO -->
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(rgba(245, 247, 250, 0.92),
+                rgba(245, 247, 250, 0.92)),
+            url("{% static 'img/marca-agua.jpg' %}");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 600px auto;
+            background-attachment: fixed;
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont;
+        }
+
+        .app-wrapper {
+            min-height: calc(100vh - 70px);
+            padding-bottom: 40px;
+        }
+
+        .card,
+        .table,
+        .modal-content {
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .06);
+            border: none;
+        }
+
+        .table thead {
+            background-color: #f1f3f6;
+        }
+
+        .btn {
+            border-radius: 10px;
+        }
+
+        /* NAVBAR PRO */
+        .navbar {
+            background: linear-gradient(135deg, #0d6efd, #0a58ca);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, .15);
+        }
+
+        .navbar-brand {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: .5px;
+        }
+
+        footer {
+            font-size: .85rem;
+            color: #777;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ================= MODAL SUCURSAL ================= -->
+    <div class="modal fade" id="modalSucursal" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="POST" action="{% url 'seleccionar_sucursal' %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title">Selecciona sucursal</h5>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted">¿En qué sucursal vas a trabajar?</p>
+                        <select name="sucursal_id" class="form-select" required>
+                            <option value="">-- Selecciona --</option>
+                            {% for sucursal in sucursales_usuario %}
+                            <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary w-100">
+                            Entrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= NAVBAR ================= -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+
+            <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'index' %}">
+                <i class="fa-solid fa-cash-register"></i>
+                Punto de Venta
+            </a>
+
+            {% if sucursal_actual %}
+            <span class="badge bg-success ms-2 px-3 py-2 rounded-pill">
+                <i class="fa-solid fa-store"></i> {{ sucursal_actual.nombre }}
+            </span>
+            {% else %}
+            <span class="badge bg-warning text-dark ms-2 px-3 py-2 rounded-pill">
+                <i class="fa-solid fa-triangle-exclamation"></i> Sin sucursal
+            </span>
+            {% endif %}
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center gap-2">
+
+                    {% if user.is_authenticated %}
+
+                    {% if user.rol == 'ADMIN' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'dashboard' %}">
+                            <i class="fa-solid fa-chart-line"></i> Dashboard
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inventario' %}">
+                            <i class="fa-solid fa-boxes-stacked"></i> Inventario
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'historial_ventas_admin' %}">
+                            <i class="fa-solid fa-receipt"></i> Ventas
+                        </a>
+                    </li>
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                            <i class="fa-solid fa-gear"></i> Configuración
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'configuracion' %}">Agregar vendedor</a></li>
+                            <li><a class="dropdown-item" href="{% url 'register' %}">Registrar usuario</a></li>
+                            <li><a class="dropdown-item" href="{% url 'usuarios' %}">Usuarios</a></li>
+                            <li><a class="dropdown-item" href="{% url 'sucursales' %}">Sucursales</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    {% if user.rol == 'CAJA' %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                            <i class="fa-solid fa-money-bill-wave"></i> Ventas
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'registro_ventas' %}">Nueva venta</a></li>
+                            <li><a class="dropdown-item" href="{% url 'caja_completa' %}">Caja</a></li>
+                            <li><a class="dropdown-item" href="{% url 'caja' %}">Búsqueda</a></li>
+                        </ul>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'historial_ventas' %}">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a href="{% url 'inventario_usuario' %}" class="btn btn-outline-light position-relative">
+                            <i class="fa-solid fa-bell"></i>
+                            {% if num_notificaciones > 0 %}
+                            <span
+                                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                {{ num_notificaciones }}
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    <a href="#" class="btn btn-outline-light ms-2" onclick="confirmarSalir(event)">
+                        <i class="fa-solid fa-right-from-bracket"></i> Salir
+                    </a>
+
+
+
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="btn btn-light text-primary" href="{% url 'login' %}">
+                            <i class="fa-solid fa-lock"></i> Iniciar sesión
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ================= CONTENIDO ================= -->
+    <div class="app-wrapper">
+        <div class="container mt-4">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="text-center mt-5">
+        © {{ now|date:"Y" }} Sistema Punto de Venta · Todos los derechos reservados
+    </footer>
+
+    <!-- SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    {% block scripts %}{% endblock %}
+
+    {% if messages %}
+    {% for message in messages %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            Swal.fire({
+                icon: "{% if message.tags == 'success' %}success{% elif message.tags == 'error' %}error{% else %}info{% endif %}",
+                title: "{{ message|escapejs }}",
+                timer: 3000,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
+            });
+        });
+    </script>
+    {% endfor %}
+    {% endif %}
+
+    {% if request.user.is_authenticated and request.user.rol == 'ADMIN' and not sucursal_actual %}
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const modal = new bootstrap.Modal(
+                document.getElementById('modalSucursal'),
+                { backdrop: 'static', keyboard: false }
+            );
+            modal.show();
+        });
+    </script>
+    {% endif %}
+
+    <script>
+        function confirmarSalir(event) {
+            event.preventDefault();
+
+            Swal.fire({
+                title: '¿Cerrar sesión?',
+                text: 'Tu sesión se cerrará y volverás al inicio',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#0d6efd',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, salir',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = "{% url 'logout' %}";
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

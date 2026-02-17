@@ -1,0 +1,154 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Historial de Ventas{% endblock %}
+
+{% block content %}
+
+<!-- =======================
+ ENCABEZADO
+======================= -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold text-dark">📊 Historial de Ventas</h2>
+
+    <form method="get" action="{% url 'arqueo_caja' %}">
+        <button class="btn btn-outline-secondary">
+            🧾 Generar Arqueo de Caja
+        </button>
+    </form>
+</div>
+
+<!-- =======================
+ FILTROS
+======================= -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">
+        🔍 Filtros
+    </div>
+
+    <div class="card-body">
+        <form method="get" id="form-filtros" class="row g-3 align-items-end">
+
+            <div class="col-md-3">
+                <label class="form-label">Desde</label>
+                <input type="date"
+                       name="fecha_inicio"
+                       id="fecha_inicio"
+                       class="form-control"
+                       value="{{ request.GET.fecha_inicio_dt }}">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Hasta</label>
+                <input type="date"
+                       name="fecha_fin"
+                       id="fecha_fin"
+                       class="form-control"
+                       value="{{ request.GET.fecha_fin_dt }}">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Vendedor</label>
+                <select name="vendedor" id="vendedor" class="form-select">
+                    <option value="">Todos</option>
+                    {% for v in vendedores %}
+                        <option value="{{ v.id }}"
+                            {% if request.GET.vendedor == v.id|stringformat:"s" %}selected{% endif %}>
+                            {{ v }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary w-100">
+                    Filtrar
+                </button>
+                <button type="button"
+                        id="btn-limpiar"
+                        class="btn btn-outline-secondary w-100">
+                    Limpiar
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<!-- =======================
+ TABLA DE VENTAS
+======================= -->
+<div class="card shadow-sm">
+    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+        <span>📋 Ventas registradas</span>
+
+        <span class="badge bg-success fs-6">
+            Total: ${{ total_recaudado|floatformat:2 }}
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Folio</th>
+                    <th>Vendedor</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th style="width:120px">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venta in ventas %}
+                <tr class="{% if venta.cancelada %}table-danger{% endif %}">
+                    <td class="fw-semibold">{{ venta.no_venta }}</td>
+                    <td>{{ venta.vendedor }}</td>
+                    <td>{{ venta.fecha }}</td>
+                    <td>
+                        {% if venta.cancelada %}
+                            <span class="badge bg-danger">Cancelada</span>
+                        {% elif venta.pagado %}
+                            <span class="badge bg-success">Pagada</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if venta.cancelada %}
+                        <form method="POST"
+                              action="{% url 'eliminar_venta' venta.id %}"
+                              onsubmit="return confirm('¿Eliminar esta venta cancelada?')">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-danger w-100">
+                                🗑 Eliminar
+                            </button>
+                        </form>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        No hay ventas registradas
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- =======================
+ SCRIPTS
+======================= -->
+<script>
+document.getElementById('btn-limpiar').addEventListener('click', function () {
+    document.getElementById('fecha_inicio').value = '';
+    document.getElementById('fecha_fin').value = '';
+    document.getElementById('vendedor').value = '';
+    document.getElementById('form-filtros').submit();
+});
+</script>
+
+{% endblock %}

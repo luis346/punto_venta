@@ -1,0 +1,100 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Dashboard Punto de Venta{% endblock %}
+
+{% block content %}
+<style>
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    padding: 20px;
+  }
+
+  .dashboard-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+    padding: 20px;
+  }
+
+  .dashboard-card h2 {
+    font-size: 1.25rem;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+
+  canvas {
+    max-width: 100%;
+    height: 300px !important;
+  }
+</style>
+
+<h1 style="text-align:center; margin-bottom: 30px;">Dashboard Punto de Venta</h1>
+
+<div class="dashboard-grid">
+  <div class="dashboard-card">
+    <h2>Ventas por día (últimos 7 días)</h2>
+    <canvas id="ventasPorDia"></canvas>
+  </div>
+
+  <div class="dashboard-card">
+    <h2>Producto más vendido (última semana)</h2>
+    <canvas id="productoMasVendido"></canvas>
+  </div>
+
+  <div class="dashboard-card">
+    <h2>Ventas por categoría</h2>
+    <canvas id="ventasPorCategoria"></canvas>
+  </div>
+
+  <div class="dashboard-card">
+    <h2>Ingresos por vendedor</h2>
+    <canvas id="ingresosPorVendedor"></canvas>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+fetch('/api/dashboard_data/')
+  .then(res => res.json())
+  .then(data => {
+    const charts = [
+      {id: 'ventasPorDia', type: 'line', label: 'Ventas ($)', data: data.ventas_por_dia},
+      {id: 'productoMasVendido', type: 'bar', label: 'Cantidad vendida', data: data.productos_mas_vendidos},
+      {id: 'ventasPorCategoria', type: 'bar', label: 'Ventas ($)', data: data.ventas_por_categoria},
+      {id: 'ingresosPorVendedor', type: 'bar', label: 'Ingresos ($)', data: data.ingresos_por_vendedor},
+    ];
+
+    charts.forEach(({id, type, label, data}) => {
+      const ctx = document.getElementById(id).getContext('2d');
+      new Chart(ctx, {
+        type: type,
+        data: {
+          labels: data.etiquetas,
+          datasets: [{
+            label: label,
+            data: data.datos,
+            backgroundColor: [
+              'rgba(75, 192, 192, 0.6)',
+              'rgba(255, 99, 132, 0.6)',
+              'rgba(255, 206, 86, 0.6)',
+              'rgba(54, 162, 235, 0.6)',
+              'rgba(153, 102, 255, 0.6)',
+            ],
+            borderColor: 'rgba(0,0,0,0.1)',
+            borderWidth: 1,
+            fill: type === 'line' ? false : true,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true }},
+          scales: type !== 'pie' ? { y: { beginAtZero: true }} : {}
+        }
+      });
+    });
+  });
+</script>
+
+{% endblock %}

@@ -1,0 +1,657 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Ventas{% endblock %}
+
+{% block content %}
+<h2 class="text-center mb-4" style="font-family: 'Poppins', sans-serif; color: #333;">VENTAS</h2>
+<!-- Formulario para ventas -->
+<form method="POST">
+    <div class="card mb-3" style="width: 70rem;">
+        <div class="card-body">
+            {% csrf_token %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Registro de Ventas</h5>
+                <span class="fw-bold text-danger">No. de venta: {{ no_venta }}</span>
+            </div>
+
+            <input type="hidden" name="no_venta" value="{{ no_venta }}">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label for="{{ form.tipo_cliente.id_for_label }}" class="form-label">Tipo de cliente</label>
+                    {{ form.tipo_cliente }}
+                </div>
+                <div class="col-md-3 d-none" id="descuento_container">
+                    <label for="descuento" class="form-label">Descuento</label>
+                    <select class="form-select" id="descuento" name="descuento">
+                        <option value="">Selecciona descuento</option>
+                        <option value="mayoreo">Mayoreo por producto</option>
+                        <option value="10">10%</option>
+                        <option value="30">30%</option>
+                        <option value="50">50%</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="{{ form.vendedor.id_for_label }}" class="form-label">Vendedor</label>
+                    {{ form.vendedor }}
+                </div>
+            </div>
+        </div>
+    </div>
+    <table class="table table-bordered" id="tabla-productos">
+        <thead>
+            <tr>
+                <th>Folio</th>
+                <th>Nombre</th>
+                <th>Precio</th>
+                <th>Cantidad</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+
+        </tbody>
+    </table>
+    <p><strong>Total a pagar: $<span id="total-general">0.00</span></strong></p>
+<div class="d-grid gap-2 d-md-flex justify-content-md-end g-3">
+
+    <!-- Botón normal -->
+    <button type="submit" class="btn btn-primary" onclick="document.getElementById('accion').value='registrar'">
+        Registrar Venta
+    </button>
+
+    <!-- Si es caja, mostramos botón extra -->
+    {% if user.rol == "CAJA" %}
+    <button type="submit" class="btn btn-success" onclick="document.getElementById('accion').value='cobrar'">
+        Registrar y Cobrar
+    </button>
+    {% endif %}
+
+    <input type="hidden" name="accion" id="accion" value="registrar">
+
+</div>
+
+</form>
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- jQuery UI CSS -->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+
+<!-- jQuery + jQuery UI JS -->
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<!-- Asegúrate de tener jQuery UI CSS y JS en tu plantilla -->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
+<script>
+    $(document).ready(function () {
+
+  function agregarFila() {
+    const nuevaFila = `
+    <tr class="fila-producto"
+        data-precio="0"
+        data-precio-mayoreo="0">
+
+        <td contenteditable="true" class="busqueda" data-tipo="no_folio"></td>
+        <td contenteditable="true" class="busqueda" data-tipo="nombre"></td>
+
+        <!-- Aquí se mostrará el precio -->
+        <td class="precio">0.00</td>
+
+        <!-- Cantidad -->
+        <td>
+            <input type="number" class="form-control cantidad" min="1" value="1" disabled>
+        </td>
+
+        <!-- Total -->
+        <td class="total">0.00</td>
+    </tr>`;
+
+    $('#tabla-productos tbody').append(nuevaFila);
+
+    setTimeout(() => {
+        $('#tabla-productos tbody tr:last td[contenteditable="true"]').first().focus();
+    }, 50);
+}
+
+
+     // Elimina el evento keydown Enter para buscar producto
+// En su lugar, usa autocomplete para celdas editables
+$('#tabla-productos').on('focus', '.busqueda', function () {
+    const celda = $(this);
+    const tipo = celda.data('tipo');
+
+    // Inicializa autocomplete solo una vez para esta celda
+    if (!celda.data('autocomplete')) {
+        celda.autocomplete({
+            minLength: 1,
+            delay: 300,
+            source: function (request, response) {
+                $.ajax({
+                    url: '{% url "buscar_producto" %}',
+                    data: { q: request.term, tipo: tipo },
+                    success: function (data) {
+                        response($.map(data, function (item) {
+                            return {
+                                label: item.nombre + ' - ' + item.descripcion + ' ($' + item.precio.toFixed(2) + ')'+ ' / Stock:' + item.stock_fisico,
+                                value: item[tipo],  // Para poner el valor en la celda
+                                item: item
+                            };
+                        }));
+                    }
+                });
+            },
+            select: function (event, ui) {
+                const fila = celda.closest('tr');
+                const data = ui.item.item;
+
+                fila.find('td[data-tipo="no_folio"]').text(data.no_folio);
+                fila.find('td[data-tipo="nombre"]').text(data.nombre);
+                fila.find('.precio').text(data.precio.toFixed(2));
+                fila.find('.cantidad').val(1).prop('disabled', false).data('precio', data.precio).data('stock_fisico', data.stock_fisico);
+                fila.find('.total').text(data.precio.toFixed(2));
+
+                // 👉 Enfocar cantidad antes de agregar fila
+                const inputCantidad = fila.find('.cantidad');
+                if (inputCantidad.length) {
+                    inputCantidad.focus().select();
+
+                    inputCantidad.off('keydown.enterFila').on('keydown.enterFila', function (e2) {
+                        if (e2.key === 'Enter') {
+                            e2.preventDefault();
+                            agregarFila();
+
+                            setTimeout(() => {
+                                const nuevaFila = $('#tabla-productos tbody tr').last();
+                                nuevaFila.find('td[data-tipo="no_folio"]').focus();
+                            }, 50);
+                        }
+                    });
+                }
+                return false; // Evitar que autocomplete modifique contenido
+            }
+        });
+        celda.data('autocomplete', true);
+    }
+});
+
+// ➕ NUEVO: Buscar por número de folio al presionar Enter
+$('#tabla-productos').on('keydown', '.busqueda[data-tipo="no_folio"]', function (e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();  // Prevenir salto de línea o submit
+
+        const celda = $(this);
+        const valor = celda.text().trim();
+
+        if (valor === '') return;
+
+        // Evitar múltiples ejecuciones
+        if (celda.data('procesando')) return;
+        celda.data('procesando', true);
+
+        $.ajax({
+            url: '{% url "buscar_producto" %}',
+            data: { q: valor, tipo: 'no_folio' },
+            success: function (data) {
+                if (data.length > 0) {
+                    const producto = data[0];
+                    const fila = celda.closest('tr');
+
+                    fila.find('td[data-tipo="no_folio"]').text(producto.no_folio);
+                    fila.find('td[data-tipo="nombre"]').text(producto.nombre);
+                    fila.find('.precio').text(producto.precio.toFixed(2));
+                    fila.find('.cantidad').val(1).prop('disabled', false).data('precio', producto.precio).data('stock_fisico', producto.stock_fisico);
+                    fila.find('.total').text(producto.precio.toFixed(2));
+
+                    // 👉 Enfocar cantidad antes de agregar fila
+                    const inputCantidad = fila.find('.cantidad');
+                    if (inputCantidad.length) {
+                        inputCantidad.focus().select();
+                        // Evento global: al presionar Enter en cualquier cantidad, agrega una fila si hay una cantidad válida
+                        $(document).on('keydown', '.cantidad', function (e) {
+                            if (e.key === 'Enter') {
+                                const cantidad = parseInt($(this).val()) || 0;
+                                if (cantidad > 0) {
+                                    e.preventDefault();
+                                    agregarFila();
+
+                                    setTimeout(() => {
+                                        $('#tabla-productos tbody tr:last td[contenteditable="true"]').first().focus();
+                                    }, 50);
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    Swal.fire('No encontrado', 'No se encontró ningún producto con ese folio.', 'warning');
+                }
+            },
+            complete: function () {
+                celda.data('procesando', false);
+            }
+        });
+    }
+});
+
+$(document).ready(function () {
+    function actualizarTotales() {
+        let total = 0;
+        $('#tabla-productos .cantidad').each(function () {
+            const cantidad = parseInt($(this).val()) || 0;
+            const precio = parseFloat($(this).data('precio')) || 0;
+            const totalFila = cantidad * precio;
+            $(this).closest('tr').find('.total').text(totalFila.toFixed(2));
+            total += totalFila;
+        });
+        $('#total-general').text(total.toFixed(2));
+    }
+
+    // Llama al inicio para mostrar los totales si ya hay productos
+    actualizarTotales();
+
+    // Evento para recalcular al cambiar cantidad
+    $(document).on('input', '.cantidad', function () {
+        actualizarTotales();
+    });
+
+
+
+        $('#tabla-productos').on('input', '.cantidad', function () {
+            const cantidad = parseInt($(this).val()) || 0;
+            const precio = parseFloat($(this).data('precio')) || 0;
+            const stock_fisico = parseInt($(this).data('stock_fisico')) || 0;
+
+            if (cantidad > stock_fisico) {
+                Swal.fire({
+                    title: "Stock insuficiente",
+                    text: "No hay suficiente stock. Solo hay " + stock_fisico + " unidades disponibles.",
+                    icon: "warning"
+                });
+                $(this).val(stock_fisico);
+                return;
+            }
+
+            const total = cantidad * precio;
+            $(this).closest('tr').find('.total').text(total.toFixed(2));
+        });
+
+        // Eliminar fila con botón
+        $('#tabla-productos').on('click', '.eliminar', function () {
+            $(this).closest('tr').remove();
+        });
+
+        // Cargar una fila al inicio
+        agregarFila();
+
+    let filaSeleccionada = null;
+
+    // Navegación con flechas arriba y abajo
+    $(document).on('keydown', function (e) {
+        // Si un menú de autocomplete está visible, no hacer nada
+        if ($('.ui-autocomplete').is(':visible')) {
+            return;
+        }
+        const filas = $('#tabla-productos tbody tr');
+        if (filas.length === 0) return;
+
+        // Selección de fila con ↑ ↓
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (!filaSeleccionada) {
+                filaSeleccionada = filas.first();
+            } else {
+                filaSeleccionada.removeClass('table-primary');
+                if (e.key === 'ArrowDown' && !filaSeleccionada.is(':last-child')) {
+                    filaSeleccionada = filaSeleccionada.next();
+                } else if (e.key === 'ArrowUp' && !filaSeleccionada.is(':first-child')) {
+                    filaSeleccionada = filaSeleccionada.prev();
+                }
+            }
+            resaltarFila(filaSeleccionada);
+
+            // Enfocar la primera celda editable de la fila
+            filaSeleccionada.find('td[contenteditable="true"]').first().focus();
+        }
+
+        // Eliminar fila con Delete
+        if (e.key === 'Delete' && filaSeleccionada) {
+            e.preventDefault();
+            const esPrimeraFila = filaSeleccionada.is(':first-child');
+
+            if (esPrimeraFila) {
+                filaSeleccionada.find('[contenteditable="true"]').text('');
+                filaSeleccionada.find('.precio, .total').text('');
+                filaSeleccionada.find('.cantidad').val(1).prop('disabled', true).removeData('precio');
+            } else {
+                const siguiente = filaSeleccionada.next().length ? filaSeleccionada.next() : filaSeleccionada.prev();
+                filaSeleccionada.remove();
+                filaSeleccionada = siguiente.length ? siguiente : null;
+            }
+
+            resaltarFila(filaSeleccionada);
+            if (filaSeleccionada) {
+                filaSeleccionada.find('td[contenteditable="true"]').first().focus();
+            }
+            actualizarTotales();
+        }
+    });
+});
+ });
+    $('#tabla-productos').on('keydown', 'td[contenteditable="true"]', function (e) {
+        const td = $(this)[0]; // elemento DOM
+        const tr = $(this).closest('tr');
+        const celdaIndex = $(this).index();
+
+        // Función para obtener posición del cursor dentro del contenteditable
+        function getCaretPosition(editableDiv) {
+            let caretPos = 0, sel, range;
+            if (window.getSelection) {
+                sel = window.getSelection();
+                if (sel.rangeCount) {
+                    range = sel.getRangeAt(0);
+                    const preRange = range.cloneRange();
+                    preRange.selectNodeContents(editableDiv);
+                    preRange.setEnd(range.endContainer, range.endOffset);
+                    caretPos = preRange.toString().length;
+                }
+            }
+            return caretPos;
+        }
+
+        // Función para obtener longitud del texto dentro del contenteditable
+        function getTextLength(editableDiv) {
+            return $(editableDiv).text().length;
+        }
+
+        if (e.key === 'ArrowRight') {
+            const caretPos = getCaretPosition(td);
+            const textLen = getTextLength(td);
+            const inputCantidad = tr.find('.cantidad');
+
+            if (caretPos === textLen) {
+                // Cursor al final, moverse a la siguiente celda
+                e.preventDefault();
+                const target = tr.children().eq(celdaIndex + 1);
+                if (target.length && target.is('[contenteditable="true"]')) {
+                    target.focus();
+                    // Poner cursor al inicio en la nueva celda
+                    placeCaretAtStart(target[0]);
+                }
+            }
+            // else: dejar que la flecha derecha mueva el cursor normalmente
+        } else if (e.key === 'ArrowLeft') {
+            const caretPos = getCaretPosition(td);
+            if (caretPos === 0) {
+                // Cursor al inicio, moverse a la celda anterior
+                e.preventDefault();
+                const target = tr.children().eq(celdaIndex - 1);
+                if (target.length && target.is('[contenteditable="true"]')) {
+                    target.focus();
+                    // Poner cursor al final en la nueva celda
+                    placeCaretAtEnd(target[0]);
+                }
+            }
+            // else: dejar que la flecha izquierda mueva el cursor normalmente
+        }
+    });
+
+    // Funciones para posicionar cursor en contenteditable
+    function placeCaretAtStart(el) {
+        el.focus();
+        if (typeof window.getSelection != "undefined"
+            && typeof document.createRange != "undefined") {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            range.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    }
+
+    function placeCaretAtEnd(el) {
+        el.focus();
+        if (typeof window.getSelection != "undefined"
+            && typeof document.createRange != "undefined") {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    }
+
+
+    // Función para resaltar fila
+    function resaltarFila(fila) {
+        $('#tabla-productos tbody tr').removeClass('table-primary');
+        if (fila) {
+            fila.addClass('table-primary');
+        }
+    }
+</script>
+
+<script>
+    $(document).ready(function () {
+        // Función para recopilar productos de la tabla
+        function obtenerProductos() {
+            const productos = [];
+            $('#tabla-productos tbody tr').each(function () {
+                const fila = $(this);
+                const no_folio = fila.find('td[data-tipo="no_folio"]').text().trim();
+                const nombre = fila.find('td[data-tipo="nombre"]').text().trim();
+                const precio_unitario = parseFloat(fila.find('.precio').text()) || 0;
+                const cantidad = parseInt(fila.find('.cantidad').val()) || 0;
+                const total = parseFloat(fila.find('.total').text()) || 0;
+
+
+                if (no_folio && cantidad > 0) {
+                    productos.push({
+                        no_folio,
+                        nombre,
+                        precio_unitario,  // cambiamos 'precio' por 'precio_unitario'
+                        cantidad,
+                        total
+                    });
+                }
+            });
+            return productos;
+        }
+
+        function registrarVenta() {
+            const productos = obtenerProductos();
+
+            if (productos.length === 0) {
+                Swal.fire({
+                    title: "Ups!",
+                    text: "Agrega al menos un producto con cantidad mayor a 0.",
+                    icon: "error"
+                });
+                return;
+            }
+
+            const tipo_cliente = $('select[name="tipo_cliente"]').val();
+
+            const data = {
+                no_venta: $('input[name="no_venta"]').val(),
+                tipo_cliente: tipo_cliente,
+                vendedor: $('select[name="vendedor"]').val(),
+                productos: JSON.stringify(productos),
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val(),
+                descuento: $('select[name="descuento"]').val(),
+            };
+
+
+            $.ajax({
+                url: '', // misma URL del formulario actual
+                method: 'POST',
+                data: data,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+
+                },
+                success: function (response) {
+                    if (response.success) {
+                        if (response.success) {
+                            Swal.fire({
+                                title: "¡Éxito!",
+                                text: "Venta registrada correctamente con folio: " + data.no_venta,
+                                icon: "success"
+                            }).then(() => {
+                                location.reload();
+                            });
+                        }
+                    } else if (response.error) {
+                        Swal.fire({
+                            title: "Error!",
+                            text: response.error,
+                            icon: "error"
+                        });
+                    }
+                },
+                error: function (xhr, status, error) {
+                    let mensajeError = "Error al registrar la venta.";
+                    try {
+                        const responseJson = JSON.parse(xhr.responseText);
+                        if (responseJson.error) {
+                            mensajeError = responseJson.error;
+                        }
+                    } catch (e) {
+                        mensajeError = error;
+                    }
+
+                    Swal.fire({
+                        title: "Error!",
+                        text: mensajeError,
+                        icon: "error"
+                    });
+                }
+            });
+        }
+        // Evento click en botón Registrar Venta
+        $('form').on('submit', function (e) {
+            e.preventDefault();
+            registrarVenta();
+        });
+
+        // Detectar tecla F10 para registrar venta
+        $(document).on('keydown', function (e) {
+            if (e.key === 'F10') {
+                e.preventDefault();
+                registrarVenta();
+            }
+        });
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tipoCliente = document.getElementById("id_tipo_cliente");
+        const descuentoContainer = document.getElementById("descuento_container");
+
+        tipoCliente.addEventListener("change", function () {
+            if (this.value === "mayorista") {
+                descuentoContainer.classList.remove("d-none");
+            } else {
+                descuentoContainer.classList.add("d-none");
+            }
+        });
+    });
+</script>
+<script>
+$(document).ready(function () {
+
+    // 🔹 1) Detecta cuando seleccionas la opción de descuento
+    $("#descuento").on("change", function () {
+        recalcularPreciosConDescuento();
+    });
+
+    // 🔹 2) Detecta cuando el usuario cambia la cantidad
+    $(document).on("input", ".cantidad", function () {
+        recalcularPreciosConDescuento();
+    });
+
+    // 🔹 Función que recalcula precios por mayoreo o normal
+    function recalcularPreciosConDescuento() {
+        const modo = $("#descuento").val();
+
+        $(".fila-producto").each(function () {
+
+            const fila = $(this);
+            const cantidad = parseInt(fila.find(".cantidad").val()) || 1;
+
+            const precioNormal = parseFloat(fila.attr("data-precio")) || 0;
+            const precioMayoreo = parseFloat(fila.attr("data-precio-mayoreo")) || 0;
+
+            let precioUnitario = precioNormal;
+
+            // 🔥 APLICAR MAYOREO SOLO SI
+            // - El usuario seleccionó "mayoreo"
+            // - La cantidad es >= 6
+            if (modo === "mayoreo" && cantidad >= 6) {
+                precioUnitario = precioMayoreo;
+            }
+
+            // Actualiza precio en la tabla
+            fila.find(".precio").text(precioUnitario.toFixed(2));
+
+            // Recalcula subtotal
+            fila.find(".total").text((precioUnitario * cantidad).toFixed(2));
+        });
+
+        actualizarTotalGeneral();
+    }
+
+    // 🔹 Suma todos los totales de la tabla
+    function actualizarTotalGeneral() {
+        let total = 0;
+
+        $(".fila-producto").each(function () {
+            const subtotal = parseFloat($(this).find(".total").text()) || 0;
+            total += subtotal;
+        });
+
+        // Cambia este ID si tu template usa otro
+        $("#total_general").text(total.toFixed(2));
+    }
+
+});
+</script>
+
+<script>
+    // 🔥 APLICAR PRECIO DE MAYOREO AUTOMÁTICO AL CAMBIAR CANTIDAD
+$('#tabla-productos').on('input', '.cantidad', function () {
+    const input = $(this);
+    const fila = input.closest('tr');
+
+    const cantidad = parseInt(input.val()) || 1;
+    const precioNormal = parseFloat(fila.find('.precio').text()) || 0;
+
+    // --- DEFINIR PRECIO DE MAYOREO ---
+    let precioMayoreo = precioNormal * 0.85; // 15% menos (puedes cambiarlo)
+
+    // Si usas precio_mayoreo desde la BD, pásalo así:
+    // let precioMayoreo = parseFloat(fila.data('precio-mayoreo')) || precioNormal;
+
+    let precioFinal = precioNormal;
+
+    // Si cantidad >= 6, aplicar mayoreo
+    if (cantidad >= 6) {
+        precioFinal = precioMayoreo;
+    }
+
+    // ACTUALIZAR PRECIO MOSTRADO
+    fila.find('.precio').text(precioFinal.toFixed(2));
+
+    // ACTUALIZAR TOTAL
+    let total = precioFinal * cantidad;
+    fila.find('.total').text(total.toFixed(2));
+});
+
+</script>
+
+
+
+
+
+{% endblock %}

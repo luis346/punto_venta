@@ -1,0 +1,73 @@
+{% extends 'core/base.html' %}
+{% block content %}
+
+<form method="POST" class="row g-3">
+    {% csrf_token %}
+    <h2 class="text-center mb-4" style="font-family: 'Poppins', sans-serif; color: #333;">AGREGAR VENDEDOR</h2>
+    <div class="col-md-3">
+        <label for="{{ form_vendedores.nombre.id_for_label }}" class="form-label">Nombre</label>
+        {{ form_vendedores.nombre }}
+    </div>
+    <div class="col-md-3">
+        <label for="{{ form_vendedores.direccion.id_for_label }}" class="form-label">Direccion</label>
+        {{ form_vendedores.direccion }}
+    </div>
+
+    <div class="col-3">
+        <label for="{{ form_vendedores.telefono.id_for_label }}" class="form-label">Telefono</label>
+        {{ form_vendedores.telefono }}
+    </div>
+
+    <div class="mt-4">
+        <button class="btn btn-primary" type="submit">Guardar vendedor</button>
+    </div>
+
+</form>
+
+<hr class="my-4">
+
+<h3 class="mb-3" style="font-family: 'Poppins', sans-serif; color: #555;">Lista de Vendedores</h3>
+
+<table class="table table-bordered table-hover">
+    <thead class="table-light">
+        <tr>
+            <th>Nombre</th>
+            <th>Dirección</th>
+            <th>Teléfono</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for vendedor in vendedores %}
+        <tr>
+            <td>{{ vendedor.nombre }}</td>
+            <td>{{ vendedor.direccion }}</td>
+            <td>{{ vendedor.telefono }}</td>
+            <td>
+                <!-- Puedes hacer que esto abra un modal o te lleve a otra vista -->
+                <a href="{% url 'editar_vendedor' vendedor.id %}" class="btn btn-sm btn-warning">Editar</a>
+                <form method="POST" action="{% url 'eliminar_vendedor' vendedor.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-danger"
+                        onclick="return confirm('¿Estás seguro que deseas eliminar este vendedor?');">Eliminar</button>
+                </form>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="4" class="text-center">No hay vendedores registrados.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if editando %}
+<div class="alert alert-info">
+    Editando vendedor: <strong>{{ vendedor_editando.nombre }}</strong>
+</div>
+{% endif %}
+
+
+
+
+{% endblock %}

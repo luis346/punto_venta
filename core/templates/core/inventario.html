@@ -1,0 +1,352 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block content %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
+
+<h2 class="text-center mb-4 fw-bold">📦 Inventario</h2>
+
+<!-- =======================
+ ACCIONES SUPERIORES
+======================== -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <!-- BOTONES IZQUIERDA -->
+    <div class="d-flex gap-2">
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCategoria">
+            ➕ Categoría
+        </button>
+
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalProducto">
+            ➕ Producto
+        </button>
+    </div>
+
+    <!-- BOTONES DERECHA -->
+    <div class="d-flex gap-2 align-items-center">
+
+        <a href="{% url 'exportar_excel' %}" class="btn btn-outline-info">
+            📤 Excel
+        </a>
+
+        <a href="{% url 'exportar_excel_bajo' %}" class="btn btn-outline-warning">
+            ⚠ Stock bajo
+        </a>
+
+        <!-- FORM SUBIR EXCEL -->
+        <form method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
+            {% csrf_token %}
+            
+            <input type="file" name="archivo_excel" class="form-control form-control-sm" required>
+
+            <button type="submit" name="subir_excel" class="btn btn-success btn-sm">
+                📥 Subir
+            </button>
+        </form>
+
+    </div>
+</div>
+
+
+<!-- =======================
+ FILTROS
+======================== -->
+<form method="GET" class="row g-2 mb-3">
+    <div class="col-md-3">
+        <input type="text" id="buscar" placeholder="Buscar producto..." class="form-control">
+    </div>
+
+    <div class="col-md-3">
+        <select name="categoria" class="form-select">
+            <option value="">Todas las categorías</option>
+            {% for cat in categorias %}
+            <option value="{{ cat.id }}" {% if request.GET.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
+                {{ cat.nombre }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-primary w-100">Filtrar</button>
+        <a href="{% url 'inventario' %}" class="btn btn-secondary w-100">Limpiar</a>
+    </div>
+</form>
+
+<!-- =======================
+ TABLA INVENTARIO
+======================== -->
+<form method="POST" action="{% url 'imprimir_etiquetas_masivo' %}" id="form-imprimir">
+    {% csrf_token %}
+</form>
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0" id="tabla-inventario">
+            <thead class="table-dark">
+                <tr>
+                    <th><input type="checkbox" id="check-all"></th>
+                    <th>Folio</th>
+                    <th>Referencia</th>
+                    <th>Producto</th>
+                    <th>Categoría</th>
+                    <th>Precio</th>
+                    <th>Mayoreo</th>
+                    <th>Unidad</th>
+                    <th>Stock Virtual</th>
+                    <th>Stock Físico</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+
+            <tbody>
+            {% for stock in stocks %}
+            <tr
+                {% if stock.stock_fisico == 0 %}
+                    class="table-danger"
+                {% elif stock.stock_fisico <= 3 %}
+                    class="table-warning"
+                {% endif %}
+            >
+                <td>
+                   <input type="checkbox" name="productos" value="{{ stock.producto.id }}" form="form-imprimir">
+                </td>
+                <td>{{ stock.producto.no_folio }}</td>
+                <td>{{ stock.producto.referencia }}</td>
+                <td>{{ stock.producto.nombre }}</td>
+                <td>{{ stock.producto.categoria }}</td>
+                <td>${{ stock.producto.precio }}</td>
+                <td>${{ stock.producto.precio_mayoreo }}</td>
+                <td>{{ stock.producto.unidad_medida }}</td>
+                <td>{{ stock.stock_virtual }}</td>
+                <td>{{ stock.stock_fisico }}</td>
+
+                <td>
+                    {% if stock.stock_fisico == 0 %}
+                        <span class="badge bg-danger">Agotado</span>
+                    {% elif stock.stock_fisico <= 3 %}
+                        <span class="badge bg-warning text-dark">Bajo</span>
+                    {% else %}
+                        <span class="badge bg-success">OK</span>
+                    {% endif %}
+                </td>
+
+                <td>
+                {% if request.user.rol == 'ADMIN' %}
+                    <form method="POST" class="d-flex gap-1 mb-1 auto-save">
+                        {% csrf_token %}
+                        <input type="hidden" name="stock_id" value="{{ stock.id }}">
+                        <input type="hidden" name="producto_id" value="{{ stock.producto.id }}">
+
+                        <input type="number" name="stock_virtual" value="{{ stock.stock_virtual }}"
+                            class="form-control form-control-sm stock-input" min="0">
+
+                        <input type="number" name="stock_fisico" value="{{ stock.stock_fisico }}"
+                            class="form-control form-control-sm stock-input" min="0">
+                    </form>
+
+                    <a href="{% url 'inventario' %}?editar={{ stock.producto.id }}"
+                        class="btn btn-sm btn-outline-warning">
+                        ✏ Editar
+                    </a>
+                {% endif %}
+
+                {% if request.user.rol == 'USUARIO' and stock.stock_virtual > 0 %}
+                    <form method="POST" action="{% url 'transferir_stock' stock.id %}">
+                        {% csrf_token %}
+                        <button class="btn btn-sm btn-primary">Transferir</button>
+                    </form>
+                {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+    <button type="submit" form="form-imprimir" class="btn btn-primary">
+    🏷 Imprimir etiquetas seleccionadas
+</button>
+
+<!-- =======================
+ MODAL CATEGORIA (MEJORADO)
+======================== -->
+<div class="modal fade" id="modalCategoria">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <form method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">📂 Categorías</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3">
+
+                        <!-- FORM -->
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Nombre de la categoría</label>
+                            {{ form_categoria.nombre }}
+                        </div>
+
+                        <!-- LISTADO -->
+                        <div class="col-md-8">
+                            <h6 class="fw-semibold mb-2">Categorías registradas</h6>
+
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th style="width:90px">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for categoria in categorias %}
+                                    <tr>
+                                        <td>{{ categoria.nombre }}</td>
+                                        <td>
+                                            <form method="POST"
+                                                  action="{% url 'eliminar_categoria' categoria.id %}">
+                                                {% csrf_token %}
+                                                <button class="btn btn-sm btn-outline-danger">
+                                                    🗑
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="2" class="text-muted text-center">
+                                            Sin categorías
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button class="btn btn-success" name="guardar_categoria">
+                        Guardar
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- =======================
+ MODAL PRODUCTO (LABELS)
+======================== -->
+<div class="modal fade" id="modalProducto" 
+     data-bs-backdrop="static" 
+     data-bs-keyboard="false"
+     tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="POST" class="modal-content">
+            {% csrf_token %}
+
+            <div class="modal-header">
+                <h5 class="modal-title">📦 Producto</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body row g-3">
+
+                <div class="col-md-4">
+                    <label class="form-label">No. Folio</label>
+                    {{ form_producto.no_folio }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Nombre</label>
+                    {{ form_producto.nombre }}
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Categoría</label>
+                    {{ form_producto.categoria }}
+                </div>
+
+                <div class="col-md-12">
+                    <label class="form-label">Descripción</label>
+                    {{ form_producto.descripcion }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Precio</label>
+                    {{ form_producto.precio }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Precio Mayoreo</label>
+                    {{ form_producto.precio_mayoreo }}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Unidad de medida</label>
+                    {{ form_producto.unidad_medida }}
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary" name="guardar_producto">
+                    Guardar producto
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<!-- =======================
+ JS PRO
+======================== -->
+{% if request.GET.editar %}
+<script>
+    var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
+    modal.show();
+</script>
+{% endif %}
+<script>
+document.getElementById('check-all').addEventListener('change', function () {
+    document.querySelectorAll('input[name="productos"]').forEach(cb => {
+        cb.checked = this.checked;
+    });
+});
+
+/* BUSQUEDA EN VIVO */
+document.getElementById('buscar').addEventListener('keyup', function () {
+    const value = this.value.toLowerCase();
+    document.querySelectorAll('#tabla-inventario tbody tr').forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(value) ? '' : 'none';
+    });
+});
+
+/* AUTO GUARDADO STOCK */
+document.querySelectorAll('.stock-input').forEach(input => {
+    input.addEventListener('change', function () {
+        this.closest('form').submit();
+    });
+});
+
+document.querySelector('#modalProducto form').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+    }
+});
+
+</script>
+
+
+{% endblock %}

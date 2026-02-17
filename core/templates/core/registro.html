@@ -1,0 +1,135 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+    <form class="row g-3 p-4" method="POST" style="background-color: #f8f9fa; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); max-width: 450px; margin: auto;">
+        <h2 class="text-center mb-4" style="font-family: 'Poppins', sans-serif; color: #333;">Registro</h2>
+        {% csrf_token %}
+        
+        <!-- Campo para el nombre de usuario -->
+        <div class="form-group">
+            <label for="{{ form.username.id_for_label }}" style="font-weight: 600;">Usuario</label>
+            {{ form.username }}
+            {% if form.username.errors %}
+                <div class="text-danger">
+                    {% for error in form.username.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Campo para el email -->
+        <div class="form-group">
+            <label for="{{ form.email.id_for_label }}" style="font-weight: 600;">Email</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+                <div class="text-danger">
+                    {% for error in form.email.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Campo para la contraseña -->
+        <div class="form-group">
+            <label for="{{ form.password1.id_for_label }}" style="font-weight: 600;">Contraseña</label>
+            {{ form.password1 }}
+            {% if form.password1.errors %}
+                <div class="text-danger">
+                    {% for error in form.password1.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Campo para confirmar la contraseña -->
+        <div class="form-group">
+            <label for="{{ form.password2.id_for_label }}" style="font-weight: 600;">Confirmar contraseña</label>
+            {{ form.password2 }}
+            {% if form.password2.errors %}
+                <div class="text-danger">
+                    {% for error in form.password2.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Campo para seleccionar el rol -->
+        <div class="form-group">
+            <label for="{{ form.rol.id_for_label }}" style="font-weight: 600;">Rol</label>
+            {{ form.rol }}
+            {% if form.rol.errors %}
+                <div class="text-danger">
+                    {% for error in form.rol.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 py-2" style="font-weight: 600;">Registrarse</button>
+    </form>
+</div>
+
+<style>
+    body {
+        background-color: #f0f2f5;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .container {
+        margin-top: 50px;
+    }
+
+    .form-group label {
+        font-size: 16px;
+        color: #495057;
+    }
+
+    input {
+        font-size: 14px;
+        border-radius: 5px;
+        padding: 10px;
+        background-color: #e9ecef;
+        border: 1px solid #ced4da;
+        width: 100%;
+    }
+
+    input:focus {
+        border-color: #80bdff;
+        background-color: #fff;
+        outline: none;
+    }
+
+    .btn {
+        background-color: #007bff;
+        color: white;
+        border-radius: 5px;
+        font-size: 16px;
+    }
+
+    .btn:hover {
+        background-color: #0056b3;
+        border-color: #0056b3;
+    }
+
+    .text-danger p {
+        margin-bottom: 0;
+        font-size: 12px;
+    }
+
+    .text-center {
+        color: #007bff;
+    }
+</style>
+
+{% endblock %}
