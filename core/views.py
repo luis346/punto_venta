@@ -548,60 +548,109 @@ def inventario_view(request):
                         'NFKD', t
                     ).encode('ASCII', 'ignore').decode('utf-8')
 
+                # ===== CONTADORES =====
+                creados = 0
+                actualizados = 0
+                categorias_creadas = 0
+                filas_ignoradas = 0
+                errores = []
+
                 with transaction.atomic():
 
-                    for fila in hoja.iter_rows(min_row=2, values_only=True):
-                        datos = list(fila) + [None] * 9
-                        no_folio, nombre, descripcion, categoria_nombre, precio, precio_mayoreo, unidad_medida, stock_fisico, stock_virtual = datos[:9]
-
-                        if not no_folio or not nombre or not categoria_nombre:
-                            continue
-
-                        no_folio = norm(no_folio)
-                        nombre = norm(nombre)
-                        descripcion = norm(descripcion)
-                        categoria_nombre = norm(categoria_nombre)
+                    for numero_fila, fila in enumerate(
+                        hoja.iter_rows(min_row=2, values_only=True),
+                        start=2
+                    ):
 
                         try:
-                            precio = float(precio)
-                            if precio < 0:
+                            datos = list(fila) + [None] * 9
+                            no_folio, nombre, descripcion, categoria_nombre, precio, precio_mayoreo, unidad_medida, stock_fisico, stock_virtual = datos[:9]
+
+                            if not no_folio or not nombre or not categoria_nombre:
+                                filas_ignoradas += 1
+                                continue
+
+                            no_folio = norm(no_folio)
+                            nombre = norm(nombre)
+                            descripcion = norm(descripcion)
+                            categoria_nombre = norm(categoria_nombre)
+
+                            try:
+                                precio = float(precio)
+                                if precio < 0:
+                                    precio = 0
+                            except:
                                 precio = 0
-                        except:
-                            precio = 0
 
-                        stock_fisico = int(stock_fisico) if stock_fisico and stock_fisico >= 0 else 0
-                        stock_virtual = int(stock_virtual) if stock_virtual and stock_virtual >= 0 else 0
+                            stock_fisico = int(stock_fisico) if stock_fisico and stock_fisico >= 0 else 0
+                            stock_virtual = int(stock_virtual) if stock_virtual and stock_virtual >= 0 else 0
 
-                        categoria, _ = Categoria.objects.get_or_create(
-                            nombre=categoria_nombre
-                        )
+                            categoria, cat_creada = Categoria.objects.get_or_create(
+                                nombre=categoria_nombre
+                            )
 
-                        producto, _ = Producto.objects.update_or_create(
-                            no_folio=no_folio,
-                            defaults={
-                                'nombre': nombre,
-                                'descripcion': descripcion,
-                                'categoria': categoria,
-                                'precio': precio,
-                                'precio_mayoreo': precio_mayoreo,
-                                'unidad_medida': unidad_medida,
-                            }
-                        )
+                            if cat_creada:
+                                categorias_creadas += 1
 
-                        stock, _ = Stock.objects.get_or_create(
-                            producto=producto,
-                            sucursal=sucursal,
-                            defaults={'stock_fisico': 0, 'stock_virtual': 0}
-                        )
+                            producto, creado = Producto.objects.update_or_create(
+                                no_folio=no_folio,
+                                defaults={
+                                    'nombre': nombre,
+                                    'descripcion': descripcion,
+                                    'categoria': categoria,
+                                    'precio': precio,
+                                    'precio_mayoreo': precio_mayoreo,
+                                    'unidad_medida': unidad_medida,
+                                }
+                            )
 
-                        stock.stock_fisico = stock_fisico
-                        stock.stock_virtual = stock_virtual
-                        stock.save()
+                            if creado:
+                                creados += 1
+                            else:
+                                actualizados += 1
 
-                messages.success(request, "📥 Importación completada correctamente.")
+                            stock, _ = Stock.objects.get_or_create(
+                                producto=producto,
+                                sucursal=sucursal,
+                                defaults={'stock_fisico': 0, 'stock_virtual': 0}
+                            )
+
+                            stock.stock_fisico = stock_fisico
+                            stock.stock_virtual = stock_virtual
+                            stock.save()
+
+                        except Exception as fila_error:
+                            errores.append(f"Fila {numero_fila}: {str(fila_error)}")
+
+                # ===== LOGS EN PRODUCCIÓN =====
+                print("===== RESULTADO IMPORTACIÓN =====")
+                print("Productos creados:", creados)
+                print("Productos actualizados:", actualizados)
+                print("Categorías nuevas:", categorias_creadas)
+                print("Filas ignoradas:", filas_ignoradas)
+                print("Errores:", errores)
+                print("Total productos en DB:", Producto.objects.count())
+                print("=================================")
+
+                messages.success(
+                    request,
+                    f"Importación completada. "
+                    f"Creados: {creados}, "
+                    f"Actualizados: {actualizados}, "
+                    f"Categorías nuevas: {categorias_creadas}, "
+                    f"Ignorados: {filas_ignoradas}"
+                )
+
+                if errores:
+                    messages.warning(
+                        request,
+                        "Algunas filas tuvieron errores. Revisa logs en Render."
+                    )
+
                 return redirect('inventario')
 
             except Exception as e:
+                print("ERROR GENERAL IMPORTACIÓN:", str(e))
                 messages.error(request, f"Error al procesar el archivo: {str(e)}")
                 return redirect('inventario')
 
