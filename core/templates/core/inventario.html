@@ -191,14 +191,20 @@
                             {{ form_categoria.nombre }}
                         </div>
 
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Prefijo (opcional)</label>
+                            {{ form_categoria.prefijo }}
+                        </div>
+
                         <!-- LISTADO -->
-                        <div class="col-md-8">
+                        <div class="col-md-8 mt-3">
                             <h6 class="fw-semibold mb-2">Categorías registradas</h6>
 
                             <table class="table table-sm table-hover">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Nombre</th>
+                                        <th>Prefijo</th>
                                         <th style="width:90px">Acción</th>
                                     </tr>
                                 </thead>
@@ -206,6 +212,7 @@
                                 {% for categoria in categorias %}
                                     <tr>
                                         <td>{{ categoria.nombre }}</td>
+                                        <td>{{ categoria.prefijo }}</td>
                                         <td>
                                             <form method="POST"
                                                   action="{% url 'eliminar_categoria' categoria.id %}">
@@ -218,7 +225,7 @@
                                     </tr>
                                 {% empty %}
                                     <tr>
-                                        <td colspan="2" class="text-muted text-center">
+                                        <td colspan="3" class="text-muted text-center">
                                             Sin categorías
                                         </td>
                                     </tr>

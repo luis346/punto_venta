@@ -514,17 +514,27 @@ def inventario_view(request):
         # GUARDAR CATEGORÍA
         # ----------------------------------
         elif 'guardar_categoria' in request.POST:
-
             form_categoria = CategoriaForm(request.POST)
-
             if form_categoria.is_valid():
                 categoria = form_categoria.save(commit=False)
+                # Normalizar nombre
                 categoria.nombre = categoria.nombre.strip().upper()
+                # Generar prefijo automático si no se proporcionó
+                if not categoria.prefijo:
+                    # Tomamos las primeras 3 letras del nombre como prefijo
+                    categoria.prefijo = categoria.nombre[:3].upper()
+                    # Aseguramos que sea único agregando un número si es necesario
+                    contador = 1
+                    prefijo_original = categoria.prefijo
+                    while Categoria.objects.filter(prefijo=categoria.prefijo).exists():
+                        categoria.prefijo = f"{prefijo_original}{contador}"
+                        contador += 1
                 categoria.save()
                 messages.success(request, "Categoría guardada correctamente.")
                 return redirect('inventario')
+            else:
+                messages.error(request, "Error en el formulario de categoría. Revisa los campos.")
 
-            messages.error(request, "Error en el formulario de categoría.")
 
         # ----------------------------------
         # IMPORTAR EXCEL

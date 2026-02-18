@@ -110,10 +110,22 @@ class StockForm(forms.ModelForm):
 class CategoriaForm(forms.ModelForm):
     class Meta:
         model = Categoria
-        fields = ['nombre']
+        fields = ['nombre', 'prefijo']
         widgets = {
-            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'nombre': forms.TextInput(attrs={'placeholder': 'Nombre de la categoría'}),
+            'prefijo': forms.TextInput(attrs={'placeholder': 'Prefijo (opcional)'}),
         }
+
+    def clean_nombre(self):
+        nombre = self.cleaned_data['nombre'].strip().upper()
+        return nombre
+
+    def clean_prefijo(self):
+        prefijo = self.cleaned_data.get('prefijo')
+        if prefijo:
+            prefijo = prefijo.strip().upper()
+        return prefijo
+
 
 class RegistroVentasForm(forms.ModelForm):
     class Meta:
