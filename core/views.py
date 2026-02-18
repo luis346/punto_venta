@@ -648,6 +648,7 @@ def exportar_productos_excel(request):
     for stock in stocks:
         data.append({
             'No. Folio': stock.producto.no_folio,
+            'Referencia': stock.producto.referencia,
             'Nombre': stock.producto.nombre,
             'Descripción': stock.producto.descripcion,
             'Categoría': stock.producto.categoria.nombre if stock.producto.categoria else '',
