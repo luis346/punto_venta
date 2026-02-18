@@ -510,160 +510,170 @@ def inventario_view(request):
             else:
                 messages.error(request, "Hay errores en el formulario.")
 
-        # ----------------------------------
-        # GUARDAR CATEGORÍA
-        # ----------------------------------
-        elif 'guardar_categoria' in request.POST:
-            form_categoria = CategoriaForm(request.POST)
-            if form_categoria.is_valid():
-                categoria = form_categoria.save(commit=False)
-                # Normalizar nombre
-                categoria.nombre = categoria.nombre.strip().upper()
-                # Generar prefijo automático si no se proporcionó
-                if not categoria.prefijo:
-                    # Tomamos las primeras 3 letras del nombre como prefijo
-                    categoria.prefijo = categoria.nombre[:3].upper()
-                    # Aseguramos que sea único agregando un número si es necesario
-                    contador = 1
-                    prefijo_original = categoria.prefijo
-                    while Categoria.objects.filter(prefijo=categoria.prefijo).exists():
-                        categoria.prefijo = f"{prefijo_original}{contador}"
-                        contador += 1
-                categoria.save()
-                messages.success(request, "Categoría guardada correctamente.")
-                return redirect('inventario')
-            else:
-                messages.error(request, "Error en el formulario de categoría. Revisa los campos.")
+    # ----------------------------------
+    # GUARDAR CATEGORÍA
+    # ----------------------------------
+    elif 'guardar_categoria' in request.POST:
+        form_categoria = CategoriaForm(request.POST)
+        if form_categoria.is_valid():
+            categoria = form_categoria.save(commit=False)
+            categoria.nombre = categoria.nombre.strip().upper()
+
+            # Generar prefijo automático si no se proporcionó
+            if not categoria.prefijo:
+                categoria.prefijo = categoria.nombre[:3].upper()
+                contador = 1
+                prefijo_original = categoria.prefijo
+                # Asegurar que sea único
+                while Categoria.objects.filter(prefijo=categoria.prefijo).exclude(id=categoria.id).exists():
+                    categoria.prefijo = f"{prefijo_original}{contador}"
+                    contador += 1
+
+            categoria.save()
+            messages.success(request, "Categoría guardada correctamente.")
+            return redirect('inventario')
+        else:
+            messages.error(request, "Error en el formulario de categoría. Revisa los campos.")
 
 
-        # ----------------------------------
-        # IMPORTAR EXCEL
-        # ----------------------------------
-        elif 'subir_excel' in request.POST and request.FILES.get('archivo_excel'):
+    # ----------------------------------
+    # IMPORTAR EXCEL
+    # ----------------------------------
+    elif 'subir_excel' in request.POST and request.FILES.get('archivo_excel'):
 
-            archivo_excel = request.FILES['archivo_excel']
-            fs = FileSystemStorage()
-            filename = fs.save(archivo_excel.name, archivo_excel)
-            ruta = fs.path(filename)
+        archivo_excel = request.FILES['archivo_excel']
+        fs = FileSystemStorage()
+        filename = fs.save(archivo_excel.name, archivo_excel)
+        ruta = fs.path(filename)
 
-            try:
-                wb = openpyxl.load_workbook(ruta)
-                hoja = wb.active
+        try:
+            wb = openpyxl.load_workbook(ruta)
+            hoja = wb.active
 
-                def norm(t):
-                    if not t:
-                        return ''
-                    t = str(t).strip().upper()
-                    return unicodedata.normalize(
-                        'NFKD', t
-                    ).encode('ASCII', 'ignore').decode('utf-8')
+            def norm(t):
+                if not t:
+                    return ''
+                t = str(t).strip().upper()
+                return unicodedata.normalize('NFKD', t).encode('ASCII', 'ignore').decode('utf-8')
 
-                # ===== CONTADORES =====
-                creados = 0
-                actualizados = 0
-                categorias_creadas = 0
-                filas_ignoradas = 0
-                errores = []
+            creados = 0
+            actualizados = 0
+            categorias_creadas = 0
+            filas_ignoradas = 0
+            errores = []
 
-                with transaction.atomic():
+            with transaction.atomic():
 
-                    for numero_fila, fila in enumerate(
-                        hoja.iter_rows(min_row=2, values_only=True),
-                        start=2
-                    ):
+                for numero_fila, fila in enumerate(
+                    hoja.iter_rows(min_row=2, values_only=True),
+                    start=2
+                ):
+
+                    try:
+                        datos = list(fila) + [None] * 9
+                        no_folio, referencia, nombre, descripcion, categoria_nombre, precio, precio_mayoreo, unidad_medida, stock_fisico, stock_virtual = datos[:10]
+
+                        if not no_folio or not nombre or not categoria_nombre:
+                            filas_ignoradas += 1
+                            continue
+
+                        no_folio = norm(no_folio)
+                        nombre = norm(nombre)
+                        descripcion = norm(descripcion)
+                        categoria_nombre = norm(categoria_nombre)
 
                         try:
-                            datos = list(fila) + [None] * 9
-                            no_folio, referencia, nombre, descripcion, categoria_nombre, precio, precio_mayoreo, unidad_medida, stock_fisico, stock_virtual = datos[:10]
-
-                            if not no_folio or not nombre or not categoria_nombre:
-                                filas_ignoradas += 1
-                                continue
-
-                            no_folio = norm(no_folio)
-                            nombre = norm(nombre)
-                            descripcion = norm(descripcion)
-                            categoria_nombre = norm(categoria_nombre)
-
-                            try:
-                                precio = float(precio)
-                                if precio < 0:
-                                    precio = 0
-                            except:
+                            precio = float(precio)
+                            if precio < 0:
                                 precio = 0
+                        except:
+                            precio = 0
 
-                            stock_fisico = int(stock_fisico) if stock_fisico and stock_fisico >= 0 else 0
-                            stock_virtual = int(stock_virtual) if stock_virtual and stock_virtual >= 0 else 0
+                        stock_fisico = int(stock_fisico) if stock_fisico and stock_fisico >= 0 else 0
+                        stock_virtual = int(stock_virtual) if stock_virtual and stock_virtual >= 0 else 0
 
-                            categoria, cat_creada = Categoria.objects.get_or_create(
-                                nombre=categoria_nombre
-                            )
+                        # ===== CATEGORÍA =====
+                        categoria, cat_creada = Categoria.objects.get_or_create(
+                            nombre=categoria_nombre,
+                            defaults={'prefijo': categoria_nombre[:3].upper()}
+                        )
 
-                            if cat_creada:
-                                categorias_creadas += 1
+                        # Si existe pero no tiene prefijo, asignarlo
+                        if not categoria.prefijo:
+                            categoria.prefijo = categoria_nombre[:3].upper()
+                            contador = 1
+                            prefijo_original = categoria.prefijo
+                            while Categoria.objects.filter(prefijo=categoria.prefijo).exclude(id=categoria.id).exists():
+                                categoria.prefijo = f"{prefijo_original}{contador}"
+                                contador += 1
+                            categoria.save()
 
-                            producto, creado = Producto.objects.update_or_create(
-                                no_folio=no_folio,
-                                defaults={
-                                    'referencia':referencia,
-                                    'nombre': nombre,
-                                    'descripcion': descripcion,
-                                    'categoria': categoria,
-                                    'precio': precio,
-                                    'precio_mayoreo': precio_mayoreo,
-                                    'unidad_medida': unidad_medida,
-                                }
-                            )
+                        if cat_creada:
+                            categorias_creadas += 1
 
-                            if creado:
-                                creados += 1
-                            else:
-                                actualizados += 1
+                        # ===== PRODUCTO =====
+                        producto, creado = Producto.objects.update_or_create(
+                            no_folio=no_folio,
+                            defaults={
+                                'referencia': referencia,
+                                'nombre': nombre,
+                                'descripcion': descripcion,
+                                'categoria': categoria,
+                                'precio': precio,
+                                'precio_mayoreo': precio_mayoreo,
+                                'unidad_medida': unidad_medida,
+                            }
+                        )
 
-                            stock, _ = Stock.objects.get_or_create(
-                                producto=producto,
-                                sucursal=sucursal,
-                                defaults={'stock_fisico': 0, 'stock_virtual': 0}
-                            )
+                        if creado:
+                            creados += 1
+                        else:
+                            actualizados += 1
 
-                            stock.stock_fisico = stock_fisico
-                            stock.stock_virtual = stock_virtual
-                            stock.save()
+                        stock, _ = Stock.objects.get_or_create(
+                            producto=producto,
+                            sucursal=sucursal,
+                            defaults={'stock_fisico': 0, 'stock_virtual': 0}
+                        )
 
-                        except Exception as fila_error:
-                            errores.append(f"Fila {numero_fila}: {str(fila_error)}")
+                        stock.stock_fisico = stock_fisico
+                        stock.stock_virtual = stock_virtual
+                        stock.save()
 
-                # ===== LOGS EN PRODUCCIÓN =====
-                print("===== RESULTADO IMPORTACIÓN =====")
-                print("Productos creados:", creados)
-                print("Productos actualizados:", actualizados)
-                print("Categorías nuevas:", categorias_creadas)
-                print("Filas ignoradas:", filas_ignoradas)
-                print("Errores:", errores)
-                print("Total productos en DB:", Producto.objects.count())
-                print("=================================")
+                    except Exception as fila_error:
+                        errores.append(f"Fila {numero_fila}: {str(fila_error)}")
 
-                messages.success(
+            # ===== LOGS =====
+            print("===== RESULTADO IMPORTACIÓN =====")
+            print("Productos creados:", creados)
+            print("Productos actualizados:", actualizados)
+            print("Categorías nuevas:", categorias_creadas)
+            print("Filas ignoradas:", filas_ignoradas)
+            print("Errores:", errores)
+            print("Total productos en DB:", Producto.objects.count())
+            print("=================================")
+
+            messages.success(
+                request,
+                f"Importación completada. "
+                f"Creados: {creados}, "
+                f"Actualizados: {actualizados}, "
+                f"Categorías nuevas: {categorias_creadas}, "
+                f"Ignorados: {filas_ignoradas}"
+            )
+
+            if errores:
+                messages.warning(
                     request,
-                    f"Importación completada. "
-                    f"Creados: {creados}, "
-                    f"Actualizados: {actualizados}, "
-                    f"Categorías nuevas: {categorias_creadas}, "
-                    f"Ignorados: {filas_ignoradas}"
+                    "Algunas filas tuvieron errores. Revisa logs en Render."
                 )
 
-                if errores:
-                    messages.warning(
-                        request,
-                        "Algunas filas tuvieron errores. Revisa logs en Render."
-                    )
+            return redirect('inventario')
 
-                return redirect('inventario')
-
-            except Exception as e:
-                print("ERROR GENERAL IMPORTACIÓN:", str(e))
-                messages.error(request, f"Error al procesar el archivo: {str(e)}")
-                return redirect('inventario')
+        except Exception as e:
+            print("ERROR GENERAL IMPORTACIÓN:", str(e))
+            messages.error(request, f"Error al procesar el archivo: {str(e)}")
+            return redirect('inventario')
 
     # ==========================
     # CONTEXTO
