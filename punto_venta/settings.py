@@ -13,16 +13,12 @@ SECRET_KEY = os.environ.get(
     "clave-insegura-solo-para-desarrollo"
 )
 
-DEBUG = True
-ALLOWED_HOSTS = []
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-
-#DEBUG = os.environ.get("DEBUG", "False") == "False"
-
-#ALLOWED_HOSTS = os.environ.get(
-    #"ALLOWED_HOSTS",
-    #"127.0.0.1,localhost"
-#).split(",")
+ALLOWED_HOSTS = os.environ.get(
+    "ALLOWED_HOSTS",
+    "127.0.0.1,localhost"
+).split(",")
 
 LOGIN_URL = '/login/'
 
@@ -126,9 +122,9 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # 🔒 SEGURIDAD EN PRODUCCIÓN
 # ======================================================
 
-#if not DEBUG:
-    #CSRF_COOKIE_SECURE = True
-    #SESSION_COOKIE_SECURE = True
-    #SECURE_SSL_REDIRECT = True
-    #SECURE_BROWSER_XSS_FILTER = True
-    #SECURE_CONTENT_TYPE_NOSNIFF = True
+if not DEBUG:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
