@@ -554,73 +554,79 @@ def inventario_view(request):
                 categorias_creadas = 0
                 filas_ignoradas = 0
                 errores = []
+                # Leer encabezados reales del Excel
+                headers = [cell.value for cell in hoja[1]]
+                headers = [str(h).strip().lower() if h else '' for h in headers]
 
-                with transaction.atomic():
+                print("ENCABEZADOS DETECTADOS:", headers)
 
-                    for numero_fila, fila in enumerate(
-                        hoja.iter_rows(min_row=2, values_only=True),
-                        start=2
-                    ):
+                for numero_fila, fila in enumerate(
+                    hoja.iter_rows(min_row=2, values_only=True),
+                    start=2
+                ):
+
+                    try:
+                        row_data = dict(zip(headers, fila))
+
+                        no_folio = row_data.get('no. folio')
+                        nombre = row_data.get('nombre')
+                        descripcion = row_data.get('descripción')
+                        categoria_nombre = row_data.get('categoría')
+                        precio = row_data.get('precio')
+                        precio_mayoreo = row_data.get('precio mayoreo')
+                        unidad_medida = row_data.get('unidad de medida')
+
+                        # ⚠️ SOLO el folio es obligatorio
+                        if not no_folio:
+                            filas_ignoradas += 1
+                            continue
+
+                        no_folio = norm(no_folio)
+                        nombre = norm(nombre) if nombre else ''
+                        descripcion = norm(descripcion) if descripcion else ''
+                        categoria_nombre = norm(categoria_nombre) if categoria_nombre else 'SIN CATEGORIA'
 
                         try:
-                            datos = list(fila) + [None] * 9
-                            no_folio, nombre, descripcion, categoria_nombre, precio, precio_mayoreo, unidad_medida, stock_fisico, stock_virtual = datos[:9]
-
-                            if not no_folio or not nombre or not categoria_nombre:
-                                filas_ignoradas += 1
-                                continue
-
-                            no_folio = norm(no_folio)
-                            nombre = norm(nombre)
-                            descripcion = norm(descripcion)
-                            categoria_nombre = norm(categoria_nombre)
-
-                            try:
-                                precio = float(precio)
-                                if precio < 0:
-                                    precio = 0
-                            except:
+                            precio = float(precio) if precio else 0
+                            if precio < 0:
                                 precio = 0
+                        except:
+                            precio = 0
 
-                            stock_fisico = int(stock_fisico) if stock_fisico and stock_fisico >= 0 else 0
-                            stock_virtual = int(stock_virtual) if stock_virtual and stock_virtual >= 0 else 0
+                        categoria, cat_creada = Categoria.objects.get_or_create(
+                            nombre=categoria_nombre
+                        )
 
-                            categoria, cat_creada = Categoria.objects.get_or_create(
-                                nombre=categoria_nombre
-                            )
+                        if cat_creada:
+                            categorias_creadas += 1
 
-                            if cat_creada:
-                                categorias_creadas += 1
+                        producto, creado = Producto.objects.update_or_create(
+                            no_folio=no_folio,
+                            defaults={
+                                'nombre': nombre,
+                                'descripcion': descripcion,
+                                'categoria': categoria,
+                                'precio': precio,
+                                'precio_mayoreo': precio_mayoreo,
+                                'unidad_medida': unidad_medida,
+                            }
+                        )
 
-                            producto, creado = Producto.objects.update_or_create(
-                                no_folio=no_folio,
-                                defaults={
-                                    'nombre': nombre,
-                                    'descripcion': descripcion,
-                                    'categoria': categoria,
-                                    'precio': precio,
-                                    'precio_mayoreo': precio_mayoreo,
-                                    'unidad_medida': unidad_medida,
-                                }
-                            )
+                        if creado:
+                            creados += 1
+                        else:
+                            actualizados += 1
 
-                            if creado:
-                                creados += 1
-                            else:
-                                actualizados += 1
+                        # Crear stock en 0 si no existe
+                        Stock.objects.get_or_create(
+                            producto=producto,
+                            sucursal=sucursal,
+                            defaults={'stock_fisico': 0, 'stock_virtual': 0}
+                        )
 
-                            stock, _ = Stock.objects.get_or_create(
-                                producto=producto,
-                                sucursal=sucursal,
-                                defaults={'stock_fisico': 0, 'stock_virtual': 0}
-                            )
+                    except Exception as fila_error:
+                        errores.append(f"Fila {numero_fila}: {str(fila_error)}")
 
-                            stock.stock_fisico = stock_fisico
-                            stock.stock_virtual = stock_virtual
-                            stock.save()
-
-                        except Exception as fila_error:
-                            errores.append(f"Fila {numero_fila}: {str(fila_error)}")
 
                 # ===== LOGS EN PRODUCCIÓN =====
                 print("===== RESULTADO IMPORTACIÓN =====")
