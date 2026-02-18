@@ -509,32 +509,38 @@ def inventario_view(request):
 
             else:
                 messages.error(request, "Hay errores en el formulario.")
-
     # ----------------------------------
     # GUARDAR CATEGORÍA
     # ----------------------------------
     elif 'guardar_categoria' in request.POST:
+
         form_categoria = CategoriaForm(request.POST)
+
         if form_categoria.is_valid():
-            categoria = form_categoria.save(commit=False)
-            categoria.nombre = categoria.nombre.strip().upper()
+            try:
+                categoria = form_categoria.save(commit=False)
+                categoria.nombre = categoria.nombre.strip().upper()
 
-            # Generar prefijo automático si no se proporcionó
-            if not categoria.prefijo:
-                categoria.prefijo = categoria.nombre[:3].upper()
-                contador = 1
-                prefijo_original = categoria.prefijo
-                # Asegurar que sea único
-                while Categoria.objects.filter(prefijo=categoria.prefijo).exclude(id=categoria.id).exists():
-                    categoria.prefijo = f"{prefijo_original}{contador}"
-                    contador += 1
+                # Generar prefijo automático si no existe
+                if not categoria.prefijo:
+                    categoria.prefijo = categoria.nombre[:3].upper()
+                    contador = 1
+                    prefijo_original = categoria.prefijo
+                    while Categoria.objects.filter(prefijo=categoria.prefijo).exclude(id=categoria.id).exists():
+                        categoria.prefijo = f"{prefijo_original}{contador}"
+                        contador += 1
 
-            categoria.save()
-            messages.success(request, "Categoría guardada correctamente.")
+                categoria.save()
+                messages.success(request, "Categoría guardada correctamente.")
+            except Exception as e:
+                print("ERROR GUARDAR CATEGORÍA:", str(e))
+                messages.error(request, f"No se pudo guardar la categoría: {str(e)}")
+
             return redirect('inventario')
         else:
+            errors = form_categoria.errors.as_json()
+            print("ERRORS FORMULARIO CATEGORÍA:", errors)
             messages.error(request, "Error en el formulario de categoría. Revisa los campos.")
-
 
     # ----------------------------------
     # IMPORTAR EXCEL
@@ -556,6 +562,7 @@ def inventario_view(request):
                 t = str(t).strip().upper()
                 return unicodedata.normalize('NFKD', t).encode('ASCII', 'ignore').decode('utf-8')
 
+            # ===== CONTADORES =====
             creados = 0
             actualizados = 0
             categorias_creadas = 0
@@ -594,11 +601,10 @@ def inventario_view(request):
 
                         # ===== CATEGORÍA =====
                         categoria, cat_creada = Categoria.objects.get_or_create(
-                            nombre=categoria_nombre,
-                            defaults={'prefijo': categoria_nombre[:3].upper()}
+                            nombre=categoria_nombre
                         )
 
-                        # Si existe pero no tiene prefijo, asignarlo
+                        # Prefijo automático si no tiene
                         if not categoria.prefijo:
                             categoria.prefijo = categoria_nombre[:3].upper()
                             contador = 1
@@ -643,7 +649,7 @@ def inventario_view(request):
                     except Exception as fila_error:
                         errores.append(f"Fila {numero_fila}: {str(fila_error)}")
 
-            # ===== LOGS =====
+            # ===== LOGS EN PRODUCCIÓN =====
             print("===== RESULTADO IMPORTACIÓN =====")
             print("Productos creados:", creados)
             print("Productos actualizados:", actualizados)
@@ -674,6 +680,7 @@ def inventario_view(request):
             print("ERROR GENERAL IMPORTACIÓN:", str(e))
             messages.error(request, f"Error al procesar el archivo: {str(e)}")
             return redirect('inventario')
+
 
     # ==========================
     # CONTEXTO
