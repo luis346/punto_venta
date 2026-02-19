@@ -674,16 +674,27 @@ def inventario_view(request):
                                 # =====================================
                                 # GENERAR REFERENCIA SOLO SI ES NUEVO
                                 # =====================================
-                                if not referencia or referencia.strip() == '':
-                                    prefijo = categoria.prefijo if categoria.prefijo else categoria.nombre[:3].upper()
+                             if not referencia or referencia.strip() == '':
+                                prefijo = categoria.prefijo if categoria.prefijo else categoria.nombre[:3].upper()
 
+                                ultimo_producto = (
+                                    Producto.objects
+                                    .filter(referencia__startswith=prefijo)
+                                    .order_by('-referencia')
+                                    .first()
+                                )
+
+                                if ultimo_producto:
+                                    try:
+                                        ultimo_num = int(ultimo_producto.referencia.split('-')[-1])
+                                        siguiente_num = ultimo_num + 1
+                                    except:
+                                        siguiente_num = 1
+                                else:
                                     siguiente_num = 1
-                                    while True:
-                                        referencia_candidata = f"{prefijo}-{siguiente_num:04d}"
-                                        if not Producto.objects.filter(referencia=referencia_candidata).exists():
-                                            referencia = referencia_candidata
-                                            break
-                                        siguiente_num += 1
+
+                                referencia = f"{prefijo}-{siguiente_num:04d}"
+
 
                                 producto = Producto.objects.create(
                                     no_folio=no_folio,
