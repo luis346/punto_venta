@@ -687,7 +687,7 @@ def inventario_view(request):
                                 creados += 1
 
                             # =========================================
-                            # STOCK
+                            # STOCK (SIN get_or_create)
                             # =========================================
                             stock = stocks_db.get(producto.id)
 
@@ -696,18 +696,14 @@ def inventario_view(request):
                                 stock.stock_virtual = stock_virtual
                                 stock.save()
                             else:
-                                # En lugar de agregar al array para bulk_create, hacemos update_or_create
-                                stock_obj, created_stock = Stock.objects.update_or_create(
+                                nuevo_stock = Stock(
                                     producto=producto,
                                     sucursal=sucursal,
-                                    defaults={
-                                        'stock_fisico': stock_fisico,
-                                        'stock_virtual': stock_virtual
-                                    }
+                                    stock_fisico=stock_fisico,
+                                    stock_virtual=stock_virtual
                                 )
-                                # Guardamos también en stocks_db para futuras referencias en el loop
-                                stocks_db[producto.id] = stock_obj
-
+                                nuevos_stocks.append(nuevo_stock)
+                                stocks_db[producto.id] = nuevo_stock
 
                         except Exception as fila_error:
                             errores.append(f"Fila {numero_fila}: {str(fila_error)}")
