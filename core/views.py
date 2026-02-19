@@ -590,13 +590,8 @@ def inventario_view(request):
 
                 with transaction.atomic():
 
-                    # 🔥 Precargar categorías en memoria
                     categorias_db = {c.nombre: c for c in Categoria.objects.all()}
-
-                    # 🔥 Precargar productos existentes
                     productos_db = {p.no_folio: p for p in Producto.objects.all()}
-
-                    # 🔥 Precargar stocks existentes de la sucursal
                     stocks_db = {
                         (s.producto_id): s
                         for s in Stock.objects.filter(sucursal=sucursal)
@@ -624,9 +619,6 @@ def inventario_view(request):
                             stock_fisico = int(stock_fisico) if stock_fisico and stock_fisico >= 0 else 0
                             stock_virtual = int(stock_virtual) if stock_virtual and stock_virtual >= 0 else 0
 
-                            # =========================================
-                            # CATEGORÍA
-                            # =========================================
                             categoria = categorias_db.get(categoria_nombre)
 
                             if not categoria:
@@ -641,9 +633,6 @@ def inventario_view(request):
                                 categorias_db[categoria_nombre] = categoria
                                 categorias_creadas += 1
 
-                            # =========================================
-                            # PRODUCTO
-                            # =========================================
                             producto = productos_db.get(no_folio)
 
                             if producto:
@@ -686,9 +675,6 @@ def inventario_view(request):
                                 productos_db[no_folio] = producto
                                 creados += 1
 
-                            # =========================================
-                            # STOCK (SIN get_or_create)
-                            # =========================================
                             stock = stocks_db.get(producto.id)
 
                             if stock:
@@ -709,19 +695,11 @@ def inventario_view(request):
                             errores.append(f"Fila {numero_fila}: {str(fila_error)}")
                             print(f"ERROR fila {numero_fila}: {fila_error}")
 
-                    # 🔥 Crear todos los nuevos stocks de una sola vez
+                    # 🔥 FORZAR AUTOINCREMENTO LIMPIO
+                    for obj in nuevos_stocks:
+                        obj.id = None
+
                     if nuevos_stocks:
-                        from django.db import connection
-
-                        with connection.cursor() as cursor:
-                            cursor.execute("""
-                                SELECT setval(
-                                    pg_get_serial_sequence('core_stock', 'id'),
-                                    COALESCE((SELECT MAX(id) FROM core_stock), 1),
-                                    true
-                                );
-                            """)
-
                         Stock.objects.bulk_create(nuevos_stocks)
 
                 if errores:
