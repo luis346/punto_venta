@@ -644,7 +644,7 @@ $('#tabla-productos').on('focus', '.busqueda', function () {
     <div style="width: 200px; font-family: monospace; font-size: 13px;">
 
         <div style="text-align:center; margin:0; padding:0; line-height:0;">
-            <img src="/static/img/logo.jpg"
+            <img src="${LOGO_URL}"
             style="width:180px; display:block; margin:0 auto; padding:0;" />
         </div>
 

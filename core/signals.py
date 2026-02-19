@@ -24,16 +24,14 @@ def inicializar_sistema(sender, **kwargs):
     # =========================
     # 2️⃣ Crear admin si no existe
     # =========================
-    if not User.objects.filter(rol="ADMIN").exists():
-        admin = User.objects.create_superuser(
+
+def inicializar_sistema(sender, **kwargs):
+    if not User.objects.filter(username="admin").exists():
+        User.objects.create_superuser(
             username="admin",
             email="admin@admin.com",
             password="Admin1234"
         )
-
-        # Si tu modelo tiene campo sucursal
-        if hasattr(admin, "sucursal"):
-            admin.sucursal = sucursal
-            admin.save()
-
         print("Usuario admin creado ✅")
+    else:
+        print("Usuario admin ya existe ⚠️")
