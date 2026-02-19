@@ -700,8 +700,7 @@ def inventario_view(request):
                         obj.id = None
 
                     if nuevos_stocks:
-                        Stock.objects.bulk_create(nuevos_stocks)
-
+                        Stock.objects.bulk_create(nuevos_stocks, ignore_conflicts=True)
                 if errores:
                     messages.warning(request, "Algunas filas tuvieron errores. Revisa logs en Render.")
 
