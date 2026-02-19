@@ -392,14 +392,15 @@ def inventario_view(request):
     categoria_id = request.GET.get('categoria', '')
 
     if nombre:
-        stocks = [s for s in stocks if nombre.lower() in s.producto.nombre.lower()]
+        stocks = stocks.filter(producto__nombre__icontains=nombre)
+
     if folio:
-        stocks = [s for s in stocks if folio.lower() in s.producto.no_folio.lower()]
+        stocks = stocks.filter(producto__no_folio__icontains=folio)
+
     if categoria_id:
-        stocks = [s for s in stocks if str(s.producto.categoria_id) == categoria_id]
+        stocks = stocks.filter(producto__categoria_id=categoria_id)
 
-
-    paginator = Paginator(stocks, 25)  # 25 productos por página
+    paginator = Paginator(stocks, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
