@@ -701,8 +701,23 @@ def inventario_view(request):
 
                     if nuevos_stocks:
                         Stock.objects.bulk_create(nuevos_stocks, ignore_conflicts=True)
-                if errores:
-                    messages.warning(request, "Algunas filas tuvieron errores. Revisa logs en Render.")
+                    if not errores:
+                        messages.success(
+                            request,
+                            f"Importación completada ✔️ | "
+                            f"Productos creados: {creados} | "
+                            f"Actualizados: {actualizados} | "
+                            f"Categorías nuevas: {categorias_creadas} | "
+                            f"Filas ignoradas: {filas_ignoradas}"
+                        )
+                    else:
+                        messages.warning(
+                            request,
+                            f"Importación completada con advertencias ⚠️ | "
+                            f"Creados: {creados} | "
+                            f"Actualizados: {actualizados} | "
+                            f"Errores: {len(errores)}"
+                        )
 
                 return redirect('inventario')
 
