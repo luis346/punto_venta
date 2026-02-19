@@ -365,27 +365,19 @@ def inventario_view(request):
         return redirect('index')
 
     # ==========================
-    # OBTENER STOCKS Y PRODUCTOS
+    # OBTENER STOCKS
     # ==========================
-    productos = Producto.objects.select_related('categoria').all()
-    stocks_qs = Stock.objects.filter(sucursal=sucursal).select_related('producto')
-    stocks_map = {s.producto_id: s for s in stocks_qs}
 
-    stocks = []
-    for producto in productos:
-        stock = stocks_map.get(producto.id)
-        if not stock:
-            stock = Stock(
-                producto=producto,
-                sucursal=sucursal,
-                stock_fisico=0,
-                stock_virtual=0
-            )
-        stocks.append(stock)
+    stocks = (
+        Stock.objects
+        .filter(sucursal=sucursal)
+        .select_related('producto', 'producto__categoria')
+    )
 
     # ==========================
     # FILTROS
     # ==========================
+
     categorias = Categoria.objects.all()
     nombre = request.GET.get('nombre', '').strip()
     folio = request.GET.get('folio', '').strip()
@@ -399,6 +391,10 @@ def inventario_view(request):
 
     if categoria_id:
         stocks = stocks.filter(producto__categoria_id=categoria_id)
+
+    # ==========================
+    # PAGINACIÓN
+    # ==========================
 
     paginator = Paginator(stocks, 25)
     page_number = request.GET.get('page')
