@@ -369,9 +369,10 @@ def inventario_view(request):
     # ==========================
 
     stocks = (
-        Stock.objects
-        .filter(sucursal=sucursal)
-        .select_related('producto', 'producto__categoria')
+    Stock.objects
+    .filter(sucursal=sucursal)
+    .select_related('producto', 'producto__categoria')
+    .order_by('id')  # ← agrega esto
     )
 
     # ==========================
