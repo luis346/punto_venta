@@ -711,7 +711,19 @@ def inventario_view(request):
 
                     # 🔥 Crear todos los nuevos stocks de una sola vez
                     if nuevos_stocks:
+                        from django.db import connection
+
+                        with connection.cursor() as cursor:
+                            cursor.execute("""
+                                SELECT setval(
+                                    pg_get_serial_sequence('core_stock', 'id'),
+                                    COALESCE((SELECT MAX(id) FROM core_stock), 1),
+                                    true
+                                );
+                            """)
+
                         Stock.objects.bulk_create(nuevos_stocks)
+
                 if errores:
                     messages.warning(request, "Algunas filas tuvieron errores. Revisa logs en Render.")
 
@@ -721,7 +733,7 @@ def inventario_view(request):
                 print("ERROR GENERAL IMPORTACIÓN:", str(e))
                 messages.error(request, f"Error al procesar el archivo: {str(e)}")
                 return redirect('inventario')
-            
+
     
     # ==========================
     # CONTEXTO
