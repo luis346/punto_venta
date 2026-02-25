@@ -13,7 +13,7 @@ SECRET_KEY = os.environ.get(
     "clave-insegura-solo-para-desarrollo"
 )
 
-DEBUG = os.environ.get("DEBUG", "False") == "True"
+DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = os.environ.get(
     "ALLOWED_HOSTS",
@@ -119,10 +119,3 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # 🔒 SEGURIDAD EN PRODUCCIÓN
 # ======================================================
 
-if not DEBUG:
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_BROWSER_XSS_FILTER = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True

@@ -3,6 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
 from django.utils.timezone import now, timedelta, make_aware
 from django.utils import timezone
+from django.db.models import Q
 from django.core.files.storage import FileSystemStorage
 from django.db.models import Sum, F
 from django.db import transaction, IntegrityError
@@ -1131,17 +1132,31 @@ def entrada_inventario(request):
         messages.success(request, "Stock agregado correctamente")
         return redirect('inventario')
 
+from django.db.models import Q
+
 @login_required
 @user_passes_test(es_caja)
 def buscar_producto(request):
-    q = request.GET.get('q', '')
-    tipo = request.GET.get('tipo', 'nombre')
-    sucursal = request.user.sucursal  # 👈 clave
+    q = request.GET.get('q', '').strip()
+    sucursal = request.user.sucursal
 
-    if tipo == 'no_folio':
-        productos = Producto.objects.filter(no_folio__icontains=q)[:10]
-    else:
-        productos = Producto.objects.filter(nombre__icontains=q)[:10]
+    if not q:
+        return JsonResponse([], safe=False)
+
+    filtros = (
+        Q(no_folio__icontains=q) |
+        Q(nombre__icontains=q) |
+        Q(referencia__icontains=q)
+    )
+
+    # 🔥 Si son solo números y tiene mínimo 4 dígitos
+    if q.isdigit() and len(q) >= 4:
+        filtros |= (
+            Q(no_folio__endswith=q) |
+            Q(referencia__endswith=q)
+        )
+
+    productos = Producto.objects.filter(filtros).distinct()[:10]
 
     resultados = []
 
@@ -1159,8 +1174,7 @@ def buscar_producto(request):
             'precio': float(p.precio),
             'precio_mayoreo': float(p.precio_mayoreo) if p.precio_mayoreo else None,
             'umbral_mayoreo': p.umbral_mayoreo,
-
-            # 🔑 STOCK POR SUCURSAL
+            'referencia': p.referencia,
             'stock_fisico': stock.stock_fisico if stock else 0,
             'stock_virtual': stock.stock_virtual if stock else 0,
         })

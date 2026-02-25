@@ -42,184 +42,270 @@ function aplicarPrecioMayoreo(activar) {
         // Puedes llamarla al cargar o al cambiar cantidad
         actualizarTotales();
 
+/***************************************
+ * FUNCIÓN PARA INSERTAR PRODUCTO EN FILA
+ ***************************************/
+function seleccionarProducto(data, fila) {
+
+    // Llenar datos visibles
+    fila.find('td[data-tipo="no_folio"]').text(data.no_folio);
+    fila.find('td[data-tipo="nombre"]').text(data.nombre);
+
+    // Guardar datos ocultos en la fila (importante para tu función obtenerProductos)
+    fila.data('precio-normal', parseFloat(data.precio));
+    fila.data('precio-mayoreo', parseFloat(data.precio_mayoreo) || null);
+    fila.data('unidad-medida', data.unidad_medida || '');
+
+    const precioInicial = parseFloat(data.precio);
+
+    fila.find('.precio').text(precioInicial.toFixed(2));
+
+    fila.find('.cantidad')
+        .val(1)
+        .prop('disabled', false)
+        .data('precio', precioInicial)
+        .data('stock_fisico', data.stock_fisico);
+
+    fila.find('.total').text(precioInicial.toFixed(2));
+
+    actualizarTotales();
+
+    // Enfocar cantidad automáticamente
+    const inputCantidad = fila.find('.cantidad');
+
+    if (inputCantidad.length) {
+        inputCantidad.focus().select();
+
+        inputCantidad.off('keydown.enterFila')
+            .on('keydown.enterFila', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    agregarFila();
+
+                    setTimeout(function () {
+                        const nuevaFila = $('#tabla-productos tbody tr').last();
+                        nuevaFila.find('td[data-tipo="no_folio"]').focus();
+                    }, 50);
+                }
+            });
+    }
+}
+    /***************************************
+ * FUNCIÓN GLOBAL PARA AGREGAR FILA
+ ***************************************/
+function agregarFila() {
+    const fila = `<tr>
+        <td contenteditable="true" class="busqueda" data-tipo="no_folio"></td>
+        <td contenteditable="true" class="busqueda" data-tipo="nombre"></td>
+        <td class="precio"></td>
+        <td><input type="number" class="form-control cantidad" min="1" value="1" disabled></td>
+        <td class="total"></td>
+    </tr>`;
+    $('#tabla-productos tbody').append(fila);
+}
+
         
 /***************************************
  * DOCUMENT READY (ÚNICO)
  ***************************************/
 $(document).ready(function () {
-        // Si cambias cantidades, vuelve a calcular
-        $(document).on('input', '.cantidad', function () {
-            actualizarTotales();
-        });
 
+    // Agregar fila inicial
+    agregarFila();
 
+    /***************************************
+     * ACTUALIZAR TOTALES AL CAMBIAR CANTIDAD
+     ***************************************/
+    $(document).on('input', '.cantidad', function () {
+        actualizarTotales();
+    });
 
-        $('#tabla-productos').on('input', '.cantidad', function () {
-            const cantidad = parseInt($(this).val()) || 0;
-            const precio = parseFloat($(this).data('precio')) || 0;
-            const stock_fisico = parseInt($(this).data('stock_fisico')) || 0;
+    /***************************************
+     * VALIDAR STOCK
+     ***************************************/
+    $('#tabla-productos').on('input', '.cantidad', function () {
+        const cantidad = parseInt($(this).val()) || 0;
+        const stock_fisico = parseInt($(this).data('stock_fisico')) || 0;
 
-            if (cantidad > stock_fisico) {
-                Swal.fire({
-                    title: "Stock insuficiente",
-                    text: "No hay suficiente stock. Solo hay " + stock_fisico + " unidades disponibles.",
-                    icon: "warning"
-                });
-                $(this).val(stock_fisico);
-                return;
-            }
-        });
+        if (cantidad > stock_fisico) {
+            Swal.fire({
+                title: "Stock insuficiente",
+                text: "Solo hay " + stock_fisico + " unidades disponibles.",
+                icon: "warning"
+            });
 
-       // Función para calcular cambio con validación profesional
-        $('#monto_pagado').on('input', function () {
+            $(this).val(stock_fisico);
+        }
+    });
 
-            const total = actualizarTotales();
-            const pagado = parseFloat($(this).val()) || 0;
-            const cambio = pagado - total;
+    /***************************************
+     * VALIDACIÓN DE PAGO Y CAMBIO
+     ***************************************/
+    $('#monto_pagado').on('input', function () {
 
-            const $cambioInput = $('#cambio');
-            const $btnCobrar = $('#btn-registrar-venta');
+        const total = actualizarTotales();
+        const pagado = parseFloat($(this).val()) || 0;
+        const cambio = pagado - total;
 
-            if (pagado === 0) {
-                $cambioInput.val('');
-                $btnCobrar.prop('disabled', true);
-                return;
-            }
+        const $cambioInput = $('#cambio');
+        const $btnCobrar = $('#btn-registrar-venta');
 
-            if (cambio < 0) {
-                // ❌ Pago insuficiente
-                $cambioInput
-                    .val('Pago insuficiente')
-                    .addClass('is-invalid')
-                    .removeClass('is-valid');
-
-                $btnCobrar.prop('disabled', true);
-            } else {
-                // ✅ Todo correcto
-                $cambioInput
-                    .val(cambio.toFixed(2))
-                    .removeClass('is-invalid')
-                    .addClass('is-valid');
-
-                $btnCobrar.prop('disabled', false);
-            }
-        });
-
-            // Agrega fila inicial automáticamente
-        agregarFila();
-
-        setTimeout(() => {
-            const primeraFila = $('#tabla-productos tbody tr').first();
-            primeraFila.find('td[data-tipo="no_folio"]').focus();
-        }, 100);
-
-        function agregarFila() {
-            const fila = `<tr>
-            <td contenteditable="true" class="busqueda" data-tipo="no_folio"></td>
-            <td contenteditable="true" class="busqueda" data-tipo="nombre"></td>
-            <td class="precio"></td>
-            <td><input type="number" class="form-control cantidad" min="1" value="1" disabled></td>
-            <td id="total" class="total"></td>
-        </tr>`;
-            $('#tabla-productos tbody').append(fila);
+        if (pagado === 0) {
+            $cambioInput.val('');
+            $btnCobrar.prop('disabled', true);
+            return;
         }
 
-$('#tabla-productos').on('focus', '.busqueda', function () {
-    const celda = $(this);
-    const tipo = celda.data('tipo');
+        if (cambio < 0) {
+            $cambioInput
+                .val('Pago insuficiente')
+                .addClass('is-invalid')
+                .removeClass('is-valid');
 
-    if (!celda.data('autocomplete')) {
-        celda.autocomplete({
-            minLength: 1,
-            delay: 300,
-            source: function (request, response) {
-                $.ajax({
-                    url: BUSCAR_PRODUCTO_URL,
-                    data: { 
-                        q: request.term, 
-                        tipo: tipo 
-                    },
-                    success: function (data) {
+            $btnCobrar.prop('disabled', true);
+        } else {
+            $cambioInput
+                .val(cambio.toFixed(2))
+                .removeClass('is-invalid')
+                .addClass('is-valid');
+
+            $btnCobrar.prop('disabled', false);
+        }
+    });
+
+    /***************************************
+     * AUTOCOMPLETE DINÁMICO
+     ***************************************/
+    $('#tabla-productos').on('focus', '.busqueda', function () {
+
+        const celda = $(this);
+        const tipo = celda.data('tipo');
+
+        if (!celda.data('autocomplete')) {
+
+            celda.autocomplete({
+                minLength: 1,
+                delay: 300,
+
+                source: function (request, response) {
+
+                    $.ajax({
+                        url: BUSCAR_PRODUCTO_URL,
+                        data: {
+                            q: request.term,
+                            tipo: tipo
+                        },
+                        success: function (data) {
+    
+                        // 🚨 Si no encontró nada
+                        if (data.length === 0) {
+                            Swal.fire({
+                                title: "Producto no encontrado",
+                                text: "No existe un producto con ese código o referencia.",
+                                icon: "error",
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+
+                            return;
+                        }
+
+                        // 🔥 Inserción automática por folio o referencia exacta
+                        if (
+                            tipo === "no_folio" &&
+                            data.length === 1 &&
+                            (data[0].no_folio == request.term ||
+                            data[0].referencia == request.term)
+                        ) {
+                            seleccionarProducto(data[0], celda.closest('tr'));
+                            return;
+                        }
+
                         response($.map(data, function (item) {
                             return {
                                 label:
                                     item.nombre + ' - ' +
                                     item.descripcion +
-                                    ' ($' + item.precio.toFixed(2) + ')' +
+                                    ' ($' + parseFloat(item.precio).toFixed(2) + ')' +
                                     ' / Stock: ' + item.stock_fisico,
                                 value: item[tipo],
                                 item: item
                             };
                         }));
-                    }
-                });
-            },
-            select: function (event, ui) {
-                const item = ui.item.item;
 
-                // Ejemplo de uso cuando seleccionas
-                celda.val(item[tipo]);
+                            // 🔥 Inserción automática por folio exacto o referencia exacta
+                            if (
+                                tipo === "no_folio" &&
+                                data.length === 1 &&
+                                (data[0].no_folio == request.term ||
+                                 data[0].referencia == request.term)
+                            ) {
+                                seleccionarProducto(data[0], celda.closest('tr'));
+                                return;
+                            }
 
-                celda.closest('tr').find('.precio').val(item.precio);
-                celda.closest('tr').find('.stock').text(item.stock_fisico);
+                            response($.map(data, function (item) {
+                                return {
+                                    label:
+                                        item.nombre + ' - ' +
+                                        item.descripcion +
+                                        ' ($' + parseFloat(item.precio).toFixed(2) + ')' +
+                                        ' / Stock: ' + item.stock_fisico,
+                                    value: item[tipo],
+                                    item: item
+                                };
+                            }));
+                        }
+                    });
+                },
 
-                return false;
-            },
                 select: function (event, ui) {
-                const fila = celda.closest('tr');
-                const data = ui.item.item;
 
-                // Datos visibles
-                fila.find('td[data-tipo="no_folio"]').text(data.no_folio);
-                fila.find('td[data-tipo="nombre"]').text(data.nombre);
+                    const fila = celda.closest('tr');
+                    const data = ui.item.item;
 
-                // 🔥 Guardar precios en la fila (clave para cambiar después)
-                fila.data('precio-normal', parseFloat(data.precio));
-                fila.data('precio-mayoreo', parseFloat(data.precio_mayoreo));
+                    fila.find('td[data-tipo="no_folio"]').text(data.no_folio);
+                    fila.find('td[data-tipo="nombre"]').text(data.nombre);
 
-                // 🔥 Elegir precio según tipo de descuento
-                const precioInicial = usarMayoreo
-                    ? parseFloat(data.precio_mayoreo)
-                    : parseFloat(data.precio);
+                    const precioInicial = parseFloat(data.precio);
 
-                // Mostrar precio unitario
-                fila.find('.precio').text(precioInicial.toFixed(2));
+                    fila.find('.precio').text(precioInicial.toFixed(2));
 
-                // Cantidad habilitada y con precio correcto
-                fila.find('.cantidad')
-                    .val(1)
-                    .prop('disabled', false)
-                    .data('precio', precioInicial)   // 🔥 ESTO FALTABA
-                    .data('stock_fisico', data.stock_fisico);
+                    fila.find('.cantidad')
+                        .val(1)
+                        .prop('disabled', false)
+                        .data('precio', precioInicial)
+                        .data('stock_fisico', data.stock_fisico);
 
-                // Total por fila
-                fila.find('.total').text(precioInicial.toFixed(2));
+                    fila.find('.total').text(precioInicial.toFixed(2));
 
-                actualizarTotales();
+                    actualizarTotales();
 
-                        // 👉 Enfocar cantidad antes de agregar fila
-                        const inputCantidad = fila.find('.cantidad');
-                        if (inputCantidad.length) {
-                            inputCantidad.focus().select();
+                    const inputCantidad = fila.find('.cantidad');
+                    if (inputCantidad.length) {
+                        inputCantidad.focus().select();
 
-                            inputCantidad.off('keydown.enterFila').on('keydown.enterFila', function (e2) {
+                        inputCantidad.off('keydown.enterFila')
+                            .on('keydown.enterFila', function (e2) {
                                 if (e2.key === 'Enter') {
                                     e2.preventDefault();
                                     agregarFila();
 
-                                    setTimeout(() => {
+                                    setTimeout(function () {
                                         const nuevaFila = $('#tabla-productos tbody tr').last();
                                         nuevaFila.find('td[data-tipo="no_folio"]').focus();
                                     }, 50);
                                 }
                             });
-                        }
                     }
-                });
-                celda.data('autocomplete', true);
-            }
-        });
 
+                    return false;
+                }
+            });
+
+            celda.data('autocomplete', true);
+        }
+    });
         $('#tabla-productos').on('input', '.cantidad', function () {
             actualizarTotales();
             $('#monto_pagado').trigger('input');

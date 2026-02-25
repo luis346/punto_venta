@@ -1,10 +1,12 @@
 from .models import Notificacion, Sucursal
+from django.db import OperationalError
 
 def notificaciones_context(request):
-    if request.user.is_authenticated:
-        notificaciones = Notificacion.objects.filter(usuario=request.user, leido=False)
+    try:
+        notificaciones = Notificacion.objects.filter(leido=False)
         return {'num_notificaciones': notificaciones.count()}
-    return {'num_notificaciones': 0}
+    except OperationalError:
+        return {'num_notificaciones': 0}
 
 def sucursal_context(request):
     sucursal_actual = None

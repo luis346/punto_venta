@@ -281,7 +281,6 @@
     </div>
 </div>
 
-
 <!-- =======================
  MODAL PRODUCTO (LABELS)
 ======================== -->
@@ -290,7 +289,7 @@
      data-bs-keyboard="false"
      tabindex="-1">
     <div class="modal-dialog modal-lg">
-        <form method="POST" class="modal-content">
+        <form method="POST" class="modal-content" id="formProducto">
             {% csrf_token %}
 
             <div class="modal-header">
@@ -300,46 +299,90 @@
 
             <div class="modal-body row g-3">
 
+                <!-- FOLIO -->
                 <div class="col-md-4">
                     <label class="form-label">No. Folio</label>
                     {{ form_producto.no_folio }}
+                    {% if form_producto.no_folio.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form_producto.no_folio.errors.0 }}
+                        </div>
+                    {% endif %}
                 </div>
 
+                <!-- NOMBRE -->
                 <div class="col-md-4">
                     <label class="form-label">Nombre</label>
                     {{ form_producto.nombre }}
+                    {% if form_producto.nombre.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form_producto.nombre.errors.0 }}
+                        </div>
+                    {% endif %}
                 </div>
 
+                <!-- CATEGORIA -->
                 <div class="col-md-4">
                     <label class="form-label">Categoría</label>
                     {{ form_producto.categoria }}
+                    {% if form_producto.categoria.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form_producto.categoria.errors.0 }}
+                        </div>
+                    {% endif %}
                 </div>
 
+                <!-- DESCRIPCION -->
                 <div class="col-md-12">
                     <label class="form-label">Descripción</label>
                     {{ form_producto.descripcion }}
+                    {% if form_producto.descripcion.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form_producto.descripcion.errors.0 }}
+                        </div>
+                    {% endif %}
                 </div>
 
+                <!-- PRECIO -->
                 <div class="col-md-3">
                     <label class="form-label">Precio</label>
                     {{ form_producto.precio }}
+                    {% if form_producto.precio.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form_producto.precio.errors.0 }}
+                        </div>
+                    {% endif %}
                 </div>
 
+                <!-- PRECIO MAYOREO -->
                 <div class="col-md-3">
                     <label class="form-label">Precio Mayoreo</label>
                     {{ form_producto.precio_mayoreo }}
+                    {% if form_producto.precio_mayoreo.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form_producto.precio_mayoreo.errors.0 }}
+                        </div>
+                    {% endif %}
                 </div>
 
+                <!-- UNIDAD -->
                 <div class="col-md-3">
                     <label class="form-label">Unidad de medida</label>
                     {{ form_producto.unidad_medida }}
+                    {% if form_producto.unidad_medida.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form_producto.unidad_medida.errors.0 }}
+                        </div>
+                    {% endif %}
                 </div>
 
             </div>
 
             <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-primary" name="guardar_producto">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary" name="guardar_producto" id="btnGuardarProducto">
                     Guardar producto
                 </button>
             </div>
@@ -348,9 +391,40 @@
     </div>
 </div>
 
+
 <!-- =======================
  JS PRO
 ======================== -->
+
+{% if form_producto.errors %}
+<script>
+    var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
+    modal.show();
+</script>
+{% endif %}
+
+<script>
+let lastKeyTime = 0;
+
+document.getElementById('formProducto').addEventListener('keydown', function(e) {
+
+    if (e.key === 'Enter') {
+
+        const now = new Date().getTime();
+        const diff = now - lastKeyTime;
+
+        lastKeyTime = now;
+
+        // Si el ENTER viene muy rápido (menos de 50ms)
+        // es casi seguro escáner
+        if (diff < 50) {
+            e.preventDefault();
+            console.log("ENTER de escáner bloqueado");
+        }
+        // Si tarda más, es humano y se permite
+    }
+});
+</script>
 {% if request.GET.editar %}
 <script>
     var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
@@ -378,13 +452,6 @@ document.querySelectorAll('.stock-input').forEach(input => {
         this.closest('form').submit();
     });
 });
-
-document.querySelector('#modalProducto form').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-    }
-});
-
 </script>
 
 
