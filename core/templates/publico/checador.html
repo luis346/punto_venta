@@ -11,10 +11,11 @@
             font-family: 'Segoe UI', sans-serif;
             text-align: center;
             transition: 0.3s ease;
-            padding-top: 80px;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            justify-content: center;
+            overflow-x: hidden;
         }
 
         /* Fondos dinámicos */
@@ -34,28 +35,26 @@
         }
 
         h1 {
-            font-size: 32px;
-            margin-bottom: 40px;
+            font-size: 26px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            margin-bottom: 50px;
+            opacity: 0.9;
         }
 
         input {
             width: 60%;
+            max-width: 500px;
             padding: 20px;
-            font-size: 24px;
-            border-radius: 10px;
+            font-size: 26px;
+            border-radius: 12px;
             border: none;
             text-align: center;
+            outline: none;
         }
 
         button {
-            margin-top: 20px;
-            padding: 15px 40px;
-            font-size: 20px;
-            border-radius: 8px;
-            border: none;
-            background: #ffffff;
-            font-weight: bold;
-            cursor: pointer;
+            display: none; /* ocultamos botón, escáner envía automático */
         }
 
         .resultado {
@@ -64,7 +63,7 @@
         }
 
         .nombre {
-            font-size: 40px;
+            font-size: 36px;
             font-weight: bold;
         }
 
@@ -72,23 +71,26 @@
             font-size: 70px;
             font-weight: bold;
             margin-top: 20px;
-            animation: pulse 1s infinite;
+            animation: pulse 1.2s infinite;
         }
 
-        /* LOGO ABAJO */
         .logo-footer {
-            margin-top: auto;
-            padding: 30px 0;
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
         }
 
         .logo-footer img {
-            width: 200px;
+            max-width: 180px;
+            width: 40%;
+            height: auto;
             opacity: 0.9;
         }
 
         @keyframes pulse {
             0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            50% { transform: scale(1.04); }
             100% { transform: scale(1); }
         }
 
@@ -111,10 +113,17 @@
 
 <h1>{{ sucursal.nombre }}</h1>
 
-<form method="GET">
-    <input type="text" name="q" autofocus placeholder="Escanea o escribe el código">
-    <br>
-    <button type="submit">Buscar</button>
+<form method="GET" autocomplete="off">
+    <input type="text"
+           name="q"
+           id="scannerInput"
+           autofocus
+           autocomplete="off"
+           autocorrect="off"
+           autocapitalize="off"
+           spellcheck="false"
+           inputmode="none"
+           placeholder="Escanea o escribe el código">
 </form>
 
 {% if producto %}
@@ -134,48 +143,67 @@
     </div>
 {% endif %}
 
-<!-- LOGO SIEMPRE VISIBLE ABAJO -->
 <div class="logo-footer">
     <img src="{% static 'img/logo.jpg' %}" alt="Logo">
 </div>
 
 <script>
+/* 🔊 SONIDO PROFESIONAL */
 function beep(tipo) {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
 
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
 
-    oscillator.frequency.value = tipo === "ok" ? 800 : 200;
-    oscillator.type = "sine";
-    oscillator.start();
+    osc.frequency.value = tipo === "ok" ? 900 : 180;
+    osc.type = "triangle";
 
-    gainNode.gain.exponentialRampToValueAtTime(
-        0.00001,
-        audioCtx.currentTime + 0.3
-    );
-
-    setTimeout(() => {
-        oscillator.stop();
-    }, 300);
+    osc.start();
+    gain.gain.setValueAtTime(1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    osc.stop(ctx.currentTime + 0.4);
 }
-</script>
 
 {% if producto %}
-<script>beep("ok");</script>
+    beep("ok");
 {% elif request.GET.q %}
-<script>beep("error");</script>
+    beep("error");
 {% endif %}
 
-{% if request.GET.q %}
-<script>
+/* 🚫 EVITAR DOBLE ESCANEO */
+let lastScanTime = 0;
+let locked = false;
+
+const input = document.getElementById("scannerInput");
+const form = input.closest("form");
+
+form.addEventListener("submit", function(e) {
+
+    const now = Date.now();
+    const diff = now - lastScanTime;
+    lastScanTime = now;
+
+    if (diff < 100 || locked) {
+        e.preventDefault();
+        return;
+    }
+
+    locked = true;
+
     setTimeout(() => {
-        window.location.href = window.location.pathname;
-    }, 5000);
-</script>
+        locked = false;
+    }, 2000);
+});
+
+/* 🔄 LIMPIAR PANTALLA AUTOMÁTICAMENTE */
+{% if request.GET.q %}
+setTimeout(() => {
+    window.location.href = window.location.pathname;
+}, 4000);
 {% endif %}
+</script>
 
 </body>
 </html>
