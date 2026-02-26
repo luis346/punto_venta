@@ -699,95 +699,94 @@ $(document).ready(function () {
     });
     function armarYImprimirTicket(data) {
 
-    const productos = typeof data.productos === "string" 
-        ? JSON.parse(data.productos) 
+    const productos = typeof data.productos === "string"
+        ? JSON.parse(data.productos)
         : data.productos;
 
-    // 🔥 CALCULAR TOTAL REAL
     const totalCalculado = productos.reduce(
         (acc, p) => acc + (parseFloat(p.precio_unitario) * parseInt(p.cantidad)),
         0
     );
 
-    const fechaHoraPago = data.fecha_pago 
-    ? new Date(data.fecha_pago).toLocaleString('es-MX', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    })
-    : new Date().toLocaleString('es-MX', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    });
-    const ticketHtml = `
-    <div style="width: 200px; font-family: monospace; font-size: 13px;">
+    const fechaHoraPago = data.fecha_pago
+        ? new Date(data.fecha_pago).toLocaleString('es-MX', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        })
+        : new Date().toLocaleString('es-MX', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
 
-        <div style="text-align:center; margin:0; padding:0; line-height:0;">
-            <img src="${LOGO_URL}"
-            style="width:180px; display:block; margin:0 auto; padding:0;" />
+    const ticketHtml = `
+    <div style="width: 220px; font-family: monospace; font-size: 12px;">
+
+        <div style="text-align:center;">
+            <img src="${LOGO_URL}" style="width:160px; margin-bottom:5px;" />
+            <div style="font-weight:bold; font-size:14px;">EL OFERTÓN</div>
+            <div>${data.sucursal_nombre || ''}</div>
+            <div>${data.sucursal_direccion || ''}</div>
         </div>
 
-        <h3 style="text-align:center; margin: 0;">El Ofertón</h3>
-        <p style="text-align:center; margin: 0;">
-        <strong>${data.sucursal_nombre || ''}</strong>
-        </p>
-        <p style="text-align:center; margin: 0;">
-            ${data.sucursal_direccion || ''}
-        </p>
+        <div style="border-top:1px dashed #000; margin:8px 0;"></div>
 
+        <div>
+            <div><strong>Folio:</strong> ${data.no_venta}</div>
+            <div><strong>Fecha:</strong> ${fechaHoraPago}</div>
+            <div><strong>Cliente:</strong> ${data.tipo_cliente}</div>
+            <div><strong>Vendedor:</strong> ${data.vendedor_nombre}</div>
+        </div>
 
-        <hr>
+        <div style="border-top:1px dashed #000; margin:8px 0;"></div>
 
-        <p><strong>Folio:</strong> ${data.no_venta}</p>
-        <p><strong>Cliente:</strong> ${data.tipo_cliente}</p>
-        <p><strong>Vendedor:</strong> ${data.vendedor_nombre}</p>
-        <p><strong>Fecha y hora:</strong> ${fechaHoraPago}</p>
-        <hr>
-
-        <table style="width: 100%; font-size: 12px;">
+        <table style="width:100%; font-size:11px;">
             <thead>
                 <tr>
-                    <th style="text-align:left;">Producto</th>
+                    <th style="text-align:left;">Prod</th>
                     <th style="text-align:center;">Cant</th>
-                    <th style="text-align:center;">Precio/uni</th>
                     <th style="text-align:right;">Total</th>
                 </tr>
             </thead>
             <tbody>
                 ${productos.map(p => {
 
-                    // 🔥 NORMALIZACIÓN CLAVE (ESTO ARREGLA TODO)
                     const precioNormal = p.precio_normal
                         ? parseFloat(p.precio_normal)
                         : parseFloat(p.precio_unitario);
 
                     const precioUnitario = parseFloat(p.precio_unitario);
-
+                    const subtotal = precioUnitario * p.cantidad;
                     const esMayoreoProducto = precioUnitario < precioNormal;
 
                     return `
                         <tr>
-                            <td>${p.nombre.substring(0, 15)}</td>
-                            <td style="text-align:center;">${p.cantidad}</td>
-                            <td style="text-align:center;">
-                                ${
-                                    esMayoreoProducto
-                                    ? `<span style="text-decoration: line-through; font-size:11px;">
-                                            $${precioNormal.toFixed(2)}
-                                       </span><br>
-                                       <strong>$${precioUnitario.toFixed(2)}</strong>`
+                            <td colspan="3" style="padding-top:4px;">
+                                ${p.nombre}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-size:10px;">
+                                ${esMayoreoProducto
+                                    ? `<span style="text-decoration:line-through;">
+                                          $${precioNormal.toFixed(2)}
+                                       </span>
+                                       $${precioUnitario.toFixed(2)}`
                                     : `$${precioUnitario.toFixed(2)}`
                                 }
                             </td>
+                            <td style="text-align:center;">
+                                x${p.cantidad}
+                            </td>
                             <td style="text-align:right;">
-                                $${(precioUnitario * p.cantidad).toFixed(2)}
+                                $${subtotal.toFixed(2)}
                             </td>
                         </tr>
                     `;
@@ -795,28 +794,65 @@ $(document).ready(function () {
             </tbody>
         </table>
 
-        <hr>
+        <div style="border-top:1px dashed #000; margin:8px 0;"></div>
 
-        <p><strong>Total:</strong> $${totalCalculado.toFixed(2)}</p>
+        <div style="font-size:12px;">
+            <div style="display:flex; justify-content:space-between;">
+                <span>Subtotal:</span>
+                <span>$${totalCalculado.toFixed(2)}</span>
+            </div>
 
-        ${data.descuento > 0 ? `<p><strong>Descuento:</strong> ${data.descuento}%</p>` : ''}
-        <p><strong>Forma de pago:</strong> ${data.forma_pago}</p>
-        <p><strong>Monto pagado:</strong> $${parseFloat(data.monto_pagado).toFixed(2)}</p>
-        ${data.cambio !== undefined ? `<p><strong>Cambio:</strong> $${parseFloat(data.cambio).toFixed(2)}</p>` : ''}
-        <p style="text-align:center;">¡Gracias por su compra!</p>
+            ${data.descuento > 0 ? `
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Descuento (${data.descuento}%):</span>
+                    <span>-</span>
+                </div>
+            ` : ''}
+
+            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; margin-top:4px;">
+                <span>TOTAL:</span>
+                <span>$${totalCalculado.toFixed(2)}</span>
+            </div>
+
+            <div style="margin-top:6px;">
+                <div><strong>Pago:</strong> ${data.forma_pago}</div>
+                <div><strong>Recibido:</strong> $${parseFloat(data.monto_pagado).toFixed(2)}</div>
+                ${data.cambio !== undefined
+                    ? `<div><strong>Cambio:</strong> $${parseFloat(data.cambio).toFixed(2)}</div>`
+                    : ''
+                }
+            </div>
+        </div>
+
+        <div style="border-top:1px dashed #000; margin:8px 0;"></div>
+
+        <div style="text-align:center; font-size:11px;">
+            Gracias por su compra<br>
+            Conserve su ticket
+        </div>
+
     </div>
     `;
 
     const ventana = window.open('', '', 'width=400,height=600');
+
     ventana.document.write(`
     <html>
         <head>
             <title>Ticket</title>
             <style>
-                body { font-family: monospace; font-size: 13px; padding: 5px; }
-                hr { border-top: 1px dashed #000; }
-                table { border-collapse: collapse; width: 100%; }
-                th, td { padding: 2px 0; }
+                body {
+                    font-family: monospace;
+                    font-size: 12px;
+                    padding: 10px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                th {
+                    font-weight: bold;
+                }
             </style>
         </head>
         <body onload="window.print(); window.close();">
@@ -824,11 +860,12 @@ $(document).ready(function () {
         </body>
     </html>
     `);
+
     ventana.document.close();
 
     setTimeout(() => {
         location.reload();
-    }, 2000);
+    }, 1500);
 }
 document.addEventListener('DOMContentLoaded', function () {
     const tipoCliente = document.getElementById("id_tipo_cliente");

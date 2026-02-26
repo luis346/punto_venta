@@ -370,10 +370,10 @@ def inventario_view(request):
     # ==========================
 
     stocks = (
-    Stock.objects
-    .filter(sucursal=sucursal)
-    .select_related('producto', 'producto__categoria')
-    .order_by('id')  # ← agrega esto
+        Stock.objects
+        .filter(sucursal=sucursal)
+        .select_related('producto', 'producto__categoria')
+        .order_by('-id')  # ← nuevos primero
     )
 
     # ==========================
@@ -455,7 +455,7 @@ def inventario_view(request):
 
                 stock.save()
                 messages.success(request, "Stock actualizado correctamente.")
-                return redirect('inventario')
+                return redirect(request.META.get('HTTP_REFERER', 'inventario'))
 
             except ValueError as e:
                 messages.error(request, str(e))
@@ -742,6 +742,21 @@ def inventario_view(request):
     }
 
     return render(request, 'core/inventario.html', context)
+
+@login_required
+@user_passes_test(es_admin)
+def validar_folio(request):
+    folio = request.GET.get('folio', '').strip().upper()
+    producto_id = request.GET.get('producto_id')
+
+    existe = Producto.objects.filter(no_folio__iexact=folio)
+
+    if producto_id:
+        existe = existe.exclude(id=producto_id)
+
+    return JsonResponse({
+        "existe": existe.exists()
+    })
 
 @login_required
 def eliminar_categoria(request, id):
@@ -1555,9 +1570,20 @@ def caja_completa(request):
             productos = json.loads(request.POST.get("productos", "[]"))
             tipo_cliente = request.POST.get("tipo_cliente")
             vendedor_id = request.POST.get("vendedor")
-            monto_pagado = Decimal(request.POST.get("monto_pagado", '0.00'))
             forma_pago = request.POST.get("forma_pago", "")
-            total = Decimal(request.POST.get("total", '0.00'))
+            monto_pagado_raw = request.POST.get("monto_pagado")
+
+            # 🔒 Validar monto pagado
+            try:
+                monto_pagado = Decimal(monto_pagado_raw) if monto_pagado_raw else Decimal('0.00')
+            except:
+                return JsonResponse({"error": "Monto pagado inválido"}, status=400)
+
+            if not productos:
+                return JsonResponse({"error": "No se recibieron productos"}, status=400)
+
+            if not tipo_cliente or not vendedor_id:
+                return JsonResponse({"error": "Faltan datos del formulario"}, status=400)
 
             descuento_raw = request.POST.get("descuento", "")
             descuento = 0
@@ -1569,6 +1595,13 @@ def caja_completa(request):
                 elif descuento_raw.isdigit():
                     descuento = int(descuento_raw)
 
+            if tipo_cliente != "mayorista" and (descuento > 0 or usar_precio_mayoreo):
+                return JsonResponse({"error": "Solo los mayoristas pueden tener descuento"}, status=400)
+
+            if descuento not in [0, 10, 30, 50]:
+                return JsonResponse({"error": "El descuento debe ser 10, 30 o 50%"}, status=400)
+
+            # 🔒 Validar contraseña admin si es mayorista
             if tipo_cliente == 'mayorista':
                 password_admin = request.POST.get("password_admin", "").strip()
                 if not password_admin:
@@ -1578,27 +1611,21 @@ def caja_completa(request):
                 if not any(admin.check_password(password_admin) for admin in admins):
                     return JsonResponse({"error": "Contraseña de administrador incorrecta."}, status=400)
 
-            if not productos:
-                return JsonResponse({"error": "No se recibieron productos"}, status=400)
-            if not tipo_cliente or not vendedor_id:
-                return JsonResponse({"error": "Faltan datos del formulario"}, status=400)
-            if tipo_cliente != "mayorista" and (descuento > 0 or usar_precio_mayoreo):
-                return JsonResponse({"error": "Solo los mayoristas pueden tener descuento"}, status=400)
-            if descuento not in [0, 10, 30, 50]:
-                return JsonResponse({"error": "El descuento debe ser 10, 30 o 50%"}, status=400)
-
             with transaction.atomic():
-                # 🔹 Crear venta con sucursal y usuario
+
                 venta = Venta.objects.create(
                     tipo_cliente=tipo_cliente,
                     vendedor_id=vendedor_id,
-                    usuario=request.user,  # 🔹 Usuario actual
-                    sucursal=sucursal,     # 🔹 Sucursal correcta
+                    usuario=request.user,
+                    sucursal=sucursal,
                     no_venta=no_venta,
                     descuento=descuento
                 )
 
+                total_calculado = Decimal('0.00')
+
                 for p in productos:
+
                     try:
                         producto = Producto.objects.get(no_folio=p["no_folio"])
                     except Producto.DoesNotExist:
@@ -1606,7 +1633,6 @@ def caja_completa(request):
 
                     cantidad = int(p["cantidad"])
 
-                    # 🔹 Obtener stock de la sucursal correcta
                     try:
                         stock = Stock.objects.get(producto=producto, sucursal=sucursal)
                     except Stock.DoesNotExist:
@@ -1622,6 +1648,7 @@ def caja_completa(request):
                             f"El producto {producto.nombre} debe venderse mínimo en 6 piezas para mayoreo."
                         )
 
+                    # 🔒 Determinar precio en backend
                     if usar_precio_mayoreo:
                         precio_unitario = producto.precio_mayoreo
                     elif descuento > 0:
@@ -1631,6 +1658,9 @@ def caja_completa(request):
                     else:
                         precio_unitario = producto.precio
 
+                    subtotal = precio_unitario * cantidad
+                    total_calculado += subtotal
+
                     VentaDetalle.objects.create(
                         venta=venta,
                         producto=producto,
@@ -1638,11 +1668,11 @@ def caja_completa(request):
                         precio_unitario=precio_unitario
                     )
 
-                    # 🔹 Restar del stock de la sucursal correcta
                     stock.stock_fisico -= cantidad
                     stock.save()
 
-                if monto_pagado < total:
+                # 🔒 VALIDACIÓN REAL DEL TOTAL
+                if monto_pagado < total_calculado:
                     raise ValueError("El monto pagado es menor al total.")
 
                 Pago.objects.create(
@@ -1652,11 +1682,16 @@ def caja_completa(request):
                 )
 
                 venta.pagado = True
+                venta.total = total_calculado  # 👈 si tienes campo total en modelo
                 venta.save()
-                print(f"VENTA GUARDADA COMO PAGADA: {venta.pagado}, ID: {venta.id}")
 
-            return JsonResponse({"success": True, "no_venta": venta.no_venta,"sucursal_nombre": venta.sucursal.nombre,
-    "sucursal_direccion": venta.sucursal.direccion,})
+            return JsonResponse({
+                "success": True,
+                "no_venta": venta.no_venta,
+                "sucursal_nombre": venta.sucursal.nombre,
+                "sucursal_direccion": venta.sucursal.direccion,
+                "total": str(total_calculado)
+            })
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)

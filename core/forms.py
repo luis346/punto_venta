@@ -69,6 +69,15 @@ class ProductoForm(forms.ModelForm):
             'unidad_medida': forms.Select(attrs={'class': 'form-select'}),
         }
 
+class CategoriaForm(forms.ModelForm):
+    class Meta:
+        model = Categoria
+        fields = ['nombre', 'prefijo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'prefijo': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
 class StockForm(forms.ModelForm):
     class Meta:
         model = Stock
