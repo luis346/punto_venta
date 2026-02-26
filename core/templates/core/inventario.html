@@ -61,50 +61,38 @@
 ======================== -->
 <div class="card shadow-sm border-0 mb-4">
     <div class="card-body">
-
-        <div class="row g-3 align-items-end">
-
-            <!-- 🔎 BUSCADOR (FUERA DEL FORM) -->
-            <div class="col-md-4">
+        <form method="GET" id="form-filtros" class="row g-3 align-items-end">
+        <div class="col-md-4">
                 <label class="form-label small text-muted">Buscar</label>
-                <input type="text"
-                       id="buscarInventario"
-                       placeholder="Nombre, folio o referencia..."
-                       class="form-control"
-                       value="{{ request.GET.nombre }}">
+                <input type="text" name="nombre" id="buscarInventario" 
+                    placeholder="Nombre, folio o referencia..."
+                    class="form-control"
+                    value="{{ request.GET.nombre }}">
             </div>
 
-            <!-- 📂 FORM SOLO PARA FILTROS -->
-            <div class="col-md-8">
-                <form method="GET" id="form-filtros" class="row g-3 align-items-end">
-
-                    <div class="col-md-6">
-                        <label class="form-label small text-muted">Categoría</label>
-                        <select name="categoria" class="form-select">
-                            <option value="">Todas</option>
-                            {% for cat in categorias %}
-                            <option value="{{ cat.id }}"
-                                {% if request.GET.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
-                                {{ cat.nombre }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="col-md-6 d-flex gap-2">
-                        <button class="btn btn-primary w-100">
-                            Aplicar filtros
-                        </button>
-                        <a href="{% url 'inventario' %}" class="btn btn-light border w-100">
-                            Limpiar
-                        </a>
-                    </div>
-
-                </form>
+            <div class="col-md-4">
+                <label class="form-label small text-muted">Categoría</label>
+                <select name="categoria" class="form-select">
+                    <option value="">Todas</option>
+                    {% for cat in categorias %}
+                    <option value="{{ cat.id }}"
+                        {% if request.GET.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
+                        {{ cat.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
 
-        </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button class="btn btn-primary w-100">
+                    Aplicar filtros
+                </button>
+                <a href="{% url 'inventario' %}" class="btn btn-light border w-100">
+                    Limpiar
+                </a>
+            </div>
 
+        </form>
     </div>
 </div>
 <!-- =======================
@@ -601,40 +589,45 @@ document.addEventListener("DOMContentLoaded", function() {
 document.addEventListener("DOMContentLoaded", function() {
 
     const inputBuscar = document.getElementById("buscarInventario");
-    const tablaBody = document.getElementById("tabla-body");
+    const tablaBody = document.getElementById("tabla-inventario");
+    const form = document.getElementById("form-filtros");
 
-    if (!inputBuscar || !tablaBody) return;
+    if (!inputBuscar || !tablaBody || !form) return;
+
+    // 🚫 Evitar recarga normal del formulario
+    form.addEventListener("submit", function(e) {
+        e.preventDefault();
+    });
 
     let timeout;
 
-    inputBuscar.addEventListener("input", function() {
+    inputBuscar.addEventListener("keyup", function() {
 
         clearTimeout(timeout);
 
         timeout = setTimeout(() => {
 
-            const categoria = document.querySelector('select[name="categoria"]').value;
-
-            const params = new URLSearchParams({
-                nombre: inputBuscar.value,
-                categoria: categoria
+            const query = new URLSearchParams({
+                nombre: inputBuscar.value
             });
 
-            fetch(`${window.location.pathname}?${params.toString()}`, {
-                headers: { "X-Requested-With": "XMLHttpRequest" }
+            fetch(window.location.pathname + "?" + query.toString(), {
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
             })
             .then(response => response.text())
             .then(html => {
 
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, "text/html");
-                const nuevoBody = doc.getElementById("tabla-body");
+                const nuevoBody = doc.getElementById("tabla-inventario");
 
                 if (nuevoBody) {
                     tablaBody.innerHTML = nuevoBody.innerHTML;
                 }
 
-                // 🔥 Mantener foco
+                // 🔥 Mantener foco y cursor
                 inputBuscar.focus();
                 inputBuscar.setSelectionRange(
                     inputBuscar.value.length,
@@ -643,7 +636,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
             });
 
-        }, 300);
+        }, 400);
 
     });
 
