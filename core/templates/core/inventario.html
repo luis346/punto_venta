@@ -61,37 +61,50 @@
 ======================== -->
 <div class="card shadow-sm border-0 mb-4">
     <div class="card-body">
-        <form method="GET" class="row g-3 align-items-end">
 
+        <div class="row g-3 align-items-end">
+
+            <!-- 🔎 BUSCADOR (FUERA DEL FORM) -->
             <div class="col-md-4">
                 <label class="form-label small text-muted">Buscar</label>
-                <input type="text" id="buscar" placeholder="Nombre, folio o referencia..."
-                       class="form-control">
+                <input type="text"
+                       id="buscarInventario"
+                       placeholder="Nombre, folio o referencia..."
+                       class="form-control"
+                       value="{{ request.GET.nombre }}">
             </div>
 
-            <div class="col-md-4">
-                <label class="form-label small text-muted">Categoría</label>
-                <select name="categoria" class="form-select">
-                    <option value="">Todas</option>
-                    {% for cat in categorias %}
-                    <option value="{{ cat.id }}"
-                        {% if request.GET.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
-                        {{ cat.nombre }}
-                    </option>
-                    {% endfor %}
-                </select>
+            <!-- 📂 FORM SOLO PARA FILTROS -->
+            <div class="col-md-8">
+                <form method="GET" id="form-filtros" class="row g-3 align-items-end">
+
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">Categoría</label>
+                        <select name="categoria" class="form-select">
+                            <option value="">Todas</option>
+                            {% for cat in categorias %}
+                            <option value="{{ cat.id }}"
+                                {% if request.GET.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
+                                {{ cat.nombre }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-6 d-flex gap-2">
+                        <button class="btn btn-primary w-100">
+                            Aplicar filtros
+                        </button>
+                        <a href="{% url 'inventario' %}" class="btn btn-light border w-100">
+                            Limpiar
+                        </a>
+                    </div>
+
+                </form>
             </div>
 
-            <div class="col-md-4 d-flex gap-2">
-                <button class="btn btn-primary w-100">
-                    Aplicar filtros
-                </button>
-                <a href="{% url 'inventario' %}" class="btn btn-light border w-100">
-                    Limpiar
-                </a>
-            </div>
+        </div>
 
-        </form>
     </div>
 </div>
 <!-- =======================
@@ -123,8 +136,8 @@
                     </tr>
                 </thead>
 
-            <tbody>
-            {% for stock in stocks %}
+            <tbody id="tabla-body">
+            {% for stock in page_obj %}
             <tr
                 {% if stock.stock_fisico == 0 %}
                     class="table-danger"
@@ -450,7 +463,7 @@ document.getElementById('check-all').addEventListener('change', function () {
 });
 
 /* BUSQUEDA EN VIVO */
-document.getElementById('buscar').addEventListener('keyup', function () {
+document.getElementById('id_no_folio').addEventListener('keyup', function () {
     const value = this.value.toLowerCase();
     document.querySelectorAll('#tabla-inventario tbody tr').forEach(row => {
         row.style.display = row.innerText.toLowerCase().includes(value) ? '' : 'none';
@@ -565,6 +578,77 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 {% endif %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    const inputBuscar = document.getElementById("buscarInventario");
+    const form = document.getElementById("form-filtros");
+
+    if (!inputBuscar || !form) return;
+
+    let timeout;
+
+    inputBuscar.addEventListener("keyup", function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            form.submit();
+        }, 500);
+    });
+
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    const inputBuscar = document.getElementById("buscarInventario");
+    const tablaBody = document.getElementById("tabla-body");
+
+    if (!inputBuscar || !tablaBody) return;
+
+    let timeout;
+
+    inputBuscar.addEventListener("input", function() {
+
+        clearTimeout(timeout);
+
+        timeout = setTimeout(() => {
+
+            const categoria = document.querySelector('select[name="categoria"]').value;
+
+            const params = new URLSearchParams({
+                nombre: inputBuscar.value,
+                categoria: categoria
+            });
+
+            fetch(`${window.location.pathname}?${params.toString()}`, {
+                headers: { "X-Requested-With": "XMLHttpRequest" }
+            })
+            .then(response => response.text())
+            .then(html => {
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+                const nuevoBody = doc.getElementById("tabla-body");
+
+                if (nuevoBody) {
+                    tablaBody.innerHTML = nuevoBody.innerHTML;
+                }
+
+                // 🔥 Mantener foco
+                inputBuscar.focus();
+                inputBuscar.setSelectionRange(
+                    inputBuscar.value.length,
+                    inputBuscar.value.length
+                );
+
+            });
+
+        }, 300);
+
+    });
+
+});
+</script>
 
 
 {% endblock %}

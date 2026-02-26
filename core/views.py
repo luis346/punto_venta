@@ -21,6 +21,9 @@ from .forms import RegistroForm, LoginForm, VendedorForm, ProductoForm, Categori
 from decimal import Decimal
 from datetime import datetime
 import json, unicodedata, openpyxl
+from django.template.loader import render_to_string
+from django.http import JsonResponse
+from django.core.paginator import Paginator
 import pandas as pd
 from openpyxl import Workbook
 from django.contrib.auth.forms import AuthenticationForm
@@ -355,6 +358,34 @@ def eliminar_vendedor(request, id):
     vendedor.delete()
     return redirect('configuracion')
 
+
+
+def buscar_productos_ajax(request):
+
+    query = request.GET.get('q', '').strip()
+
+    stocks = Stock.objects.select_related('producto')
+
+    if query:
+        stocks = stocks.filter(
+            Q(producto__nombre__icontains=query) |
+            Q(producto__no_folio__icontains=query)
+        )
+
+    paginator = Paginator(stocks, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    html = render_to_string(
+        "partials/tabla_productos.html",
+        {"page_obj": page_obj},
+        request=request
+    )
+
+    return JsonResponse({
+        "tabla": html
+    })
+
 @login_required
 @user_passes_test(es_admin)
 def inventario_view(request):
@@ -380,16 +411,17 @@ def inventario_view(request):
     # FILTROS
     # ==========================
 
+   
     categorias = Categoria.objects.all()
-    nombre = request.GET.get('nombre', '').strip()
-    folio = request.GET.get('folio', '').strip()
+    buscar = request.GET.get('nombre', '').strip()
     categoria_id = request.GET.get('categoria', '')
 
-    if nombre:
-        stocks = stocks.filter(producto__nombre__icontains=nombre)
-
-    if folio:
-        stocks = stocks.filter(producto__no_folio__icontains=folio)
+    if buscar:
+        stocks = stocks.filter(
+            Q(producto__nombre__icontains=buscar) |
+            Q(producto__no_folio__icontains=buscar) |
+            Q(producto__referencia__icontains=buscar)
+        )
 
     if categoria_id:
         stocks = stocks.filter(producto__categoria_id=categoria_id)
