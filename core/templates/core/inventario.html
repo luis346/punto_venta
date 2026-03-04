@@ -322,13 +322,19 @@
                 <h5 class="modal-title">📦 Producto</h5>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+            
 
             <div class="modal-body row g-3">
 
                 <!-- FOLIO -->
-                <div class="col-md-4">
-                    <label class="form-label">No. Folio</label>
-                    {{ form_producto.no_folio }}
+                        <div class="col-md-4">
+                        <label class="form-label">No. Folio</label>
+                        <div class="input-group">
+                            {{ form_producto.no_folio }}
+                            <button type="button" class="btn btn-outline-secondary" id="btnScan">
+                                📷
+                            </button>
+                        </div>
                     {% if form_producto.no_folio.errors %}
                         <div class="text-danger small mt-1">
                             {{ form_producto.no_folio.errors.0 }}
@@ -401,6 +407,19 @@
                         </div>
                     {% endif %}
                 </div>
+                <!-- =======================
+                SCANNER (OCULTO)
+            ======================== -->
+            <div class="col-12" id="scannerContainer" style="display:none;">
+                <hr>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <strong>Escanear código</strong>
+                    <button type="button" class="btn btn-sm btn-secondary" id="btnVolverScanner">
+                        ← Volver
+                    </button>
+                </div>
+                <div id="reader" style="width:100%;"></div>
+            </div>
 
             </div>
 
@@ -418,6 +437,8 @@
 </div>
 
 
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <!-- =======================
  JS PRO
 ======================== -->
@@ -641,6 +662,72 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
 });
+</script>
+<script>
+let html5QrCode = null;
+
+const btnScan = document.getElementById('btnScan');
+const scannerContainer = document.getElementById('scannerContainer');
+const btnVolverScanner = document.getElementById('btnVolverScanner');
+const formFields = document.querySelectorAll('#modalProducto .modal-body > div:not(#scannerContainer)');
+
+btnScan.addEventListener('click', function () {
+
+    // Ocultar campos del formulario
+    formFields.forEach(div => div.style.display = 'none');
+
+    // Mostrar scanner
+    scannerContainer.style.display = 'block';
+
+    html5QrCode = new Html5Qrcode("reader");
+
+    Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+            html5QrCode.start(
+                devices[0].id,
+                {
+                    fps: 10,
+                    qrbox: 200,
+                    formatsToSupport: [
+                        Html5QrcodeSupportedFormats.EAN_13,
+                        Html5QrcodeSupportedFormats.EAN_8,
+                        Html5QrcodeSupportedFormats.CODE_128,
+                        Html5QrcodeSupportedFormats.CODE_39,
+                        Html5QrcodeSupportedFormats.UPC_A,
+                        Html5QrcodeSupportedFormats.UPC_E
+                    ]
+                },
+                (decodedText) => {
+
+                    const input = document.getElementById('id_no_folio');
+                    input.value = decodedText;
+                    input.dispatchEvent(new Event('input'));
+
+                    cerrarScanner();
+                }
+            );
+        }
+    });
+
+});
+
+btnVolverScanner.addEventListener('click', cerrarScanner);
+
+function cerrarScanner() {
+
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            html5QrCode.clear();
+            html5QrCode = null;
+        }).catch(() => {});
+    }
+
+    scannerContainer.style.display = 'none';
+
+    // Mostrar nuevamente campos
+    formFields.forEach(div => div.style.display = '');
+
+}
 </script>
 
 

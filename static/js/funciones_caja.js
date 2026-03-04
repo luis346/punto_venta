@@ -51,7 +51,7 @@ function seleccionarProducto(data, fila) {
     fila.find('td[data-tipo="no_folio"]').text(data.no_folio);
     fila.find('td[data-tipo="nombre"]').text(data.nombre);
 
-    // Guardar datos ocultos en la fila (importante para tu función obtenerProductos)
+    // Guardar datos ocultos en la fila
     fila.data('precio-normal', parseFloat(data.precio));
     fila.data('precio-mayoreo', parseFloat(data.precio_mayoreo) || null);
     fila.data('unidad-medida', data.unidad_medida || '');
@@ -64,33 +64,23 @@ function seleccionarProducto(data, fila) {
         .val(1)
         .prop('disabled', false)
         .data('precio', precioInicial)
-        .data('stock_fisico', data.stock_fisico);
+        .data('stock_fisico', parseInt(data.stock_fisico) || 0);
 
     fila.find('.total').text(precioInicial.toFixed(2));
 
     actualizarTotales();
 
-    // Enfocar cantidad automáticamente
-    const inputCantidad = fila.find('.cantidad');
+    // 🔥 FLUJO SOLO SCANNER:
+    // Agregar nueva fila inmediatamente
+    agregarFila();
 
-    if (inputCantidad.length) {
-        inputCantidad.focus().select();
-
-        inputCantidad.off('keydown.enterFila')
-            .on('keydown.enterFila', function (e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    agregarFila();
-
-                    setTimeout(function () {
-                        const nuevaFila = $('#tabla-productos tbody tr').last();
-                        nuevaFila.find('td[data-tipo="no_folio"]').focus();
-                    }, 50);
-                }
-            });
-    }
+    // Pasar foco directo al siguiente no_folio
+    setTimeout(function () {
+        $('#tabla-productos tbody tr:last td[data-tipo="no_folio"]').focus();
+    }, 50);
 }
-    /***************************************
+
+/***************************************
  * FUNCIÓN GLOBAL PARA AGREGAR FILA
  ***************************************/
 function agregarFila() {
@@ -104,20 +94,23 @@ function agregarFila() {
     $('#tabla-productos tbody').append(fila);
 }
 
-        
 /***************************************
  * DOCUMENT READY (ÚNICO)
  ***************************************/
 $(document).ready(function () {
 
-    // Agregar fila inicial
     agregarFila();
 
+    setTimeout(function () {
+        $('#tabla-productos tbody tr:first td[data-tipo="no_folio"]').focus();
+    }, 100);
+
     /***************************************
-     * ACTUALIZAR TOTALES AL CAMBIAR CANTIDAD
+     * ACTUALIZAR TOTALES
      ***************************************/
     $(document).on('input', '.cantidad', function () {
         actualizarTotales();
+        $('#monto_pagado').trigger('input');
     });
 
     /***************************************
@@ -196,44 +189,19 @@ $(document).ready(function () {
                             tipo: tipo
                         },
                         success: function (data) {
-    
-                        // 🚨 Si no encontró nada
-                        if (data.length === 0) {
-                            Swal.fire({
-                                title: "Producto no encontrado",
-                                text: "No existe un producto con ese código o referencia.",
-                                icon: "error",
-                                timer: 1500,
-                                showConfirmButton: false
-                            });
 
-                            return;
-                        }
+                            if (data.length === 0) {
+                                Swal.fire({
+                                    title: "Producto no encontrado",
+                                    text: "No existe un producto con ese código o referencia.",
+                                    icon: "error",
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                });
+                                return;
+                            }
 
-                        // 🔥 Inserción automática por folio o referencia exacta
-                        if (
-                            tipo === "no_folio" &&
-                            data.length === 1 &&
-                            (data[0].no_folio == request.term ||
-                            data[0].referencia == request.term)
-                        ) {
-                            seleccionarProducto(data[0], celda.closest('tr'));
-                            return;
-                        }
-
-                        response($.map(data, function (item) {
-                            return {
-                                label:
-                                    item.nombre + ' - ' +
-                                    item.descripcion +
-                                    ' ($' + parseFloat(item.precio).toFixed(2) + ')' +
-                                    ' / Stock: ' + item.stock_fisico,
-                                value: item[tipo],
-                                item: item
-                            };
-                        }));
-
-                            // 🔥 Inserción automática por folio exacto o referencia exacta
+                            // 🔥 Inserción automática si coincide exacto
                             if (
                                 tipo === "no_folio" &&
                                 data.length === 1 &&
@@ -260,45 +228,8 @@ $(document).ready(function () {
                 },
 
                 select: function (event, ui) {
-
                     const fila = celda.closest('tr');
-                    const data = ui.item.item;
-
-                    fila.find('td[data-tipo="no_folio"]').text(data.no_folio);
-                    fila.find('td[data-tipo="nombre"]').text(data.nombre);
-
-                    const precioInicial = parseFloat(data.precio);
-
-                    fila.find('.precio').text(precioInicial.toFixed(2));
-
-                    fila.find('.cantidad')
-                        .val(1)
-                        .prop('disabled', false)
-                        .data('precio', precioInicial)
-                        .data('stock_fisico', data.stock_fisico);
-
-                    fila.find('.total').text(precioInicial.toFixed(2));
-
-                    actualizarTotales();
-
-                    const inputCantidad = fila.find('.cantidad');
-                    if (inputCantidad.length) {
-                        inputCantidad.focus().select();
-
-                        inputCantidad.off('keydown.enterFila')
-                            .on('keydown.enterFila', function (e2) {
-                                if (e2.key === 'Enter') {
-                                    e2.preventDefault();
-                                    agregarFila();
-
-                                    setTimeout(function () {
-                                        const nuevaFila = $('#tabla-productos tbody tr').last();
-                                        nuevaFila.find('td[data-tipo="no_folio"]').focus();
-                                    }, 50);
-                                }
-                            });
-                    }
-
+                    seleccionarProducto(ui.item.item, fila);
                     return false;
                 }
             });
