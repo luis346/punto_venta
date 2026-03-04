@@ -410,16 +410,21 @@
                 <!-- =======================
                 SCANNER (OCULTO)
             ======================== -->
-            <div class="col-12" id="scannerContainer" style="display:none;">
-                <hr>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <strong>Escanear código</strong>
-                    <button type="button" class="btn btn-sm btn-secondary" id="btnVolverScanner">
-                        ← Volver
-                    </button>
-                </div>
-                <div id="reader" style="width:100%;"></div>
+           <div id="scannerContainer" style="display:none;">
+            <hr>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong>Escanear código</strong>
+                <button type="button" class="btn btn-sm btn-secondary" id="btnVolverScanner">
+                    ← Volver
+                </button>
             </div>
+
+            <div class="mb-2">
+                <select id="cameraSelect" class="form-select form-select-sm"></select>
+            </div>
+
+            <div id="reader" style="width:100%;"></div>
+        </div>
 
             </div>
 
@@ -665,65 +670,79 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>
 <script>
 let html5QrCode = null;
+let currentCameraId = null;
 
 const btnScan = document.getElementById('btnScan');
 const scannerContainer = document.getElementById('scannerContainer');
 const btnVolverScanner = document.getElementById('btnVolverScanner');
+const cameraSelect = document.getElementById('cameraSelect');
 const formFields = document.querySelectorAll('#modalProducto .modal-body > div:not(#scannerContainer)');
 
 btnScan.addEventListener('click', function () {
 
-    // Ocultar campos del formulario
     formFields.forEach(div => div.style.display = 'none');
-
-    // Mostrar scanner
     scannerContainer.style.display = 'block';
 
     html5QrCode = new Html5Qrcode("reader");
 
     Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
 
-            // 🔥 Buscar cámara trasera automáticamente
-            let cameraId = devices[0].id;
+        cameraSelect.innerHTML = "";
 
-            for (let i = 0; i < devices.length; i++) {
-                if (devices[i].label.toLowerCase().includes('back') ||
-                    devices[i].label.toLowerCase().includes('rear') ||
-                    devices[i].label.toLowerCase().includes('environment')) {
-                    cameraId = devices[i].id;
-                    break;
-                }
-            }
+        devices.forEach(device => {
+            const option = document.createElement("option");
+            option.value = device.id;
+            option.text = device.label || `Cámara ${cameraSelect.length + 1}`;
+            cameraSelect.appendChild(option);
+        });
 
-            html5QrCode.start(
-                cameraId,
-                {
-                    fps: 15,
-                    qrbox: 200,
-                    aspectRatio: 1.5,
-                    formatsToSupport: [
-                        Html5QrcodeSupportedFormats.EAN_13,
-                        Html5QrcodeSupportedFormats.EAN_8,
-                        Html5QrcodeSupportedFormats.CODE_128,
-                        Html5QrcodeSupportedFormats.CODE_39,
-                        Html5QrcodeSupportedFormats.UPC_A,
-                        Html5QrcodeSupportedFormats.UPC_E
-                    ]
-                },
-                (decodedText) => {
-
-                    const input = document.getElementById('id_no_folio');
-                    input.value = decodedText;
-                    input.dispatchEvent(new Event('input'));
-
-                    cerrarScanner();
-                }
-            );
+        if (devices.length > 0) {
+            currentCameraId = devices[0].id;
+            iniciarScanner(currentCameraId);
         }
     });
-
 });
+
+cameraSelect.addEventListener("change", function () {
+    currentCameraId = this.value;
+    reiniciarScanner();
+});
+
+function iniciarScanner(cameraId) {
+
+    html5QrCode.start(
+        cameraId,
+        {
+            fps: 15,
+            qrbox: 200,
+            aspectRatio: 1.5,
+            formatsToSupport: [
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E
+            ]
+        },
+        (decodedText) => {
+
+            const input = document.getElementById('id_no_folio');
+            input.value = decodedText;
+            input.dispatchEvent(new Event('input'));
+
+            cerrarScanner();
+        }
+    );
+}
+
+function reiniciarScanner() {
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            iniciarScanner(currentCameraId);
+        });
+    }
+}
 
 btnVolverScanner.addEventListener('click', cerrarScanner);
 
@@ -737,10 +756,7 @@ function cerrarScanner() {
     }
 
     scannerContainer.style.display = 'none';
-
-    // Mostrar nuevamente campos
     formFields.forEach(div => div.style.display = '');
-
 }
 </script>
 
