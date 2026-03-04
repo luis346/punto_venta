@@ -423,7 +423,29 @@
                 <select id="cameraSelect" class="form-select form-select-sm"></select>
             </div>
 
-            <div id="reader" style="width:100%;"></div>
+            <div id="reader" style="width:100%;">
+                <style>
+#reader {
+    position: relative;
+    min-height: 250px;
+}
+
+.scan-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: red;
+    top: 50%;
+    animation: scan 2s infinite linear;
+}
+
+@keyframes scan {
+    0% { top: 10%; }
+    50% { top: 90%; }
+    100% { top: 10%; }
+}
+</style>
+            </div>
         </div>
 
             </div>
@@ -443,7 +465,7 @@
 
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.min.js"></script>
 <!-- =======================
  JS PRO
 ======================== -->
@@ -669,13 +691,12 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 <script>
-let html5QrCode = null;
-let currentCameraId = null;
+let scannerActivo = false;
 
 const btnScan = document.getElementById('btnScan');
 const scannerContainer = document.getElementById('scannerContainer');
 const btnVolverScanner = document.getElementById('btnVolverScanner');
-const cameraSelect = document.getElementById('cameraSelect');
+const reader = document.getElementById('reader');
 const formFields = document.querySelectorAll('#modalProducto .modal-body > div:not(#scannerContainer)');
 
 btnScan.addEventListener('click', function () {
@@ -683,77 +704,77 @@ btnScan.addEventListener('click', function () {
     formFields.forEach(div => div.style.display = 'none');
     scannerContainer.style.display = 'block';
 
-    html5QrCode = new Html5Qrcode("reader");
+    reader.innerHTML = '<div class="scan-line"></div>';
 
-    Html5Qrcode.getCameras().then(devices => {
-
-        cameraSelect.innerHTML = "";
-
-        devices.forEach(device => {
-            const option = document.createElement("option");
-            option.value = device.id;
-            option.text = device.label || `Cámara ${cameraSelect.length + 1}`;
-            cameraSelect.appendChild(option);
-        });
-
-        if (devices.length > 0) {
-            currentCameraId = devices[0].id;
-            iniciarScanner(currentCameraId);
-        }
-    });
+    iniciarScanner();
 });
-
-cameraSelect.addEventListener("change", function () {
-    currentCameraId = this.value;
-    reiniciarScanner();
-});
-
-function iniciarScanner(cameraId) {
-
-    html5QrCode.start(
-        cameraId,
-        {
-            fps: 15,
-            qrbox: 200,
-            aspectRatio: 1.5,
-            formatsToSupport: [
-                Html5QrcodeSupportedFormats.EAN_13,
-                Html5QrcodeSupportedFormats.EAN_8,
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.CODE_39,
-                Html5QrcodeSupportedFormats.UPC_A,
-                Html5QrcodeSupportedFormats.UPC_E
-            ]
-        },
-        (decodedText) => {
-
-            const input = document.getElementById('id_no_folio');
-            input.value = decodedText;
-            input.dispatchEvent(new Event('input'));
-
-            cerrarScanner();
-        }
-    );
-}
-
-function reiniciarScanner() {
-    if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-            iniciarScanner(currentCameraId);
-        });
-    }
-}
 
 btnVolverScanner.addEventListener('click', cerrarScanner);
 
+function iniciarScanner() {
+
+    Quagga.init({
+        inputStream: {
+            type: "LiveStream",
+            target: reader,
+            constraints: {
+                facingMode: "environment", // 🔥 cámara trasera
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        },
+        locator: {
+            patchSize: "medium",
+            halfSample: true
+        },
+        numOfWorkers: navigator.hardwareConcurrency || 4,
+        decoder: {
+            readers: [
+                "ean_reader",
+                "ean_8_reader",
+                "code_128_reader",
+                "code_39_reader",
+                "upc_reader",
+                "upc_e_reader"
+            ]
+        },
+        locate: true
+    }, function (err) {
+        if (err) {
+            console.error(err);
+            return;
+        }
+        Quagga.start();
+        scannerActivo = true;
+    });
+
+    Quagga.onDetected(function (result) {
+
+        const code = result.codeResult.code;
+
+        // 🔔 Sonido tipo escáner
+        const audio = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+        audio.play();
+
+        // 📳 Vibración en celular
+        if (navigator.vibrate) {
+            navigator.vibrate(200);
+        }
+
+        document.getElementById('id_no_folio').value = code;
+
+        cerrarScanner();
+    });
+}
+
 function cerrarScanner() {
 
-    if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-            html5QrCode.clear();
-            html5QrCode = null;
-        }).catch(() => {});
+    if (scannerActivo) {
+        Quagga.stop();
+        scannerActivo = false;
     }
+
+    reader.innerHTML = "";
 
     scannerContainer.style.display = 'none';
     formFields.forEach(div => div.style.display = '');
