@@ -726,6 +726,7 @@ document.addEventListener("DOMContentLoaded", function() {
 <script>
 let scannerActivo = false;
 let codigoDetectado = false;
+let lecturas = [];
 
 const btnScan = document.getElementById('btnScan');
 const scannerContainer = document.getElementById('scannerContainer');
@@ -748,24 +749,36 @@ btnVolverScanner.addEventListener('click', cerrarScanner);
 function iniciarScanner() {
 
     codigoDetectado = false;
+    lecturas = [];
 
     Quagga.init({
+
         inputStream: {
             type: "LiveStream",
             target: reader,
+
             constraints: {
                 facingMode: "environment",
-                width: { ideal: 640 },
-                height: { ideal: 480 }
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+
+            area: {
+                top: "25%",
+                right: "10%",
+                left: "10%",
+                bottom: "25%"
             }
         },
 
         locator: {
-            patchSize: "large",
+            patchSize: "medium",
             halfSample: false
         },
 
         numOfWorkers: navigator.hardwareConcurrency || 4,
+
+        frequency: 15,
 
         decoder: {
             readers: [
@@ -775,8 +788,7 @@ function iniciarScanner() {
             ]
         },
 
-        locate: true,
-        frequency: 10
+        locate: true
 
     }, function (err) {
 
@@ -787,9 +799,9 @@ function iniciarScanner() {
 
         Quagga.start();
         scannerActivo = true;
+
     });
 
-    // Limpiar detecciones previas
     Quagga.offDetected();
 
     Quagga.onDetected(function (result) {
@@ -798,8 +810,33 @@ function iniciarScanner() {
 
         const code = result.codeResult.code;
 
-        // Evitar lecturas incompletas
-        if (!code || code.length < 12) {
+        if (!code) return;
+
+        // 🔎 VALIDAR CALIDAD DE LECTURA
+        const error = result.codeResult.decodedCodes
+            .filter(x => x.error !== undefined)
+            .reduce((sum, x) => sum + x.error, 0);
+
+        if (error > 0.5) {
+            return; // descartar lecturas malas
+        }
+
+        // Evitar códigos muy cortos
+        if (code.length < 8) {
+            return;
+        }
+
+        // 🔁 exigir 3 lecturas iguales para confirmar
+        lecturas.push(code);
+
+        if (lecturas.length < 3) {
+            return;
+        }
+
+        const iguales = lecturas.every(c => c === lecturas[0]);
+
+        if (!iguales) {
+            lecturas = [];
             return;
         }
 
@@ -818,28 +855,32 @@ function iniciarScanner() {
 
         inputFolio.value = code;
 
-        // activar búsqueda
-        inputFolio.dispatchEvent(new Event('input'));;
+        inputFolio.dispatchEvent(new Event('input'));
 
         setTimeout(() => {
             cerrarScanner();
         }, 300);
 
     });
+
 }
 
 function cerrarScanner() {
 
     if (scannerActivo) {
+
         Quagga.stop();
         Quagga.offDetected();
+
         scannerActivo = false;
     }
 
     reader.innerHTML = "";
 
     scannerContainer.style.display = 'none';
+
     formFields.forEach(div => div.style.display = '');
+
 }
 </script>
 
