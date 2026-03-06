@@ -726,7 +726,6 @@ document.addEventListener("DOMContentLoaded", function() {
 <script>
 let scannerActivo = false;
 let codigoDetectado = false;
-let lecturas = [];
 
 const btnScan = document.getElementById('btnScan');
 const scannerContainer = document.getElementById('scannerContainer');
@@ -745,80 +744,108 @@ btnScan.addEventListener('click', () => {
 btnVolverScanner.addEventListener('click', cerrarScanner);
 
 function iniciarScanner() {
+
     codigoDetectado = false;
-    lecturas = [];
 
     Quagga.init({
+
         inputStream: {
             type: "LiveStream",
             target: reader,
+
             constraints: {
                 facingMode: "environment",
-                width: { ideal: 640 },   // 📉 resolución más baja = más rápido
-                height: { ideal: 480 }
+                width: 640,
+                height: 480
             },
-            area: {                    // 📐 área más amplia para detectar antes
-                top: "10%",
-                right: "0%",
-                left: "0%",
-                bottom: "10%"
+
+            area: {
+                top: "15%",
+                right: "5%",
+                left: "5%",
+                bottom: "15%"
             }
         },
+
         locator: {
-            patchSize: "medium",
-            halfSample: true           // ⚡ acelera procesamiento
+            patchSize: "large",   // ⚡ más rápido
+            halfSample: true
         },
+
         numOfWorkers: navigator.hardwareConcurrency || 4,
-        frequency: 30,                 // ⏩ más frames por segundo
+
+        frequency: 40, // ⚡ más frames por segundo
+
         decoder: {
-            readers: ["ean_reader", "code_128_reader"] // 🎯 menos lectores = más rápido
+            readers: [
+                "ean_reader",
+                "ean_8_reader",
+                "code_128_reader",
+                "upc_reader"
+            ]
         },
-        locate: true
+
+        locate: false // 🚀 GRAN mejora de velocidad
+
     }, err => {
-        if (err) return console.error(err);
+
+        if (err) {
+            console.error(err);
+            return;
+        }
+
         Quagga.start();
         scannerActivo = true;
+
     });
 
     Quagga.offDetected();
-    Quagga.onDetected(result => {
-        if (codigoDetectado || !result.codeResult?.code) return;
 
-        const code = result.codeResult.code;
+    Quagga.onDetected(result => {
+
+        if (codigoDetectado) return;
+
+        const code = result.codeResult?.code;
+
+        if (!code) return;
+
+        // filtro de error rápido
         const error = result.codeResult.decodedCodes
             .reduce((sum, x) => sum + (x.error || 0), 0);
 
-        if (error > 0.3 || code.length < 8) return; // 🔎 tolerancia más flexible
+        if (error > 0.35) return;
 
-        lecturas.push(code);
-        if (lecturas.length < 2) return; // ✅ ahora solo 2 lecturas iguales
-
-        if (!lecturas.every(c => c === lecturas[0])) {
-            lecturas = [];
-            return;
-        }
+        if (code.length < 8) return;
 
         codigoDetectado = true;
 
         new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg").play();
-        navigator.vibrate?.(200);
+        navigator.vibrate?.(150);
 
         inputFolio.value = code;
         inputFolio.dispatchEvent(new Event('input'));
 
-        setTimeout(cerrarScanner, 200); // ⏱ cierre más rápido
+        setTimeout(cerrarScanner, 150);
+
     });
+
 }
 
 function cerrarScanner() {
+
     if (scannerActivo) {
+
         Quagga.stop();
         Quagga.offDetected();
         scannerActivo = false;
+
     }
+
     reader.innerHTML = "";
+
     scannerContainer.style.display = 'none';
     formFields.forEach(div => div.style.display = '');
+
 }
 </script>
 
