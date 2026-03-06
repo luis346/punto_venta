@@ -532,7 +532,7 @@ document.getElementById('check-all').addEventListener('change', function () {
 });
 
 /* BUSQUEDA EN VIVO */
-document.getElementById('id_no_folio').addEventListener('keyup', function () {
+document.getElementById('id_no_folio').addEventListener('input', function () {
     const value = this.value.toLowerCase();
     document.querySelectorAll('#tabla-inventario tbody tr').forEach(row => {
         row.style.display = row.innerText.toLowerCase().includes(value) ? '' : 'none';
@@ -554,7 +554,7 @@ if (folioInput) {
 
     let timeout = null;
 
-    folioInput.addEventListener("keyup", function() {
+    folioInput.addEventListener("input", function() {
 
         clearTimeout(timeout);
 
