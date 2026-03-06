@@ -814,7 +814,12 @@ function iniciarScanner() {
             navigator.vibrate(200);
         }
 
-        document.getElementById('id_no_folio').value = code;
+        const inputFolio = document.getElementById('id_no_folio');
+
+        inputFolio.value = code;
+
+        // activar búsqueda
+        inputFolio.dispatchEvent(new Event('input'));;
 
         setTimeout(() => {
             cerrarScanner();
