@@ -777,7 +777,17 @@ function iniciarScanner(){
             return;
         }
 
-        const cameraId = devices[0].id;
+        // 🔎 Buscar cámara trasera
+        let cameraId = devices.find(d =>
+            d.label.toLowerCase().includes("back") ||
+            d.label.toLowerCase().includes("rear") ||
+            d.label.toLowerCase().includes("environment")
+        )?.id;
+
+        // Si no encuentra, usa la última (normalmente la trasera)
+        if(!cameraId){
+            cameraId = devices[devices.length - 1].id;
+        }
 
         html5QrCode.start(
             cameraId,
