@@ -736,7 +736,7 @@ const inputFolio = document.getElementById('id_no_folio');
 
 btnScan.addEventListener('click', () => {
     formFields.forEach(div => div.style.display = 'none');
-    scannerContainer.style.display = 'block';
+    scannerContainer.style.display = 'flex';
     reader.innerHTML = '<div class="scan-line"></div>';
     iniciarScanner();
 });
@@ -760,21 +760,21 @@ function iniciarScanner() {
             },
 
             area: {
-                top: "15%",
-                right: "5%",
-                left: "5%",
-                bottom: "15%"
+                top: "10%",
+                right: "10%",
+                left: "10%",
+                bottom: "10%"
             }
         },
 
         locator: {
-            patchSize: "large",   // ⚡ más rápido
+            patchSize: "medium",
             halfSample: true
         },
 
         numOfWorkers: navigator.hardwareConcurrency || 4,
 
-        frequency: 40, // ⚡ más frames por segundo
+        frequency: 20,
 
         decoder: {
             readers: [
@@ -785,7 +785,7 @@ function iniciarScanner() {
             ]
         },
 
-        locate: false // 🚀 GRAN mejora de velocidad
+        locate: true
 
     }, err => {
 
@@ -806,15 +806,12 @@ function iniciarScanner() {
         if (codigoDetectado) return;
 
         const code = result.codeResult?.code;
-
         if (!code) return;
 
-        // filtro de error rápido
         const error = result.codeResult.decodedCodes
             .reduce((sum, x) => sum + (x.error || 0), 0);
 
         if (error > 0.35) return;
-
         if (code.length < 8) return;
 
         codigoDetectado = true;
@@ -825,7 +822,7 @@ function iniciarScanner() {
         inputFolio.value = code;
         inputFolio.dispatchEvent(new Event('input'));
 
-        setTimeout(cerrarScanner, 150);
+        setTimeout(cerrarScanner, 200);
 
     });
 
@@ -834,11 +831,9 @@ function iniciarScanner() {
 function cerrarScanner() {
 
     if (scannerActivo) {
-
         Quagga.stop();
         Quagga.offDetected();
         scannerActivo = false;
-
     }
 
     reader.innerHTML = "";
