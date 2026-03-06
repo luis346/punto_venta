@@ -733,154 +733,92 @@ const scannerContainer = document.getElementById('scannerContainer');
 const btnVolverScanner = document.getElementById('btnVolverScanner');
 const reader = document.getElementById('reader');
 const formFields = document.querySelectorAll('#modalProducto .modal-body > div:not(#scannerContainer)');
+const inputFolio = document.getElementById('id_no_folio');
 
-btnScan.addEventListener('click', function () {
-
+btnScan.addEventListener('click', () => {
     formFields.forEach(div => div.style.display = 'none');
     scannerContainer.style.display = 'block';
-
     reader.innerHTML = '<div class="scan-line"></div>';
-
     iniciarScanner();
 });
 
 btnVolverScanner.addEventListener('click', cerrarScanner);
 
 function iniciarScanner() {
-
     codigoDetectado = false;
     lecturas = [];
 
     Quagga.init({
-
         inputStream: {
             type: "LiveStream",
             target: reader,
-
             constraints: {
                 facingMode: "environment",
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
+                width: { ideal: 640 },   // 📉 resolución más baja = más rápido
+                height: { ideal: 480 }
             },
-
-            area: {
-                top: "25%",
-                right: "10%",
-                left: "10%",
-                bottom: "25%"
+            area: {                    // 📐 área más amplia para detectar antes
+                top: "10%",
+                right: "0%",
+                left: "0%",
+                bottom: "10%"
             }
         },
-
         locator: {
             patchSize: "medium",
-            halfSample: false
+            halfSample: true           // ⚡ acelera procesamiento
         },
-
         numOfWorkers: navigator.hardwareConcurrency || 4,
-
-        frequency: 15,
-
+        frequency: 30,                 // ⏩ más frames por segundo
         decoder: {
-            readers: [
-                "ean_reader",
-                "ean_8_reader",
-                "code_128_reader"
-            ]
+            readers: ["ean_reader", "code_128_reader"] // 🎯 menos lectores = más rápido
         },
-
         locate: true
-
-    }, function (err) {
-
-        if (err) {
-            console.error(err);
-            return;
-        }
-
+    }, err => {
+        if (err) return console.error(err);
         Quagga.start();
         scannerActivo = true;
-
     });
 
     Quagga.offDetected();
-
-    Quagga.onDetected(function (result) {
-
-        if (codigoDetectado) return;
+    Quagga.onDetected(result => {
+        if (codigoDetectado || !result.codeResult?.code) return;
 
         const code = result.codeResult.code;
-
-        if (!code) return;
-
-        // 🔎 VALIDAR CALIDAD DE LECTURA
         const error = result.codeResult.decodedCodes
-            .filter(x => x.error !== undefined)
-            .reduce((sum, x) => sum + x.error, 0);
+            .reduce((sum, x) => sum + (x.error || 0), 0);
 
-        if (error > 0.5) {
-            return; // descartar lecturas malas
-        }
+        if (error > 0.3 || code.length < 8) return; // 🔎 tolerancia más flexible
 
-        // Evitar códigos muy cortos
-        if (code.length < 8) {
-            return;
-        }
-
-        // 🔁 exigir 3 lecturas iguales para confirmar
         lecturas.push(code);
+        if (lecturas.length < 2) return; // ✅ ahora solo 2 lecturas iguales
 
-        if (lecturas.length < 3) {
-            return;
-        }
-
-        const iguales = lecturas.every(c => c === lecturas[0]);
-
-        if (!iguales) {
+        if (!lecturas.every(c => c === lecturas[0])) {
             lecturas = [];
             return;
         }
 
         codigoDetectado = true;
 
-        // 🔔 sonido
-        const audio = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
-        audio.play();
-
-        // 📳 vibración
-        if (navigator.vibrate) {
-            navigator.vibrate(200);
-        }
-
-        const inputFolio = document.getElementById('id_no_folio');
+        new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg").play();
+        navigator.vibrate?.(200);
 
         inputFolio.value = code;
-
         inputFolio.dispatchEvent(new Event('input'));
 
-        setTimeout(() => {
-            cerrarScanner();
-        }, 300);
-
+        setTimeout(cerrarScanner, 200); // ⏱ cierre más rápido
     });
-
 }
 
 function cerrarScanner() {
-
     if (scannerActivo) {
-
         Quagga.stop();
         Quagga.offDetected();
-
         scannerActivo = false;
     }
-
     reader.innerHTML = "";
-
     scannerContainer.style.display = 'none';
-
     formFields.forEach(div => div.style.display = '');
-
 }
 </script>
 
