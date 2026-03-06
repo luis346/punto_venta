@@ -308,59 +308,78 @@
 </div>
 
 <style>
+
 /* CONTENEDOR DEL SCANNER */
-#scannerContainer{
-    display:none;
-    justify-content:center;
-    align-items:center;
-}
-
-/* AREA DEL SCANNER */
 #reader{
-    position:relative;
-    width:100%;
-    max-width:350px;
-    height:180px;
-    margin:auto;
+    position: relative;
+    width: 100%;
+    max-width: 350px;
+    height: 220px;
+    margin: auto;
 
-    border:3px solid #0d6efd;
-    border-radius:12px;
-    overflow:hidden;
-    background:#000;
+    border: 3px solid #0d6efd;
+    border-radius: 12px;
+
+    background: #000;
+    overflow: hidden;
 }
 
 /* VIDEO DE LA CAMARA */
 #reader video{
-    width:100%;
-    height:100%;
-    object-fit:cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+}
+
+/* CANVAS (cuando lo usa el motor de escaneo) */
+#reader canvas{
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 100%;
 }
 
 /* LINEA DE ESCANEO */
 .scan-line{
-    position:absolute;
-    width:90%;
-    left:5%;
-    height:3px;
-    background:linear-gradient(90deg, transparent, red, transparent);
-    box-shadow:0 0 8px red;
+    position: absolute;
+    width: 90%;
+    left: 5%;
+    height: 3px;
 
-    animation:scan 1.8s infinite linear;
+    background: linear-gradient(90deg, transparent, red, transparent);
+    box-shadow: 0 0 8px red;
+
+    animation: scan 2s infinite linear;
+
+    pointer-events: none;
 }
 
 /* ANIMACION */
 @keyframes scan{
+
     0%{
-        top:10%;
+        top: 10%;
     }
+
     50%{
-        top:85%;
+        top: 85%;
     }
+
     100%{
-        top:10%;
+        top: 10%;
     }
+
 }
+
 </style>
+
 <!-- =======================
  MODAL PRODUCTO (LABELS)
 ======================== -->
@@ -498,7 +517,7 @@
 
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
 <!-- =======================
  JS PRO
 ======================== -->
@@ -532,7 +551,7 @@ document.getElementById('check-all').addEventListener('change', function () {
 });
 
 /* BUSQUEDA EN VIVO */
-document.getElementById('id_no_folio').addEventListener('input', function () {
+document.getElementById('id_no_folio').addEventListener('keyup', function () {
     const value = this.value.toLowerCase();
     document.querySelectorAll('#tabla-inventario tbody tr').forEach(row => {
         row.style.display = row.innerText.toLowerCase().includes(value) ? '' : 'none';
@@ -554,7 +573,7 @@ if (folioInput) {
 
     let timeout = null;
 
-    folioInput.addEventListener("input", function() {
+    folioInput.addEventListener("keyup", function() {
 
         clearTimeout(timeout);
 
@@ -725,7 +744,7 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>
 <script>
 let scannerActivo = false;
-let codigoDetectado = false;
+let html5QrCode;
 
 const btnScan = document.getElementById('btnScan');
 const scannerContainer = document.getElementById('scannerContainer');
@@ -735,108 +754,76 @@ const formFields = document.querySelectorAll('#modalProducto .modal-body > div:n
 const inputFolio = document.getElementById('id_no_folio');
 
 btnScan.addEventListener('click', () => {
+
     formFields.forEach(div => div.style.display = 'none');
-    scannerContainer.style.display = 'flex';
+    scannerContainer.style.display = 'block';
+
     reader.innerHTML = '<div class="scan-line"></div>';
+
     iniciarScanner();
+
 });
 
 btnVolverScanner.addEventListener('click', cerrarScanner);
 
-function iniciarScanner() {
+function iniciarScanner(){
 
-    codigoDetectado = false;
+    html5QrCode = new Html5Qrcode("reader");
 
-    Quagga.init({
+    Html5Qrcode.getCameras().then(devices => {
 
-        inputStream: {
-            type: "LiveStream",
-            target: reader,
-
-            constraints: {
-                facingMode: "environment",
-                width: 640,
-                height: 480
-            },
-
-            area: {
-                top: "10%",
-                right: "10%",
-                left: "10%",
-                bottom: "10%"
-            }
-        },
-
-        locator: {
-            patchSize: "medium",
-            halfSample: true
-        },
-
-        numOfWorkers: navigator.hardwareConcurrency || 4,
-
-        frequency: 20,
-
-        decoder: {
-            readers: [
-                "ean_reader",
-                "ean_8_reader",
-                "code_128_reader",
-                "upc_reader"
-            ]
-        },
-
-        locate: true
-
-    }, err => {
-
-        if (err) {
-            console.error(err);
+        if(!devices.length){
+            alert("No se encontró cámara");
             return;
         }
 
-        Quagga.start();
+        const cameraId = devices[0].id;
+
+        html5QrCode.start(
+            cameraId,
+            {
+                fps: 20,
+                qrbox: { width: 300, height: 150 },
+
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.CODE_39
+                ]
+            },
+
+            (decodedText) => {
+
+                new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg").play();
+                navigator.vibrate?.(200);
+
+                inputFolio.value = decodedText;
+                inputFolio.dispatchEvent(new Event('input'));
+
+                cerrarScanner();
+            }
+
+        );
+
         scannerActivo = true;
-
-    });
-
-    Quagga.offDetected();
-
-    Quagga.onDetected(result => {
-
-        if (codigoDetectado) return;
-
-        const code = result.codeResult?.code;
-        if (!code) return;
-
-        const error = result.codeResult.decodedCodes
-            .reduce((sum, x) => sum + (x.error || 0), 0);
-
-        if (error > 0.35) return;
-        if (code.length < 8) return;
-
-        codigoDetectado = true;
-
-        new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg").play();
-        navigator.vibrate?.(150);
-
-        inputFolio.value = code;
-        inputFolio.dispatchEvent(new Event('input'));
-
-        setTimeout(cerrarScanner, 200);
 
     });
 
 }
 
-function cerrarScanner() {
+function cerrarScanner(){
 
-    if (scannerActivo) {
-        Quagga.stop();
-        Quagga.offDetected();
+    if(scannerActivo && html5QrCode){
+
+        html5QrCode.stop().then(()=>{
+            reader.innerHTML = "";
+        });
+
         scannerActivo = false;
     }
-
-    reader.innerHTML = "";
 
     scannerContainer.style.display = 'none';
     formFields.forEach(div => div.style.display = '');
