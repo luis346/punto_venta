@@ -386,6 +386,20 @@ def buscar_productos_ajax(request):
         "tabla": html
     })
 
+def generar_ean13(base):
+    base = str(base).zfill(12)
+
+    suma = 0
+    for i, digito in enumerate(base):
+        n = int(digito)
+        if i % 2 == 0:
+            suma += n
+        else:
+            suma += n * 3
+
+    digito = (10 - (suma % 10)) % 10
+    return base + str(digito)
+
 @login_required
 @user_passes_test(es_admin)
 def inventario_view(request):
@@ -595,9 +609,11 @@ def inventario_view(request):
                 print("ERRORES FORMULARIO CATEGORÍA:", errores_form)
                 messages.error(request, "Error en el formulario de categoría. Revisa los campos.")
                 return redirect('inventario')
+                
         # ----------------------------------
         # IMPORTAR EXCEL
         # ----------------------------------
+
         elif 'subir_excel' in request.POST and request.FILES.get('archivo_excel'):
 
             archivo_excel = request.FILES['archivo_excel']
@@ -615,6 +631,21 @@ def inventario_view(request):
                     t = str(t).strip().upper()
                     return unicodedata.normalize('NFKD', t).encode('ASCII', 'ignore').decode('utf-8')
 
+                # ------------------------------------------------
+                # GENERADOR EAN13
+                # ------------------------------------------------
+                def generar_ean13(base):
+                    base = str(base).zfill(12)
+                    suma = 0
+                    for i, digito in enumerate(base):
+                        n = int(digito)
+                        if i % 2 == 0:
+                            suma += n
+                        else:
+                            suma += n * 3
+                    digito = (10 - (suma % 10)) % 10
+                    return base + str(digito)
+
                 creados = 0
                 actualizados = 0
                 categorias_creadas = 0
@@ -624,116 +655,153 @@ def inventario_view(request):
                 with transaction.atomic():
 
                     categorias_db = {c.nombre: c for c in Categoria.objects.all()}
-                    productos_db = {p.no_folio: p for p in Producto.objects.all()}
+                    productos_db = {p.no_folio: p for p in Producto.objects.all() if p.no_folio}
+                    referencias_db = {p.referencia for p in Producto.objects.all() if p.referencia}
+
                     stocks_db = {
                         (s.producto_id): s
                         for s in Stock.objects.filter(sucursal=sucursal)
                     }
 
+                    # ------------------------------------------------
+                    # OBTENER BASE DE CODIGO UNA SOLA VEZ
+                    # ------------------------------------------------
+                    ultimo = Producto.objects.order_by('-id').first()
+
+                    if ultimo and ultimo.no_folio and ultimo.no_folio.isdigit():
+                        base_codigo = int(ultimo.no_folio[:12]) + 1
+                    else:
+                        base_codigo = 750000000000
+
                     nuevos_stocks = []
 
                     for numero_fila, fila in enumerate(hoja.iter_rows(min_row=2, values_only=True), start=2):
                         try:
-                            datos = list(fila) + [None] * 9
-                            no_folio, referencia, nombre, descripcion, categoria_nombre, precio, precio_mayoreo, unidad_medida, stock_fisico, stock_virtual = datos[:10]
 
-                            if not no_folio or not nombre or not categoria_nombre:
-                                filas_ignoradas += 1
-                                continue
+                            with transaction.atomic():
 
-                            no_folio = norm(no_folio)
-                            referencia = norm(referencia) if referencia else None
-                            nombre = norm(nombre)
-                            descripcion = norm(descripcion)
-                            categoria_nombre = norm(categoria_nombre)
+                                datos = list(fila) + [None] * 9
+                                no_folio, referencia, nombre, descripcion, categoria_nombre, precio, precio_mayoreo, unidad_medida, stock_fisico, stock_virtual = datos[:10]
 
-                            precio = float(precio) if precio and precio > 0 else 0
-                            precio_mayoreo = float(precio_mayoreo) if precio_mayoreo and precio_mayoreo > 0 else 0
-                            stock_fisico = int(stock_fisico) if stock_fisico and stock_fisico >= 0 else 0
-                            stock_virtual = int(stock_virtual) if stock_virtual and stock_virtual >= 0 else 0
+                                no_folio = norm(no_folio)
+                                referencia = norm(referencia) if referencia else None
+                                nombre = norm(nombre)
+                                descripcion = norm(descripcion)
+                                categoria_nombre = norm(categoria_nombre)
+                                unidad_medida = norm(unidad_medida) if unidad_medida else "PIEZA"
 
-                            categoria = categorias_db.get(categoria_nombre)
+                                # -----------------------------------
+                                # CORREGIR CODIGO DE BARRAS MUY CORTO
+                                # -----------------------------------
+                                if no_folio and len(no_folio) <= 2:
+                                    no_folio = ''
 
-                            if not categoria:
-                                prefijo_base = categoria_nombre[:3].upper()
-                                prefijo = f"{prefijo_base}{len(categorias_db)+1}"
+                                # generar codigo de barras automatico
+                                if not no_folio:
+                                    no_folio = generar_ean13(base_codigo)
+                                    base_codigo += 1
 
-                                categoria = Categoria.objects.create(
-                                    nombre=categoria_nombre,
-                                    prefijo=prefijo
-                                )
+                                if not nombre or not categoria_nombre:
+                                    filas_ignoradas += 1
+                                    continue
 
-                                categorias_db[categoria_nombre] = categoria
-                                categorias_creadas += 1
+                                precio = float(precio) if precio and precio > 0 else 0
+                                precio_mayoreo = float(precio_mayoreo) if precio_mayoreo and precio_mayoreo > 0 else 0
+                                stock_fisico = int(stock_fisico) if stock_fisico and stock_fisico >= 0 else 0
+                                stock_virtual = int(stock_virtual) if stock_virtual and stock_virtual >= 0 else 0
 
-                            producto = productos_db.get(no_folio)
+                                categoria = categorias_db.get(categoria_nombre)
 
-                            if producto:
-                                producto.nombre = nombre
-                                producto.descripcion = descripcion
-                                producto.categoria = categoria
-                                producto.precio = precio
-                                producto.precio_mayoreo = precio_mayoreo
-                                producto.unidad_medida = unidad_medida
-                                producto.save()
-                                actualizados += 1
-                            else:
-                                if not referencia:
-                                    prefijo = categoria.prefijo
-                                    ultimo = Producto.objects.filter(
-                                        referencia__startswith=prefijo
-                                    ).order_by('-referencia').first()
+                                if not categoria:
+                                    prefijo_base = categoria_nombre[:3].upper()
+                                    prefijo = f"{prefijo_base}{len(categorias_db)+1}"
 
-                                    if ultimo:
-                                        try:
-                                            num = int(ultimo.referencia.split('-')[-1]) + 1
-                                        except:
+                                    categoria, creada = Categoria.objects.get_or_create(
+                                        nombre=categoria_nombre,
+                                        defaults={"prefijo": prefijo}
+                                    )
+
+                                    categorias_db[categoria_nombre] = categoria
+
+                                    if creada:
+                                        categorias_creadas += 1
+
+                                # -----------------------------------
+                                # EVITAR REFERENCIA DUPLICADA (OPTIMIZADO)
+                                # -----------------------------------
+                                if referencia and referencia in referencias_db:
+                                    referencia = None
+
+                                producto = productos_db.get(no_folio)
+
+                                if producto:
+                                    producto.nombre = nombre
+                                    producto.descripcion = descripcion
+                                    producto.categoria = categoria
+                                    producto.precio = precio
+                                    producto.precio_mayoreo = precio_mayoreo
+                                    producto.unidad_medida = unidad_medida
+                                    producto.save()
+                                    actualizados += 1
+                                else:
+
+                                    if not referencia:
+                                        prefijo = categoria.prefijo
+                                        ultimo = Producto.objects.filter(
+                                            referencia__startswith=prefijo
+                                        ).order_by('-referencia').first()
+
+                                        if ultimo:
+                                            try:
+                                                num = int(ultimo.referencia.split('-')[-1]) + 1
+                                            except:
+                                                num = 1
+                                        else:
                                             num = 1
-                                    else:
-                                        num = 1
 
-                                    referencia = f"{prefijo}-{num:04d}"
+                                        referencia = f"{prefijo}-{num:04d}"
 
-                                producto = Producto.objects.create(
-                                    no_folio=no_folio,
-                                    referencia=referencia,
-                                    nombre=nombre,
-                                    descripcion=descripcion,
-                                    categoria=categoria,
-                                    precio=precio,
-                                    precio_mayoreo=precio_mayoreo,
-                                    unidad_medida=unidad_medida,
-                                )
+                                    producto = Producto.objects.create(
+                                        no_folio=no_folio,
+                                        referencia=referencia,
+                                        nombre=nombre,
+                                        descripcion=descripcion,
+                                        categoria=categoria,
+                                        precio=precio,
+                                        precio_mayoreo=precio_mayoreo,
+                                        unidad_medida=unidad_medida,
+                                    )
 
-                                productos_db[no_folio] = producto
-                                creados += 1
+                                    productos_db[no_folio] = producto
+                                    referencias_db.add(referencia)
+                                    creados += 1
 
-                            stock = stocks_db.get(producto.id)
+                                stock = stocks_db.get(producto.id)
 
-                            if stock:
-                                stock.stock_fisico = stock_fisico
-                                stock.stock_virtual = stock_virtual
-                                stock.save()
-                            else:
-                                nuevo_stock = Stock(
-                                    producto=producto,
-                                    sucursal=sucursal,
-                                    stock_fisico=stock_fisico,
-                                    stock_virtual=stock_virtual
-                                )
-                                nuevos_stocks.append(nuevo_stock)
-                                stocks_db[producto.id] = nuevo_stock
+                                if stock:
+                                    stock.stock_fisico = stock_fisico
+                                    stock.stock_virtual = stock_virtual
+                                    stock.save()
+                                else:
+                                    nuevo_stock = Stock(
+                                        producto=producto,
+                                        sucursal=sucursal,
+                                        stock_fisico=stock_fisico,
+                                        stock_virtual=stock_virtual
+                                    )
+                                    nuevos_stocks.append(nuevo_stock)
+                                    stocks_db[producto.id] = nuevo_stock
 
                         except Exception as fila_error:
                             errores.append(f"Fila {numero_fila}: {str(fila_error)}")
                             print(f"ERROR fila {numero_fila}: {fila_error}")
 
-                    # 🔥 FORZAR AUTOINCREMENTO LIMPIO
                     for obj in nuevos_stocks:
                         obj.id = None
 
                     if nuevos_stocks:
                         Stock.objects.bulk_create(nuevos_stocks, ignore_conflicts=True)
+
                     if not errores:
                         messages.success(
                             request,
@@ -759,7 +827,8 @@ def inventario_view(request):
                 messages.error(request, f"Error al procesar el archivo: {str(e)}")
                 return redirect('inventario')
 
-    
+
+
     # ==========================
     # CONTEXTO
     # ==========================
@@ -1203,7 +1272,7 @@ def buscar_producto(request):
             Q(referencia__endswith=q)
         )
 
-    productos = Producto.objects.filter(filtros).distinct()[:10]
+    productos = Producto.objects.filter(filtros).distinct()[:30]
 
     resultados = []
 

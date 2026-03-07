@@ -136,7 +136,13 @@
                 <td>
                    <input type="checkbox" name="productos" value="{{ stock.producto.id }}" form="form-imprimir">
                 </td>
-                <td>{{ stock.producto.no_folio }}</td>
+                <td>
+                {% if stock.producto.no_folio|length == 13 %}
+                <span class="badge bg-info">{{ stock.producto.no_folio }}</span>
+                {% else %}
+                {{ stock.producto.no_folio }}
+                {% endif %}
+                </td>
                 <td>{{ stock.producto.referencia }}</td>
                 <td>{{ stock.producto.nombre }}</td>
                 <td>{{ stock.producto.categoria }}</td>
