@@ -167,109 +167,285 @@ $(document).ready(function () {
     });
 
     /***************************************
-     * AUTOCOMPLETE DINÁMICO
-     ***************************************/
-    $('#tabla-productos').on('focus', '.busqueda', function () {
+ * VALIDAR STOCK GLOBAL POR PRODUCTO
+ ***************************************/
+function validarStockGlobal() {
 
-        const celda = $(this);
-        const tipo = celda.data('tipo');
+    const acumulado = {};
 
-        if (!celda.data('autocomplete')) {
+    $('#tabla-productos tbody tr').each(function () {
 
-            celda.autocomplete({
-                minLength: 1,
-                delay: 300,
+        const fila = $(this);
+        const no_folio = fila.find('td[data-tipo="no_folio"]').text().trim();
+        const cantidadInput = fila.find('.cantidad');
 
-                source: function (request, response) {
+        const cantidad = parseInt(cantidadInput.val()) || 0;
+        const stock = parseInt(cantidadInput.data('stock_fisico')) || 0;
 
-                    $.ajax({
-                        url: BUSCAR_PRODUCTO_URL,
-                        data: {
-                            q: request.term,
-                            tipo: tipo
-                        },
-                        success: function (data) {
+        if (!no_folio) return;
 
-                            if (data.length === 0) {
-                                Swal.fire({
-                                    title: "Producto no encontrado",
-                                    text: "No existe un producto con ese código o referencia.",
-                                    icon: "error",
-                                    timer: 1500,
-                                    showConfirmButton: false
-                                });
-                                return;
-                            }
+        if (!acumulado[no_folio]) {
+            acumulado[no_folio] = {
+                total: 0,
+                stock: stock
+            };
+        }
 
-                            // 🔥 Inserción automática si coincide exacto
-                            if (
-                                tipo === "no_folio" &&
-                                data.length === 1 &&
-                                (data[0].no_folio == request.term ||
-                                 data[0].referencia == request.term)
-                            ) {
-                                seleccionarProducto(data[0], celda.closest('tr'));
-                                return;
-                            }
+        acumulado[no_folio].total += cantidad;
 
-                            response($.map(data, function (item) {
-                                return {
-                                    label:
-                                        item.nombre + ' - ' +
-                                        item.descripcion +
-                                        ' ($' + parseFloat(item.precio).toFixed(2) + ')' +
-                                        ' / Stock: ' + item.stock_fisico,
-                                    value: item[tipo],
-                                    item: item
-                                };
-                            }));
-                        }
-                    });
-                },
+        if (acumulado[no_folio].total > acumulado[no_folio].stock) {
 
-                select: function (event, ui) {
-                    const fila = celda.closest('tr');
-                    seleccionarProducto(ui.item.item, fila);
-                    return false;
-                }
+            Swal.fire({
+                icon: "warning",
+                title: "Stock excedido",
+                text: "No hay suficiente inventario para este producto.",
+                timer: 1500,
+                showConfirmButton: false
             });
 
-            celda.data('autocomplete', true);
+            const permitido =
+                cantidad - (acumulado[no_folio].total - acumulado[no_folio].stock);
+
+            cantidadInput.val(Math.max(permitido, 0));
+
+            acumulado[no_folio].total = acumulado[no_folio].stock;
         }
+
     });
-        $('#tabla-productos').on('input', '.cantidad', function () {
-            actualizarTotales();
-            $('#monto_pagado').trigger('input');
+
+}
+
+    /***************************************
+ * AUTOCOMPLETE DINÁMICO
+ ***************************************/
+$('#tabla-productos').on('focus', '.busqueda', function () {
+
+    const celda = $(this);
+    const tipo = celda.data('tipo');
+
+    if (!celda.data('autocomplete')) {
+
+        celda.autocomplete({
+            minLength: 1,
+            delay: 300,
+
+            source: function (request, response) {
+
+                $.ajax({
+                    url: BUSCAR_PRODUCTO_URL,
+                    data: {
+                        q: request.term,
+                        tipo: tipo
+                    },
+                    success: function (data) {
+
+                        if (data.length === 0) {
+
+                            const fila = celda.closest('tr');
+
+                            // Limpiar celda
+                            celda.text('');
+
+                            // Limpiar datos de la fila
+                            fila.find('.precio').text('');
+                            fila.find('.total').text('');
+                            fila.find('.cantidad')
+                                .val(1)
+                                .prop('disabled', true)
+                                .removeData('precio')
+                                .removeData('stock_fisico');
+
+                            fila.removeData('precio-normal');
+                            fila.removeData('precio-mayoreo');
+                            fila.removeData('unidad-medida');
+
+                            Swal.fire({
+                                title: "Producto no encontrado",
+                                text: "No existe un producto con ese código o referencia.",
+                                icon: "error",
+                                timer: 1200,
+                                showConfirmButton: false
+                            });
+
+                            setTimeout(function () {
+                                celda.focus();
+                            }, 100);
+
+                            return;
+                        }
+
+                        // 🔥 Inserción automática si coincide exacto
+                        if (
+                            tipo === "no_folio" &&
+                            data.length === 1 &&
+                            (data[0].no_folio == request.term ||
+                             data[0].referencia == request.term)
+                        ) {
+
+                            // 🔥 VALIDACIÓN DE STOCK
+                            if (parseInt(data[0].stock_fisico) <= 0) {
+
+                                celda.text('');
+
+                                Swal.fire({
+                                    title: "Sin stock",
+                                    text: "Este producto no tiene existencias.",
+                                    icon: "warning",
+                                    timer: 1200,
+                                    showConfirmButton: false
+                                });
+
+                                return;
+                            }
+
+                            seleccionarProducto(data[0], celda.closest('tr'));
+                            return;
+                        }
+
+                        response($.map(data, function (item) {
+                            return {
+                                label:
+                                    item.nombre + ' - ' +
+                                    item.descripcion +
+                                    ' ($' + parseFloat(item.precio).toFixed(2) + ')' +
+                                    ' / Stock: ' + item.stock_fisico,
+                                value: item[tipo],
+                                item: item
+                            };
+                        }));
+                    }
+                });
+            },
+
+            select: function (event, ui) {
+
+                const producto = ui.item.item;
+                const fila = celda.closest('tr');
+
+                // 🔥 VALIDACIÓN DE STOCK
+                if (parseInt(producto.stock_fisico) <= 0) {
+
+                    celda.text('');
+
+                    Swal.fire({
+                        title: "Sin stock",
+                        text: "Este producto no tiene existencias.",
+                        icon: "warning",
+                        timer: 1200,
+                        showConfirmButton: false
+                    });
+
+                    return false;
+                }
+
+                seleccionarProducto(producto, fila);
+                return false;
+            }
         });
 
+        celda.data('autocomplete', true);
+    }
+});
+
+$('#tabla-productos').on('input', '.cantidad', function () {
+
+    validarStockGlobal(); // 🔥 nueva validación
+    actualizarTotales();
+    $('#monto_pagado').trigger('input');
+});
+
+
+
         let filaSeleccionada = null;
+            /***************************************
+             * CONTROL GLOBAL DE TAB EN EL SISTEMA
+             ***************************************/
+            $(document).on('keydown', function (e) {
 
-        // Navegación con flechas arriba y abajo
+                if (e.key !== 'Tab') return;
+
+                // Elementos navegables del sistema
+                const elementos = $(
+                    'input:visible, button:visible, select:visible, textarea:visible, ' +
+                    'td[contenteditable="true"]:visible'
+                ).filter(':not([disabled])');
+
+                if (!elementos.length) return;
+
+                const actual = document.activeElement;
+                let index = elementos.index(actual);
+
+                // Si el foco está fuera del sistema
+                if (index === -1) {
+                    e.preventDefault();
+                    elementos.first().focus();
+                    return;
+                }
+
+                e.preventDefault(); // 🔥 Bloquear comportamiento del navegador
+
+                let siguiente;
+
+                // Shift + TAB (ir hacia atrás)
+                if (e.shiftKey) {
+                    siguiente = index - 1;
+
+                    if (siguiente < 0) {
+                        siguiente = elementos.length - 1;
+                    }
+
+                } else {
+
+                    siguiente = index + 1;
+
+                    if (siguiente >= elementos.length) {
+                        siguiente = 0;
+                    }
+                }
+
+                elementos.eq(siguiente).focus();
+
+            });
+
+  
+        /***************************************
+         * NAVEGACIÓN ↑ ↓
+         ***************************************/
         $(document).on('keydown', function (e) {
-            // Si un menú de autocomplete está visible, no hacer nada
-            if ($('.ui-autocomplete').is(':visible')) {
-                return;
-            }
-            const filas = $('#tabla-productos tbody tr');
-            if (filas.length === 0) return;
 
-            // Selección de fila con ↑ ↓
+            if ($('.ui-autocomplete').is(':visible')) return;
+
+            const filas = $('#tabla-productos tbody tr');
+
+            if (!filas.length) return;
+
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+
                 e.preventDefault();
+
                 if (!filaSeleccionada) {
                     filaSeleccionada = filas.first();
                 } else {
+
                     filaSeleccionada.removeClass('table-primary');
+
                     if (e.key === 'ArrowDown' && !filaSeleccionada.is(':last-child')) {
                         filaSeleccionada = filaSeleccionada.next();
-                    } else if (e.key === 'ArrowUp' && !filaSeleccionada.is(':first-child')) {
+                    }
+
+                    if (e.key === 'ArrowUp' && !filaSeleccionada.is(':first-child')) {
                         filaSeleccionada = filaSeleccionada.prev();
                     }
+
                 }
+
                 resaltarFila(filaSeleccionada);
 
-                // Enfocar la primera celda editable de la fila
-                filaSeleccionada.find('td[contenteditable="true"]').first().focus();
+                filaSeleccionada
+                    .find('td[contenteditable="true"]')
+                    .first()
+                    .focus();
+
             }
 
             // Eliminar fila con Delete
