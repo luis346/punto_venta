@@ -506,71 +506,71 @@ def inventario_view(request):
             except ValueError as e:
                 messages.error(request, str(e))
                 return redirect('inventario')
-# ----------------------------------
-# GUARDAR PRODUCTO
-# ----------------------------------
-elif 'guardar_producto' in request.POST:
+    # ----------------------------------
+    # GUARDAR PRODUCTO
+    # ----------------------------------
+    elif 'guardar_producto' in request.POST:
 
-    form_producto = ProductoForm(
-        request.POST,
-        instance=producto_editando if producto_editando else None
-    )
+        form_producto = ProductoForm(
+            request.POST,
+            instance=producto_editando if producto_editando else None
+        )
 
-    if form_producto.is_valid():
-        try:
-            with transaction.atomic():
-
-                producto = form_producto.save(commit=False)
-
-                # Normalizar textos
-                if producto.nombre:
-                    producto.nombre = producto.nombre.strip().upper()
-
-                if producto.descripcion:
-                    producto.descripcion = producto.descripcion.strip().upper()
-
-                if producto.no_folio:
-                    producto.no_folio = producto.no_folio.strip().upper()
-
-                # Validar que tenga categoría
-                if not producto.categoria:
-                    messages.error(request, "Debes seleccionar una categoría.")
-                    return redirect('inventario')
-
-                # Validar folio único
-                existe = Producto.objects.filter(
-                    no_folio__iexact=producto.no_folio
-                )
-
-                if producto_editando:
-                    existe = existe.exclude(id=producto_editando.id)
-
-                if producto.no_folio and existe.exists():
-                    messages.error(request, "Ya existe un producto con ese folio.")
-                    return redirect('inventario')
-
-                if producto.precio < 0:
-                    messages.error(request, "El precio no puede ser negativo.")
-                    return redirect('inventario')
-
-                producto.save()
-
-                Stock.objects.get_or_create(
-                    producto=producto,
-                    sucursal=sucursal,
-                    defaults={'stock_fisico': 0, 'stock_virtual': 0}
-                )
-
-            messages.success(request, "Producto guardado correctamente.")
-            return redirect('inventario')
-
-        except IntegrityError as e:
-            print("ERROR AL GUARDAR PRODUCTO:", str(e))
-            messages.error(request, f"Error al guardar el producto: {str(e)}")
-
-    else:
-        print("ERRORES FORMULARIO PRODUCTO:", form_producto.errors)
-        messages.error(request, f"Errores en el formulario: {form_producto.errors}")
+        if form_producto.is_valid():
+            try:
+                with transaction.atomic():
+    
+                    producto = form_producto.save(commit=False)
+    
+                    # Normalizar textos
+                    if producto.nombre:
+                        producto.nombre = producto.nombre.strip().upper()
+    
+                    if producto.descripcion:
+                        producto.descripcion = producto.descripcion.strip().upper()
+    
+                    if producto.no_folio:
+                        producto.no_folio = producto.no_folio.strip().upper()
+    
+                    # Validar que tenga categoría
+                    if not producto.categoria:
+                        messages.error(request, "Debes seleccionar una categoría.")
+                        return redirect('inventario')
+    
+                    # Validar folio único
+                    existe = Producto.objects.filter(
+                        no_folio__iexact=producto.no_folio
+                    )
+    
+                    if producto_editando:
+                        existe = existe.exclude(id=producto_editando.id)
+    
+                    if producto.no_folio and existe.exists():
+                        messages.error(request, "Ya existe un producto con ese folio.")
+                        return redirect('inventario')
+    
+                    if producto.precio < 0:
+                        messages.error(request, "El precio no puede ser negativo.")
+                        return redirect('inventario')
+    
+                    producto.save()
+    
+                    Stock.objects.get_or_create(
+                        producto=producto,
+                        sucursal=sucursal,
+                        defaults={'stock_fisico': 0, 'stock_virtual': 0}
+                    )
+    
+                messages.success(request, "Producto guardado correctamente.")
+                return redirect('inventario')
+    
+            except IntegrityError as e:
+                print("ERROR AL GUARDAR PRODUCTO:", str(e))
+                messages.error(request, f"Error al guardar el producto: {str(e)}")
+    
+        else:
+            print("ERRORES FORMULARIO PRODUCTO:", form_producto.errors)
+            messages.error(request, f"Errores en el formulario: {form_producto.errors}")
         # ----------------------------------
         # GUARDAR CATEGORÍA
         # ----------------------------------
