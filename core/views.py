@@ -828,7 +828,7 @@ def inventario_view(request):
                                     if creada:
                                         categorias_creadas += 1
 
-                                producto = productos_db.get(no_folio) if no_folio else None
+                                producto = productos_db.get(no_folio) or Producto.objects.filter(no_folio=no_folio).first()
 
                                 if producto:
 
@@ -856,7 +856,7 @@ def inventario_view(request):
                                     )
 
                                     producto.save()
-
+                                    # registrar el producto recién creado
                                     if producto.no_folio:
                                         productos_db[producto.no_folio] = producto
 
