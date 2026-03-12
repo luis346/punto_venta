@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.core.files.storage import FileSystemStorage
 from django.db.models import Sum, F
 from django.db import transaction, IntegrityError
-from django.http import HttpResponse, JsonResponse, QueryDict
+from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -17,7 +17,7 @@ from .utils import generar_folio_secuencial
 from django.contrib.auth import login, logout, authenticate, get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
-from .forms import RegistroForm, LoginForm, VendedorForm, ProductoForm, CategoriaForm, RegistroVentasForm, SucursalForm
+from .forms import RegistroForm, VendedorForm, ProductoForm, CategoriaForm, RegistroVentasForm, SucursalForm
 from decimal import Decimal
 from datetime import datetime
 import json, unicodedata, openpyxl
@@ -506,7 +506,6 @@ def inventario_view(request):
             except ValueError as e:
                 messages.error(request, str(e))
                 return redirect('inventario')
-
         # ----------------------------------
         # GUARDAR PRODUCTO
         # ----------------------------------
@@ -523,44 +522,131 @@ def inventario_view(request):
 
                         producto = form_producto.save(commit=False)
 
-                        producto.nombre = producto.nombre.strip().upper()
-                        producto.descripcion = producto.descripcion.strip().upper()
+                        # ----------------------------------
+                        # NORMALIZAR DATOS
+                        # ----------------------------------
+                        producto.nombre = (producto.nombre or "").strip().upper()
+                        producto.descripcion = (producto.descripcion or "").strip().upper()
 
                         if producto.no_folio:
                             producto.no_folio = producto.no_folio.strip().upper()
 
-                        # Validar folio único
-                        existe = Producto.objects.filter(
-                            no_folio__iexact=producto.no_folio
-                        )
-                        if producto_editando:
-                            existe = existe.exclude(id=producto_editando.id)
+                        if producto.referencia:
+                            producto.referencia = producto.referencia.strip().upper()
 
-                        if existe.exists():
-                            messages.error(request, "Ya existe un producto con ese folio.")
+                        # ----------------------------------
+                        # VALIDAR FOLIO
+                        # ----------------------------------
+                        if producto.no_folio:
+
+                            existe = Producto.objects.filter(
+                                no_folio__iexact=producto.no_folio.strip()
+                            )
+
+                            if producto_editando:
+                                existe = existe.exclude(id=producto_editando.id)
+
+                            if existe.exists():
+                                messages.error(
+                                    request,
+                                    f"El folio '{producto.no_folio}' ya existe."
+                                )
+                                return redirect('inventario')
+
+                        # ----------------------------------
+                        # GENERAR REFERENCIA AUTOMÁTICA
+                        # ----------------------------------
+                        if not producto.referencia and producto.categoria:
+
+                            prefijo = producto.categoria.prefijo.upper()
+
+                            ultima = Producto.objects.filter(
+                                referencia__startswith=prefijo
+                            ).order_by('-referencia').first()
+
+                            if ultima:
+                                try:
+                                    numero = int(ultima.referencia.split('-')[-1]) + 1
+                                except:
+                                    numero = 1
+                            else:
+                                numero = 1
+
+                            producto.referencia = f"{prefijo}-{numero:04d}"
+
+                        # ----------------------------------
+                        # VALIDAR REFERENCIA
+                        # ----------------------------------
+                        if producto.referencia:
+
+                            referencia_existente = Producto.objects.filter(
+                                referencia__iexact=producto.referencia.strip()
+                            )
+
+                            if producto_editando:
+                                referencia_existente = referencia_existente.exclude(
+                                    id=producto_editando.id
+                                )
+
+                            if referencia_existente.exists():
+                                messages.error(
+                                    request,
+                                    f"La referencia '{producto.referencia}' ya existe."
+                                )
+                                return redirect('inventario')
+
+                        # ----------------------------------
+                        # VALIDAR PRECIO
+                        # ----------------------------------
+                        if producto.precio is not None and producto.precio < 0:
+                            messages.error(
+                                request,
+                                "El precio no puede ser negativo."
+                            )
                             return redirect('inventario')
 
-                        if producto.precio < 0:
-                            messages.error(request, "El precio no puede ser negativo.")
-                            return redirect('inventario')
-
+                        # ----------------------------------
+                        # GUARDAR PRODUCTO
+                        # ----------------------------------
                         producto.save()
 
+                        # ----------------------------------
+                        # CREAR STOCK SI NO EXISTE
+                        # ----------------------------------
                         Stock.objects.get_or_create(
                             producto=producto,
                             sucursal=sucursal,
-                            defaults={'stock_fisico': 0, 'stock_virtual': 0}
+                            defaults={
+                                'stock_fisico': 0,
+                                'stock_virtual': 0
+                            }
                         )
 
-                    messages.success(request, "Producto guardado correctamente.")
+                    messages.success(
+                        request,
+                        f"Producto '{producto.nombre}' guardado correctamente."
+                    )
                     return redirect('inventario')
 
-                except IntegrityError:
-                    messages.error(request, "Error al guardar el producto.")
+                except IntegrityError as e:
+
+                    print("ERROR AL GUARDAR PRODUCTO:", e)
+
+                    messages.error(
+                        request,
+                        f"Error de base de datos al guardar el producto."
+                    )
+
+                    return redirect('inventario')
 
             else:
-                messages.error(request, "Hay errores en el formulario.")
 
+                print("ERRORES FORMULARIO:", form_producto.errors)
+
+                messages.error(
+                    request,
+                    "Hay errores en el formulario. Revisa los campos."
+                )
         # ----------------------------------
         # GUARDAR CATEGORÍA
         # ----------------------------------
@@ -745,21 +831,8 @@ def inventario_view(request):
                                     actualizados += 1
                                 else:
 
-                                    if not referencia:
-                                        prefijo = categoria.prefijo
-                                        ultimo = Producto.objects.filter(
-                                            referencia__startswith=prefijo
-                                        ).order_by('-referencia').first()
-
-                                        if ultimo:
-                                            try:
-                                                num = int(ultimo.referencia.split('-')[-1]) + 1
-                                            except:
-                                                num = 1
-                                        else:
-                                            num = 1
-
-                                        referencia = f"{prefijo}-{num:04d}"
+                                  if referencia and referencia in referencias_db:
+                                    referencia = None
 
                                     producto = Producto.objects.create(
                                         no_folio=no_folio,

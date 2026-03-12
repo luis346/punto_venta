@@ -206,63 +206,122 @@
     {% endif %}
 </div>
 
-<div id="ticket" class="d-none">
-    <div style="width: 300px; font-family: monospace; font-size: 14px;">
-        <div style="text-align:center; margin-bottom: 5px;">
-    <img src="/static/img/logo.jpg"
-         style="width:220px; height:auto; margin-bottom: 5px;" />
-</div>
+<div id="ticket" style="width:220px;font-family:monospace;font-size:12px;">
 
-        <h5 style="text-align: center; margin: 0;">El Ofertón</h5>
-        <p style="text-align: center; margin: 0;">Av. Siempre Viva #123, Col. Centro</p>
-        <p style="text-align: center; margin: 0;">Tel: 55-1234-5678</p>
-        <p style="text-align: center;">RFC: XAXX010101000</p>
+    <div style="text-align:center;">
+        <img src="/static/img/logo.jpg" style="width:160px;margin-bottom:5px;">
+        <div style="font-weight:bold;font-size:14px;">EL OFERTÓN</div>
+        <div>{{ venta.sucursal.nombre }}</div>
+        <div>{{ venta.sucursal.direccion }}</div>
+    </div>
 
-        <p style="text-align: center;">Ticket de venta</p>
-        <hr>
+    <div style="border-top:1px dashed #000;margin:8px 0;"></div>
 
-        <p><strong>Folio:</strong> {{ venta.no_venta }}</p>
-        <p><strong>Fecha:</strong> {{ venta.fecha|date:"d/m/Y H:i" }}</p>
-        <p><strong>Cliente:</strong> {{ venta.get_tipo_cliente_display }}</p>
-        <p><strong>Vendedor:</strong> {{ venta.vendedor }}</p>
-        <hr>
+    <div>
+        <div><strong>Folio:</strong> {{ venta.no_venta }}</div>
+        <div><strong>Fecha:</strong> {{ venta.fecha|date:"d/m/Y H:i" }}</div>
+        <div><strong>Cliente:</strong> {{ venta.get_tipo_cliente_display }}</div>
+        <div><strong>Vendedor:</strong> {{ venta.vendedor }}</div>
+    </div>
 
-        <table style="width: 100%; font-size: 13px;">
-            <thead>
-                <tr>
-                    <th style="text-align: left;">Producto</th>
-                    <th style="text-align: center;">Cant</th>
-                    <th style="text-align: center;">Precio/uni</th>
-                    <th style="text-align: right;">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for detalle in venta.detalles.all %}
-                <tr>
-                    <td>{{ detalle.producto.nombre|truncatechars:15 }}</td>
-                    <td style="text-align: center;">{{ detalle.cantidad }}</td>
-                    <td style="text-align: center;">{{ detalle.precio_unitario}}</td>
-                    <td style="text-align: right;">${{ detalle.total }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div style="border-top:1px dashed #000;margin:8px 0;"></div>
 
-        <hr>
+    <table style="width:100%;font-size:11px;">
+        <thead>
+            <tr>
+                <th style="text-align:left;">Prod</th>
+                <th style="text-align:center;">Cant</th>
+                <th style="text-align:right;">Total</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+        {% for detalle in venta.detalles.all %}
+
+            <tr>
+                <td colspan="3" style="padding-top:4px;">
+                    {{ detalle.producto.nombre }}
+                </td>
+            </tr>
+
+            <tr>
+
+                <td style="font-size:10px;">
+
+                    {% if detalle.precio_unitario < detalle.producto.precio %}
+
+                        <span style="text-decoration:line-through;">
+                            ${{ detalle.producto.precio|floatformat:2 }}
+                        </span>
+
+                        ${{ detalle.precio_unitario|floatformat:2 }}
+
+                    {% else %}
+
+                        ${{ detalle.precio_unitario|floatformat:2 }}
+
+                    {% endif %}
+
+                </td>
+
+                <td style="text-align:center;">
+                    x{{ detalle.cantidad }}
+                </td>
+
+                <td style="text-align:right;">
+                    ${{ detalle.total|floatformat:2 }}
+                </td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+    </table>
+
+    <div style="border-top:1px dashed #000;margin:8px 0;"></div>
+
+    <div style="font-size:12px;">
+
+        <div style="display:flex;justify-content:space-between;">
+            <span>Subtotal:</span>
+            <span>${{ total|floatformat:2 }}</span>
+        </div>
+
         {% if venta.descuento > 0 %}
-            <p><strong>Descuento:</strong> - {{ venta.descuento }}%</p>
+
+        <div style="display:flex;justify-content:space-between;">
+            <span>Descuento ({{ venta.descuento }}%)</span>
+            <span>-</span>
+        </div>
+
         {% endif %}
-        <p style="text-align: right;"><strong>Total: ${{ total }}</strong></p>
+
+        <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:13px;margin-top:4px;">
+            <span>TOTAL:</span>
+            <span>${{ total|floatformat:2 }}</span>
+        </div>
 
         {% with ultimo_pago=venta.pagos.last %}
-            <p><strong>Forma de pago:</strong> {{ ultimo_pago.forma_pago }}</p>
-            <p><strong>Monto pagado:</strong> ${{ ultimo_pago.monto_pagado }}</p>
-            <p><strong>Fecha de pago:</strong> {{ ultimo_pago.fecha_pago|date:"d/m/Y H:i" }}</p>
-            <p><strong>Cambio:</strong> ${{ cambio }}</p>
+
+        <div style="margin-top:6px;">
+            <div><strong>Pago:</strong> {{ ultimo_pago.forma_pago }}</div>
+            <div><strong>Recibido:</strong> ${{ ultimo_pago.monto_pagado|floatformat:2 }}</div>
+            <div><strong>Cambio:</strong> ${{ cambio|floatformat:2 }}</div>
+        </div>
+
         {% endwith %}
 
-        <p style="text-align: center;">¡Gracias por su compra!</p>
     </div>
+
+    <div style="border-top:1px dashed #000;margin:8px 0;"></div>
+
+    <div style="text-align:center;font-size:11px;">
+        Gracias por su compra<br>
+        Conserve su ticket
+    </div>
+
 </div>
 
 <!-- jQuery primero -->

@@ -525,229 +525,235 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
 <!-- =======================
- JS PRO
+ JS PRO UNIFICADO
 ======================== -->
-<script>
-let lastKeyTime = 0;
-
-document.getElementById('formProducto').addEventListener('keydown', function(e) {
-
-    if (e.key === 'Enter') {
-
-        const now = new Date().getTime();
-        const diff = now - lastKeyTime;
-
-        lastKeyTime = now;
-
-        // Si el ENTER viene muy rápido (menos de 50ms)
-        // es casi seguro escáner
-        if (diff < 50) {
-            e.preventDefault();
-            console.log("ENTER de escáner bloqueado");
-        }
-        // Si tarda más, es humano y se permite
-    }
-});
-</script>
-<script>
-document.getElementById('check-all').addEventListener('change', function () {
-    document.querySelectorAll('input[name="productos"]').forEach(cb => {
-        cb.checked = this.checked;
-    });
-});
-
-/* BUSQUEDA EN VIVO */
-document.getElementById('id_no_folio').addEventListener('keyup', function () {
-    const value = this.value.toLowerCase();
-    document.querySelectorAll('#tabla-inventario tbody tr').forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(value) ? '' : 'none';
-    });
-});
-
-/* AUTO GUARDADO STOCK */
-document.querySelectorAll('.stock-input').forEach(input => {
-    input.addEventListener('change', function () {
-        this.closest('form').submit();
-    });
-});
-</script>
-<script>
-const folioInput = document.getElementById("id_no_folio");
-const btnGuardar = document.getElementById("btnGuardarProducto");
-
-if (folioInput) {
-
-    let timeout = null;
-
-    folioInput.addEventListener("keyup", function() {
-
-        clearTimeout(timeout);
-
-        timeout = setTimeout(() => {
-
-            const folio = this.value.trim().toUpperCase();
-
-            // 🔹 Si está vacío → permitir guardar
-            if (!folio) {
-                limpiarError();
-                btnGuardar.disabled = false;
-                return;
-            }
-
-            fetch(`/validar-folio/?folio=${folio}`)
-                .then(response => response.json())
-                .then(data => {
-
-                    if (data.existe) {
-                        mostrarError("⚠ Ya existe un producto con ese folio");
-                        btnGuardar.disabled = true;
-                    } else {
-                        limpiarError();
-                        btnGuardar.disabled = false;
-                    }
-                });
-
-        }, 400);
-    });
-
-    function mostrarError(mensaje) {
-        let errorDiv = document.getElementById("folio-error");
-
-        if (!errorDiv) {
-            errorDiv = document.createElement("div");
-            errorDiv.id = "folio-error";
-            errorDiv.classList.add("text-danger", "small", "mt-1");
-            folioInput.parentNode.appendChild(errorDiv);
-        }
-
-        errorDiv.innerText = mensaje;
-    }
-
-    function limpiarError() {
-        const errorDiv = document.getElementById("folio-error");
-        if (errorDiv) errorDiv.remove();
-    }
-}
-</script>
 {% if form_producto.errors or request.GET.editar %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
-    const modalElement = document.getElementById('modalProducto');
-    const formProducto = document.getElementById('formProducto');
+    let lastKeyTime = 0;
+    let timeout = null;
+
+    const formProducto = document.getElementById("formProducto");
+    const folioInput = document.getElementById("id_no_folio");
     const btnGuardar = document.getElementById("btnGuardarProducto");
+    const checkAll = document.getElementById("check-all");
+    const buscarInventario = document.getElementById("buscarInventario");
+    const tablaInventario = document.getElementById("tabla-inventario");
+    const formFiltros = document.getElementById("form-filtros");
+    const modalElement = document.getElementById("modalProducto");
 
-    if (!modalElement) return;
+    /* =========================
+       BLOQUEAR ENTER ESCÁNER
+    ========================== */
+    if (formProducto) {
 
-    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        formProducto.addEventListener("keydown", function(e) {
 
-    // 🔹 Abrir si hay edición o errores
-        modal.show();
- 
+            if (e.key === "Enter") {
 
-    // 🔹 Antes de cerrar → liberar foco (ARREGLA aria-hidden)
-    modalElement.addEventListener('hide.bs.modal', function () {
-        if (document.activeElement) {
-            document.activeElement.blur();
+                const now = new Date().getTime();
+                const diff = now - lastKeyTime;
+                lastKeyTime = now;
+
+                if (diff < 50) {
+                    e.preventDefault();
+                    console.log("ENTER de escáner bloqueado");
+                }
+
+            }
+
+        });
+
+    }
+
+    /* =========================
+       CHECKBOX SELECCIONAR TODO
+    ========================== */
+    if (checkAll) {
+
+        checkAll.addEventListener("change", function () {
+
+            document.querySelectorAll('input[name="productos"]').forEach(cb => {
+                cb.checked = this.checked;
+            });
+
+        });
+
+    }
+
+    /* =========================
+       AUTO GUARDAR STOCK
+    ========================== */
+    document.querySelectorAll(".stock-input").forEach(input => {
+
+        input.addEventListener("change", function () {
+
+            const form = this.closest("form");
+            if (form) form.submit();
+
+        });
+
+    });
+
+    /* =========================
+       VALIDAR FOLIO AJAX
+    ========================== */
+    if (folioInput && btnGuardar) {
+
+        folioInput.addEventListener("keyup", function() {
+
+            clearTimeout(timeout);
+
+            timeout = setTimeout(() => {
+
+                const folio = this.value.trim().toUpperCase();
+
+                if (!folio) {
+                    limpiarError();
+                    btnGuardar.disabled = false;
+                    return;
+                }
+
+                fetch(`/validar-folio/?folio=${folio}`)
+                .then(response => response.json())
+                .then(data => {
+
+                    if (data.existe) {
+
+                        mostrarError("⚠ Ya existe un producto con ese folio");
+                        btnGuardar.disabled = true;
+
+                    } else {
+
+                        limpiarError();
+                        btnGuardar.disabled = false;
+
+                    }
+
+                });
+
+            }, 350);
+
+        });
+
+        function mostrarError(mensaje) {
+
+            let errorDiv = document.getElementById("folio-error");
+
+            if (!errorDiv) {
+
+                errorDiv = document.createElement("div");
+                errorDiv.id = "folio-error";
+                errorDiv.classList.add("text-danger","small","mt-1");
+
+                folioInput.parentNode.appendChild(errorDiv);
+
+            }
+
+            errorDiv.innerText = mensaje;
+
         }
-    });
 
-    // 🔹 Después de cerrar → limpiar todo
-    modalElement.addEventListener('hidden.bs.modal', function () {
+        function limpiarError() {
 
-        formProducto.reset();
+            const errorDiv = document.getElementById("folio-error");
+            if (errorDiv) errorDiv.remove();
 
-        // limpiar error folio
-        const errorDiv = document.getElementById("folio-error");
-        if (errorDiv) errorDiv.remove();
+        }
 
-        if (btnGuardar) btnGuardar.disabled = false;
+    }
 
-        const url = new URL(window.location);
-        url.searchParams.delete('editar');
-        window.history.replaceState({}, document.title, url.pathname);
+    /* =========================
+       BUSCADOR INVENTARIO AJAX
+    ========================== */
+    if (buscarInventario && tablaInventario && formFiltros) {
 
-    });
+        formFiltros.addEventListener("submit", function(e){
+            e.preventDefault();
+        });
+
+        buscarInventario.addEventListener("keyup", function(){
+
+            clearTimeout(timeout);
+
+            timeout = setTimeout(() => {
+
+                const params = new URLSearchParams({
+                    nombre: buscarInventario.value
+                });
+
+                fetch(window.location.pathname + "?" + params.toString(), {
+                    headers: {
+                        "X-Requested-With":"XMLHttpRequest"
+                    }
+                })
+                .then(response => response.text())
+                .then(html => {
+
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html,"text/html");
+
+                    const nuevaTabla = doc.getElementById("tabla-inventario");
+
+                    if (nuevaTabla) {
+                        tablaInventario.innerHTML = nuevaTabla.innerHTML;
+                    }
+
+                    buscarInventario.focus();
+                    buscarInventario.setSelectionRange(
+                        buscarInventario.value.length,
+                        buscarInventario.value.length
+                    );
+
+                });
+
+            },300);
+
+        });
+
+    }
+
+    /* =========================
+       CONTROL MODAL PRODUCTO
+    ========================== */
+    if (modalElement) {
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+
+     
+        modal.show();
+    
+
+        modalElement.addEventListener("hide.bs.modal", function () {
+
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
+
+        });
+
+        modalElement.addEventListener("hidden.bs.modal", function () {
+
+            if (formProducto) formProducto.reset();
+
+            const errorDiv = document.getElementById("folio-error");
+            if (errorDiv) errorDiv.remove();
+
+            if (btnGuardar) btnGuardar.disabled = false;
+
+            const url = new URL(window.location);
+            url.searchParams.delete("editar");
+
+            window.history.replaceState({}, document.title, url.pathname);
+
+        });
+
+    }
 
 });
 </script>
 {% endif %}
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-
-    const inputBuscar = document.getElementById("buscarInventario");
-    const form = document.getElementById("form-filtros");
-
-    if (!inputBuscar || !form) return;
-
-    let timeout;
-
-    inputBuscar.addEventListener("keyup", function() {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => {
-            form.submit();
-        }, 500);
-    });
-
-});
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-
-    const inputBuscar = document.getElementById("buscarInventario");
-    const tablaBody = document.getElementById("tabla-inventario");
-    const form = document.getElementById("form-filtros");
-
-    if (!inputBuscar || !tablaBody || !form) return;
-
-    // 🚫 Evitar recarga normal del formulario
-    form.addEventListener("submit", function(e) {
-        e.preventDefault();
-    });
-
-    let timeout;
-
-    inputBuscar.addEventListener("keyup", function() {
-
-        clearTimeout(timeout);
-
-        timeout = setTimeout(() => {
-
-            const query = new URLSearchParams({
-                nombre: inputBuscar.value
-            });
-
-            fetch(window.location.pathname + "?" + query.toString(), {
-                headers: {
-                    "X-Requested-With": "XMLHttpRequest"
-                }
-            })
-            .then(response => response.text())
-            .then(html => {
-
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, "text/html");
-                const nuevoBody = doc.getElementById("tabla-inventario");
-
-                if (nuevoBody) {
-                    tablaBody.innerHTML = nuevoBody.innerHTML;
-                }
-
-                // 🔥 Mantener foco y cursor
-                inputBuscar.focus();
-                inputBuscar.setSelectionRange(
-                    inputBuscar.value.length,
-                    inputBuscar.value.length
-                );
-
-            });
-
-        }, 400);
-
-    });
-
-});
-</script>
 <script>
 let scannerActivo = false;
 let html5QrCode;

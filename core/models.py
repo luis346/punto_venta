@@ -57,37 +57,51 @@ class Categoria(models.Model):
 
     def __str__(self):
         return self.nombre
-
 class Producto(models.Model):
+
     UNIDAD_MEDIDA = [
         ('pieza', 'PIEZA'),
         ('paquete', 'PAQUETE'),
         ('caja', 'CAJA'),
         ('granel', 'GRANEL')
     ]
-    no_folio = models.CharField(
-    max_length=20,
-    unique=True,
-    blank=True,
-    null=True
+
+    no_folio = models.CharField(max_length=20, unique=True, blank=True, null=True)
+
+    referencia = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        unique=True
     )
-    referencia = models.CharField(max_length=50, blank=True, null=True, unique=True)
+
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE)
+
     precio = models.DecimalField(max_digits=10, decimal_places=2)
-    precio_mayoreo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    precio_mayoreo = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
     unidad_medida = models.CharField(max_length=20, choices=UNIDAD_MEDIDA)
     umbral_mayoreo = models.IntegerField(default=6)
 
     def __str__(self):
         return self.nombre
-        
+
     def save(self, *args, **kwargs):
 
-        if not self.referencia and self.categoria:
+        with transaction.atomic():
 
-            with transaction.atomic():
+            # -----------------------------
+            # GENERAR REFERENCIA
+            # -----------------------------
+            if not self.referencia and self.categoria:
 
                 secuencia, created = SecuenciaCategoria.objects.get_or_create(
                     categoria=self.categoria
@@ -98,23 +112,34 @@ class Producto(models.Model):
 
                 self.referencia = f"{self.categoria.prefijo}-{secuencia.ultimo_numero:04d}"
 
-        if not self.no_folio:
-            ultimo = Producto.objects.order_by('-id').first()
-            if ultimo and ultimo.no_folio and ultimo.no_folio.isdigit():
-                nuevo = int(ultimo.no_folio) + 1
-            else:
-                nuevo = 10100001
+            # -----------------------------
+            # GENERAR FOLIO
+            # -----------------------------
+            if not self.no_folio:
 
-            self.no_folio = str(nuevo).zfill(8)
+                ultimo = Producto.objects.order_by('-id').first()
 
-        super().save(*args, **kwargs)
+                if ultimo and ultimo.no_folio and ultimo.no_folio.isdigit():
+                    nuevo = int(ultimo.no_folio) + 1
+                else:
+                    nuevo = 10100001
+
+                self.no_folio = str(nuevo).zfill(8)
+
+            super().save(*args, **kwargs)
         
+
 class SecuenciaCategoria(models.Model):
-    categoria = models.OneToOneField(Categoria, on_delete=models.CASCADE)
+
+    categoria = models.OneToOneField(
+        Categoria,
+        on_delete=models.CASCADE
+    )
+
     ultimo_numero = models.IntegerField(default=0)
 
-    def __str__(self):
-        return f"{self.categoria.nombre} - {self.ultimo_numero}"
+    class Meta:
+        verbose_name = "Secuencia de categoría"
     
 class Stock(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
