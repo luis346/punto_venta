@@ -753,21 +753,6 @@ def inventario_view(request):
                     t = str(t).strip().upper()
                     return unicodedata.normalize('NFKD', t).encode('ASCII', 'ignore').decode('utf-8')
 
-                # ------------------------------------------------
-                # GENERADOR EAN13
-                # ------------------------------------------------
-                def generar_ean13(base):
-                    base = str(base).zfill(12)
-                    suma = 0
-                    for i, digito in enumerate(base):
-                        n = int(digito)
-                        if i % 2 == 0:
-                            suma += n
-                        else:
-                            suma += n * 3
-                    digito = (10 - (suma % 10)) % 10
-                    return base + str(digito)
-
                 creados = 0
                 actualizados = 0
                 categorias_creadas = 0
@@ -785,19 +770,10 @@ def inventario_view(request):
                         for s in Stock.objects.filter(sucursal=sucursal)
                     }
 
-                    # ------------------------------------------------
-                    # OBTENER BASE DE CODIGO UNA SOLA VEZ
-                    # ------------------------------------------------
-                    ultimo = Producto.objects.order_by('-id').first()
-
-                    if ultimo and ultimo.no_folio and ultimo.no_folio.isdigit():
-                        base_codigo = int(ultimo.no_folio[:12]) + 1
-                    else:
-                        base_codigo = 750000000000
-
                     nuevos_stocks = []
 
                     for numero_fila, fila in enumerate(hoja.iter_rows(min_row=2, values_only=True), start=2):
+
                         try:
 
                             with transaction.atomic():
@@ -813,19 +789,22 @@ def inventario_view(request):
                                 unidad_medida = norm(unidad_medida) if unidad_medida else "PIEZA"
 
                                 # -----------------------------------
-                                # CORREGIR CODIGO DE BARRAS MUY CORTO
+                                # VALIDAR CAMPOS OBLIGATORIOS
                                 # -----------------------------------
-                                if no_folio and len(no_folio) <= 2:
-                                    no_folio = ''
-
-                                # generar codigo de barras automatico
-                                if not no_folio:
-                                    no_folio = generar_ean13(base_codigo)
-                                    base_codigo += 1
 
                                 if not nombre or not categoria_nombre:
                                     filas_ignoradas += 1
                                     continue
+
+                                # -----------------------------------
+                                # CORREGIR CODIGO DE BARRAS MUY CORTO
+                                # -----------------------------------
+
+                                if no_folio and len(no_folio) <= 2:
+                                    no_folio = None
+
+                                if referencia and referencia in referencias_db:
+                                    referencia = None
 
                                 precio = float(precio) if precio and precio > 0 else 0
                                 precio_mayoreo = float(precio_mayoreo) if precio_mayoreo and precio_mayoreo > 0 else 0
@@ -835,6 +814,7 @@ def inventario_view(request):
                                 categoria = categorias_db.get(categoria_nombre)
 
                                 if not categoria:
+
                                     prefijo_base = categoria_nombre[:3].upper()
                                     prefijo = f"{prefijo_base}{len(categorias_db)+1}"
 
@@ -848,15 +828,10 @@ def inventario_view(request):
                                     if creada:
                                         categorias_creadas += 1
 
-                                # -----------------------------------
-                                # EVITAR REFERENCIA DUPLICADA (OPTIMIZADO)
-                                # -----------------------------------
-                                if referencia and referencia in referencias_db:
-                                    referencia = None
-
-                                producto = productos_db.get(no_folio)
+                                producto = productos_db.get(no_folio) if no_folio else None
 
                                 if producto:
+
                                     producto.nombre = nombre
                                     producto.descripcion = descripcion
                                     producto.categoria = categoria
@@ -864,13 +839,12 @@ def inventario_view(request):
                                     producto.precio_mayoreo = precio_mayoreo
                                     producto.unidad_medida = unidad_medida
                                     producto.save()
+
                                     actualizados += 1
+
                                 else:
 
-                                  if referencia and referencia in referencias_db:
-                                    referencia = None
-
-                                    producto = Producto.objects.create(
+                                    producto = Producto(
                                         no_folio=no_folio,
                                         referencia=referencia,
                                         nombre=nombre,
@@ -881,27 +855,38 @@ def inventario_view(request):
                                         unidad_medida=unidad_medida,
                                     )
 
-                                    productos_db[no_folio] = producto
-                                    referencias_db.add(referencia)
+                                    producto.save()
+
+                                    if producto.no_folio:
+                                        productos_db[producto.no_folio] = producto
+
+                                    if producto.referencia:
+                                        referencias_db.add(producto.referencia)
+
                                     creados += 1
 
                                 stock = stocks_db.get(producto.id)
 
                                 if stock:
+
                                     stock.stock_fisico = stock_fisico
                                     stock.stock_virtual = stock_virtual
                                     stock.save()
+
                                 else:
+
                                     nuevo_stock = Stock(
                                         producto=producto,
                                         sucursal=sucursal,
                                         stock_fisico=stock_fisico,
                                         stock_virtual=stock_virtual
                                     )
+
                                     nuevos_stocks.append(nuevo_stock)
                                     stocks_db[producto.id] = nuevo_stock
 
                         except Exception as fila_error:
+
                             errores.append(f"Fila {numero_fila}: {str(fila_error)}")
                             print(f"ERROR fila {numero_fila}: {fila_error}")
 
@@ -935,8 +920,6 @@ def inventario_view(request):
                 print("ERROR GENERAL IMPORTACIÓN:", str(e))
                 messages.error(request, f"Error al procesar el archivo: {str(e)}")
                 return redirect('inventario')
-
-
 
     # ==========================
     # CONTEXTO
