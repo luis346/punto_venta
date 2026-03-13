@@ -553,26 +553,32 @@ def inventario_view(request):
                                 )
                                 return redirect('inventario')
 
-                        # ----------------------------------
-                        # GENERAR REFERENCIA AUTOMÁTICA
-                        # ----------------------------------
-                        if not producto.referencia and producto.categoria:
+                    # ----------------------------------
+                    # GENERAR REFERENCIA AUTOMÁTICA (MEJORADO)
+                    # ----------------------------------
+                    if not producto.referencia and producto.categoria:
 
-                            prefijo = producto.categoria.prefijo.upper()
+                        prefijo = producto.categoria.prefijo.upper()
 
-                            ultima = Producto.objects.filter(
-                                referencia__startswith=prefijo
-                            ).order_by('-referencia').first()
+                        referencias = (
+                            Producto.objects
+                            .filter(referencia__startswith=f"{prefijo}-")
+                            .values_list('referencia', flat=True)
+                        )
 
-                            if ultima:
-                                try:
-                                    numero = int(ultima.referencia.split('-')[-1]) + 1
-                                except:
-                                    numero = 1
-                            else:
-                                numero = 1
+                        max_numero = 0
 
-                            producto.referencia = f"{prefijo}-{numero:04d}"
+                        for ref in referencias:
+                            try:
+                                numero = int(ref.split('-')[-1])
+                                if numero > max_numero:
+                                    max_numero = numero
+                            except:
+                                continue
+
+                        nuevo_numero = max_numero + 1
+
+                        producto.referencia = f"{prefijo}-{nuevo_numero:04d}"
 
                         # ----------------------------------
                         # VALIDAR REFERENCIA
@@ -613,39 +619,6 @@ def inventario_view(request):
                         # ----------------------------------
                         # CREAR STOCK SI NO EXISTE
                         # ----------------------------------
-
-                        # Normalizar textos
-                        if producto.nombre:
-                            producto.nombre = producto.nombre.strip().upper()
-
-                        if producto.descripcion:
-                            producto.descripcion = producto.descripcion.strip().upper()
-
-                        if producto.no_folio:
-                            producto.no_folio = producto.no_folio.strip().upper()
-
-                        # Validar que tenga categoría
-                        if not producto.categoria:
-                            messages.error(request, "Debes seleccionar una categoría.")
-                            return redirect('inventario')
-
-                        # Validar folio único
-                        existe = Producto.objects.filter(
-                            no_folio__iexact=producto.no_folio
-                        )
-
-                        if producto_editando:
-                            existe = existe.exclude(id=producto_editando.id)
-
-                        if producto.no_folio and existe.exists():
-                            messages.error(request, "Ya existe un producto con ese folio.")
-                            return redirect('inventario')
-
-                        if producto.precio < 0:
-                            messages.error(request, "El precio no puede ser negativo.")
-                            return redirect('inventario')
-
-                        producto.save()
 
                         Stock.objects.get_or_create(
                             producto=producto,
@@ -877,11 +850,24 @@ def inventario_view(request):
 
                             producto = None
 
-                            if no_folio:
-                                producto = productos_db.get(no_folio)
+                            # 1️⃣ Buscar por referencia
+                            if referencia:
+                                producto = Producto.objects.filter(
+                                    referencia=referencia
+                                ).first()
 
-                                if not producto:
-                                    producto = Producto.objects.filter(no_folio=no_folio).first()
+                            # 2️⃣ Buscar por nombre + categoría
+                            if not producto:
+                                producto = Producto.objects.filter(
+                                    nombre=nombre,
+                                    categoria=categoria
+                                ).first()
+
+                            # 3️⃣ Buscar por folio
+                            if not producto and no_folio:
+                                producto = Producto.objects.filter(
+                                    no_folio=no_folio
+                                ).first()
 
                             # -----------------------------------
                             # ACTUALIZAR PRODUCTO
