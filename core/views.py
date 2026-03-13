@@ -753,6 +753,24 @@ def inventario_view(request):
                     t = str(t).strip().upper()
                     return unicodedata.normalize('NFKD', t).encode('ASCII', 'ignore').decode('utf-8')
 
+                # -----------------------------------
+                # GENERADOR DE FOLIO UNICO
+                # -----------------------------------
+                ultimo = Producto.objects.order_by('-id').first()
+
+                if ultimo and ultimo.no_folio and ultimo.no_folio.isdigit():
+                    folio_base = int(ultimo.no_folio) + 1
+                else:
+                    folio_base = 10100001
+
+                def generar_folio():
+                    nonlocal folio_base
+                    while True:
+                        folio = str(folio_base)
+                        folio_base += 1
+                        if folio not in productos_db and not Producto.objects.filter(no_folio=folio).exists():
+                            return folio
+
                 creados = 0
                 actualizados = 0
                 categorias_creadas = 0
@@ -766,7 +784,7 @@ def inventario_view(request):
                     referencias_db = {p.referencia for p in Producto.objects.all() if p.referencia}
 
                     stocks_db = {
-                        (s.producto_id): s
+                        s.producto_id: s
                         for s in Stock.objects.filter(sucursal=sucursal)
                     }
 
@@ -776,114 +794,164 @@ def inventario_view(request):
 
                         try:
 
-                            with transaction.atomic():
+                            datos = list(fila) + [None] * 9
+                            no_folio, referencia, nombre, descripcion, categoria_nombre, precio, precio_mayoreo, unidad_medida, stock_fisico, stock_virtual = datos[:10]
 
-                                datos = list(fila) + [None] * 9
-                                no_folio, referencia, nombre, descripcion, categoria_nombre, precio, precio_mayoreo, unidad_medida, stock_fisico, stock_virtual = datos[:10]
+                            no_folio = norm(no_folio)
+                            referencia = norm(referencia) if referencia else None
+                            nombre = norm(nombre)
+                            descripcion = norm(descripcion)
+                            categoria_nombre = norm(categoria_nombre)
+                            unidad_medida = norm(unidad_medida) if unidad_medida else "PIEZA"
 
-                                no_folio = norm(no_folio)
-                                referencia = norm(referencia) if referencia else None
-                                nombre = norm(nombre)
-                                descripcion = norm(descripcion)
-                                categoria_nombre = norm(categoria_nombre)
-                                unidad_medida = norm(unidad_medida) if unidad_medida else "PIEZA"
+                            # -----------------------------------
+                            # VALIDAR CAMPOS OBLIGATORIOS
+                            # -----------------------------------
 
-                                # -----------------------------------
-                                # VALIDAR CAMPOS OBLIGATORIOS
-                                # -----------------------------------
+                            if not nombre or not categoria_nombre:
+                                filas_ignoradas += 1
+                                continue
 
-                                if not nombre or not categoria_nombre:
-                                    filas_ignoradas += 1
-                                    continue
+                            # -----------------------------------
+                            # CORREGIR CODIGO MUY CORTO
+                            # -----------------------------------
 
-                                # -----------------------------------
-                                # CORREGIR CODIGO DE BARRAS MUY CORTO
-                                # -----------------------------------
+                            if no_folio and len(no_folio) <= 2:
+                                no_folio = None
 
-                                if no_folio and len(no_folio) <= 2:
-                                    no_folio = None
+                            # -----------------------------------
+                            # LIMPIAR REFERENCIA DUPLICADA
+                            # -----------------------------------
 
-                                if referencia and referencia in referencias_db:
-                                    referencia = None
+                            if referencia and referencia in referencias_db:
+                                referencia = None
 
+                            # -----------------------------------
+                            # CONVERTIR NUMEROS
+                            # -----------------------------------
+
+                            try:
                                 precio = float(precio) if precio and precio > 0 else 0
+                            except:
+                                precio = 0
+
+                            try:
                                 precio_mayoreo = float(precio_mayoreo) if precio_mayoreo and precio_mayoreo > 0 else 0
+                            except:
+                                precio_mayoreo = 0
+
+                            try:
                                 stock_fisico = int(stock_fisico) if stock_fisico and stock_fisico >= 0 else 0
+                            except:
+                                stock_fisico = 0
+
+                            try:
                                 stock_virtual = int(stock_virtual) if stock_virtual and stock_virtual >= 0 else 0
+                            except:
+                                stock_virtual = 0
 
-                                categoria = categorias_db.get(categoria_nombre)
+                            # -----------------------------------
+                            # CATEGORIA
+                            # -----------------------------------
 
-                                if not categoria:
+                            categoria = categorias_db.get(categoria_nombre)
 
-                                    prefijo_base = categoria_nombre[:3].upper()
-                                    prefijo = f"{prefijo_base}{len(categorias_db)+1}"
+                            if not categoria:
 
-                                    categoria, creada = Categoria.objects.get_or_create(
-                                        nombre=categoria_nombre,
-                                        defaults={"prefijo": prefijo}
-                                    )
+                                prefijo_base = categoria_nombre[:3].upper()
+                                prefijo = f"{prefijo_base}{len(categorias_db)+1}"
 
-                                    categorias_db[categoria_nombre] = categoria
+                                categoria, creada = Categoria.objects.get_or_create(
+                                    nombre=categoria_nombre,
+                                    defaults={"prefijo": prefijo}
+                                )
 
-                                    if creada:
-                                        categorias_creadas += 1
+                                categorias_db[categoria_nombre] = categoria
 
-                                producto = productos_db.get(no_folio) or Producto.objects.filter(no_folio=no_folio).first()
+                                if creada:
+                                    categorias_creadas += 1
 
-                                if producto:
+                            # -----------------------------------
+                            # BUSCAR PRODUCTO
+                            # -----------------------------------
 
-                                    producto.nombre = nombre
-                                    producto.descripcion = descripcion
-                                    producto.categoria = categoria
-                                    producto.precio = precio
-                                    producto.precio_mayoreo = precio_mayoreo
-                                    producto.unidad_medida = unidad_medida
-                                    producto.save()
+                            producto = None
 
-                                    actualizados += 1
+                            if no_folio:
+                                producto = productos_db.get(no_folio)
 
-                                else:
+                                if not producto:
+                                    producto = Producto.objects.filter(no_folio=no_folio).first()
 
-                                    producto = Producto(
-                                        no_folio=no_folio,
-                                        referencia=referencia,
-                                        nombre=nombre,
-                                        descripcion=descripcion,
-                                        categoria=categoria,
-                                        precio=precio,
-                                        precio_mayoreo=precio_mayoreo,
-                                        unidad_medida=unidad_medida,
-                                    )
+                            # -----------------------------------
+                            # ACTUALIZAR PRODUCTO
+                            # -----------------------------------
 
-                                    producto.save()
-                                    # registrar el producto recién creado
-                                    if producto.no_folio:
-                                        productos_db[producto.no_folio] = producto
+                            if producto:
 
-                                    if producto.referencia:
-                                        referencias_db.add(producto.referencia)
+                                producto.nombre = nombre
+                                producto.descripcion = descripcion
+                                producto.categoria = categoria
+                                producto.precio = precio
+                                producto.precio_mayoreo = precio_mayoreo
+                                producto.unidad_medida = unidad_medida
+                                producto.save()
 
-                                    creados += 1
+                                actualizados += 1
 
-                                stock = stocks_db.get(producto.id)
+                            # -----------------------------------
+                            # CREAR PRODUCTO
+                            # -----------------------------------
 
-                                if stock:
+                            else:
 
-                                    stock.stock_fisico = stock_fisico
-                                    stock.stock_virtual = stock_virtual
-                                    stock.save()
+                                if not no_folio or no_folio in productos_db or Producto.objects.filter(no_folio=no_folio).exists():
+                                    no_folio = generar_folio()
 
-                                else:
+                                producto = Producto(
+                                    no_folio=no_folio,
+                                    referencia=referencia,
+                                    nombre=nombre,
+                                    descripcion=descripcion,
+                                    categoria=categoria,
+                                    precio=precio,
+                                    precio_mayoreo=precio_mayoreo,
+                                    unidad_medida=unidad_medida,
+                                )
 
-                                    nuevo_stock = Stock(
-                                        producto=producto,
-                                        sucursal=sucursal,
-                                        stock_fisico=stock_fisico,
-                                        stock_virtual=stock_virtual
-                                    )
+                                producto.save()
 
-                                    nuevos_stocks.append(nuevo_stock)
-                                    stocks_db[producto.id] = nuevo_stock
+                                if producto.no_folio:
+                                    productos_db[producto.no_folio] = producto
+
+                                if producto.referencia:
+                                    referencias_db.add(producto.referencia)
+
+                                creados += 1
+
+                            # -----------------------------------
+                            # STOCK
+                            # -----------------------------------
+
+                            stock = stocks_db.get(producto.id)
+
+                            if stock:
+
+                                stock.stock_fisico = stock_fisico
+                                stock.stock_virtual = stock_virtual
+                                stock.save()
+
+                            else:
+
+                                nuevo_stock = Stock(
+                                    producto=producto,
+                                    sucursal=sucursal,
+                                    stock_fisico=stock_fisico,
+                                    stock_virtual=stock_virtual
+                                )
+
+                                nuevos_stocks.append(nuevo_stock)
+                                stocks_db[producto.id] = nuevo_stock
 
                         except Exception as fila_error:
 
