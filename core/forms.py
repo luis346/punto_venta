@@ -77,17 +77,6 @@ class CategoriaForm(forms.ModelForm):
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'prefijo': forms.TextInput(attrs={'class': 'form-control'}),
         }
-
-class StockForm(forms.ModelForm):
-    class Meta:
-        model = Stock
-        fields = [
-            'producto',
-            'sucursal',
-            'stock_fisico',
-            'stock_virtual',
-        ]
-
         
     def clean_no_folio(self):
         no_folio = self.cleaned_data['no_folio']
@@ -115,6 +104,17 @@ class StockForm(forms.ModelForm):
         if stock < 0:
             raise forms.ValidationError("El stock físico no puede ser negativo.")
         return stock
+    
+    
+class StockForm(forms.ModelForm):
+    class Meta:
+        model = Stock
+        fields = [
+            'producto',
+            'sucursal',
+            'stock_fisico',
+            'stock_virtual',
+        ]
 
 class CategoriaForm(forms.ModelForm):
     class Meta:
