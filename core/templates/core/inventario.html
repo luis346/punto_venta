@@ -755,6 +755,57 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 {% endif %}
 <script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    document.querySelectorAll(".stock-input").forEach(input => {
+
+        let timeout = null;
+
+        input.addEventListener("input", function() {
+
+            // Espera 500ms después de que el usuario deje de escribir
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+
+                const form = this.closest("form");
+                if (!form) return;
+
+                const formData = new FormData(form);
+
+                fetch("{% url 'inventario' %}", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": formData.get("csrfmiddlewaretoken"),
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    body: formData
+                })
+                .then(resp => resp.json())
+                .then(data => {
+                    if (data.success) {
+                        // Opcional: mostrar mensaje visual al lado del input
+                        if (!this.nextElementSibling || !this.nextElementSibling.classList.contains("saved-msg")) {
+                            const span = document.createElement("span");
+                            span.className = "saved-msg text-success small ms-1";
+                            span.innerText = "✔ guardado";
+                            this.parentNode.appendChild(span);
+                            setTimeout(() => span.remove(), 1500);
+                        }
+                    } else {
+                        console.error("Error guardando stock", data.error);
+                    }
+                })
+                .catch(err => console.error("Error en la petición:", err));
+
+            }, 100);
+
+        });
+
+    });
+
+});
+</script>
+<script>
 let scannerActivo = false;
 let html5QrCode;
 
