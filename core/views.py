@@ -28,6 +28,9 @@ import pandas as pd
 from openpyxl import Workbook
 from django.contrib.auth.forms import AuthenticationForm
 import io
+from django.shortcuts import render
+from django.db.models import Sum, F
+from .models import VentaDetalle
 from reportlab.lib.units import cm
 from reportlab.graphics.barcode import code128
 from reportlab.pdfgen import canvas
@@ -1170,40 +1173,83 @@ def entrada_inventario(request):
 
         messages.success(request, "Stock agregado correctamente")
         return redirect('inventario')
+    
 
-from django.db.models import Q
+def productos_vendidos(request):
+
+        productos = (
+            VentaDetalle.objects
+            .filter(venta__cancelada=False)
+            .values(nombre_producto=F('producto__nombre'))
+            .annotate(
+                cantidad_total=Sum('cantidad'),
+                dinero_total=Sum('total')
+            )
+            .order_by('-cantidad_total')
+        )
+
+        total_productos = sum(p['cantidad_total'] for p in productos)
+        total_dinero = sum(p['dinero_total'] for p in productos)
+
+        context = {
+            'productos': productos,
+            'total_productos': total_productos,
+            'total_dinero': total_dinero
+        }
+
+        return render(request, 'core/productos_vendidos.html', context)
 
 @login_required
 @user_passes_test(es_caja)
 def buscar_producto(request):
-    q = request.GET.get('q', '').strip()
+
+    q = request.GET.get('q', '').strip().upper()
     sucursal = request.user.sucursal
 
     if not q:
         return JsonResponse([], safe=False)
 
     filtros = (
-        Q(no_folio__icontains=q) |
+        Q(referencia__icontains=q) |
         Q(nombre__icontains=q) |
-        Q(referencia__icontains=q)
+        Q(no_folio__icontains=q)
     )
 
-    # 🔥 Si son solo números y tiene mínimo 4 dígitos
     if q.isdigit() and len(q) >= 4:
         filtros |= (
             Q(no_folio__endswith=q) |
             Q(referencia__endswith=q)
         )
 
-    productos = Producto.objects.filter(filtros).distinct()[:30]
+    productos = (
+        Producto.objects
+        .filter(filtros)
+        .only(
+            "id",
+            "no_folio",
+            "nombre",
+            "descripcion",
+            "precio",
+            "precio_mayoreo",
+            "umbral_mayoreo",
+            "referencia"
+        )
+        [:30]
+    )
+
+    # 🔥 traer stocks en una sola consulta
+    stocks = Stock.objects.filter(
+        producto__in=productos,
+        sucursal=sucursal
+    )
+
+    stock_map = {s.producto_id: s for s in stocks}
 
     resultados = []
 
     for p in productos:
-        stock = Stock.objects.filter(
-            producto=p,
-            sucursal=sucursal
-        ).first()
+
+        stock = stock_map.get(p.id)
 
         resultados.append({
             'id': p.id,

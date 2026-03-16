@@ -66,16 +66,17 @@ class Producto(models.Model):
         ('granel', 'GRANEL')
     ]
 
-    no_folio = models.CharField(max_length=20, unique=True, blank=True, null=True)
+    no_folio = models.CharField(max_length=20, unique=True, blank=True, null=True, db_index=True)
 
     referencia = models.CharField(
         max_length=50,
         blank=True,
         null=True,
-        unique=True
+        unique=True,
+        db_index=True
     )
 
-    nombre = models.CharField(max_length=100)
+    nombre = models.CharField(max_length=100, db_index=True)
     descripcion = models.TextField(blank=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE)
 

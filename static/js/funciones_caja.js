@@ -4,8 +4,13 @@
 let usarMayoreo = false;
 
 
+/***************************************
+ * APLICAR PRECIO MAYOREO
+ ***************************************/
 function aplicarPrecioMayoreo(activar) {
+
     $('#tabla-productos tbody tr').each(function () {
+
         const fila = $(this);
 
         const precio = activar
@@ -14,8 +19,9 @@ function aplicarPrecioMayoreo(activar) {
 
         if (precio !== undefined) {
             fila.find('.precio').text(parseFloat(precio).toFixed(2));
-            fila.find('.cantidad').data('precio', precio); // 🔥 IMPORTANTE
+            fila.find('.cantidad').data('precio', precio);
         }
+
     });
 
     if (typeof actualizarTotales === 'function') {
@@ -24,34 +30,117 @@ function aplicarPrecioMayoreo(activar) {
 }
 
 
-        function actualizarTotales() {
-            let total = 0;
-            $('#tabla-productos tbody tr').each(function () {
-                const precio = parseFloat($(this).find('.precio').text()) || 0;
-                const cantidad = parseInt($(this).find('.cantidad').val()) || 0;
-                const totalFila = precio * cantidad;
-                $(this).find('.total').text(totalFila.toFixed(2));
-                total += totalFila;
-            });
+/***************************************
+ * ACTUALIZAR TOTALES
+ ***************************************/
+function actualizarTotales() {
 
-            // Mostrar total general en el HTML
-            $('#total-general').text(total.toFixed(2));
-            return total;
-        }
+    let total = 0;
 
-        // Puedes llamarla al cargar o al cambiar cantidad
-        actualizarTotales();
+    $('#tabla-productos tbody tr').each(function () {
+
+        const precio = parseFloat($(this).find('.precio').text()) || 0;
+        const cantidad = parseInt($(this).find('.cantidad').val()) || 0;
+
+        const totalFila = precio * cantidad;
+
+        $(this).find('.total').text(totalFila.toFixed(2));
+
+        total += totalFila;
+
+    });
+
+    $('#total-general').text(total.toFixed(2));
+
+    return total;
+
+}
+
+// Ejecutar al cargar
+actualizarTotales();
+
 
 /***************************************
- * FUNCIÓN PARA INSERTAR PRODUCTO EN FILA
+ * BUSCAR PRODUCTO EXISTENTE
+ ***************************************/
+function buscarProductoExistente(no_folio){
+
+    
+
+    let filaEncontrada = null;
+
+    $('#tabla-productos tbody tr').each(function(){
+
+        const folio = $(this)
+            .find('td[data-tipo="no_folio"]')
+            .text()
+            .trim();
+
+        if(folio === no_folio){
+            filaEncontrada = $(this);
+            return false;
+        }
+
+    });
+
+    return filaEncontrada;
+
+}
+
+/***************************************
+ * RESALTAR FILA CUANDO SE REPITE PRODUCTO
+ ***************************************/
+function resaltarFila(fila){
+
+    fila.addClass('table-warning');
+
+    setTimeout(function(){
+        fila.removeClass('table-warning');
+    }, 600);
+
+}
+
+
+/***************************************
+ * INSERTAR PRODUCTO EN FILA
  ***************************************/
 function seleccionarProducto(data, fila) {
 
-    // Llenar datos visibles
+    const filaExistente = buscarProductoExistente(data.no_folio);
+
+    // 🔥 Si el producto ya existe
+    if (filaExistente) {
+
+        const inputCantidad = filaExistente.find('.cantidad');
+        let cantidadActual = parseInt(inputCantidad.val()) || 0;
+
+        inputCantidad.val(cantidadActual + 1);
+        inputCantidad.trigger('input');
+
+        resaltarFila(filaExistente);
+
+        // 🔥 limpiar la fila actual donde se escaneó
+        fila.find('td[data-tipo="no_folio"]').text('');
+        fila.find('td[data-tipo="nombre"]').text('');
+        fila.find('.precio').text('');
+        fila.find('.total').text('');
+        fila.find('.cantidad')
+            .val(1)
+            .prop('disabled', true)
+            .removeData('precio')
+            .removeData('stock_fisico');
+
+        setTimeout(function(){
+            fila.find('td[data-tipo="no_folio"]').focus();
+        },50);
+
+        return;
+    }
+
+    // Llenar datos
     fila.find('td[data-tipo="no_folio"]').text(data.no_folio);
     fila.find('td[data-tipo="nombre"]').text(data.nombre);
 
-    // Guardar datos ocultos en la fila
     fila.data('precio-normal', parseFloat(data.precio));
     fila.data('precio-mayoreo', parseFloat(data.precio_mayoreo) || null);
     fila.data('unidad-medida', data.unidad_medida || '');
@@ -70,29 +159,46 @@ function seleccionarProducto(data, fila) {
 
     actualizarTotales();
 
-    // 🔥 FLUJO SOLO SCANNER:
-    // Agregar nueva fila inmediatamente
+    // 🔥 crear nueva fila
     agregarFila();
 
-    // Pasar foco directo al siguiente no_folio
-    setTimeout(function () {
-        $('#tabla-productos tbody tr:last td[data-tipo="no_folio"]').focus();
-    }, 50);
+    // 🔥 mover foco inmediatamente
+    const nuevaFila = $('#tabla-productos tbody tr:last');
+    nuevaFila.find('td[data-tipo="no_folio"]').focus();
 }
 
 /***************************************
- * FUNCIÓN GLOBAL PARA AGREGAR FILA
+ * AGREGAR NUEVA FILA
  ***************************************/
 function agregarFila() {
-    const fila = `<tr>
-        <td contenteditable="true" class="busqueda" data-tipo="no_folio"></td>
-        <td contenteditable="true" class="busqueda" data-tipo="nombre"></td>
-        <td class="precio"></td>
-        <td><input type="number" class="form-control cantidad" min="1" value="1" disabled></td>
-        <td class="total"></td>
-    </tr>`;
+
+    const fila = `
+        <tr>
+            <td contenteditable="true" class="busqueda" data-tipo="no_folio"></td>
+            <td contenteditable="true" class="busqueda" data-tipo="nombre"></td>
+            <td class="precio"></td>
+            <td>
+                <input type="number" class="form-control cantidad" min="1" value="1" disabled>
+            </td>
+            <td class="total"></td>
+        </tr>
+    `;
+
     $('#tabla-productos tbody').append(fila);
+
 }
+
+
+/***************************************
+ * FOCO INICIAL
+ ***************************************/
+$(document).ready(function(){
+
+    setTimeout(function () {
+        $('#tabla-productos tbody tr:first td[data-tipo="no_folio"]').focus();
+    }, 100);
+
+});
 
 /***************************************
  * DOCUMENT READY (ÚNICO)
@@ -100,10 +206,6 @@ function agregarFila() {
 $(document).ready(function () {
 
     agregarFila();
-
-    setTimeout(function () {
-        $('#tabla-productos tbody tr:first td[data-tipo="no_folio"]').focus();
-    }, 100);
 
     /***************************************
      * ACTUALIZAR TOTALES
@@ -182,7 +284,8 @@ function validarStockGlobal() {
         const cantidad = parseInt(cantidadInput.val()) || 0;
         const stock = parseInt(cantidadInput.data('stock_fisico')) || 0;
 
-        if (!no_folio) return;
+        // 🔥 ignorar filas vacías o sin producto cargado
+        if (!no_folio || !cantidadInput.data('stock_fisico')) return;
 
         if (!acumulado[no_folio]) {
             acumulado[no_folio] = {
@@ -215,7 +318,7 @@ function validarStockGlobal() {
 
 }
 
-    /***************************************
+/***************************************
  * AUTOCOMPLETE DINÁMICO
  ***************************************/
 $('#tabla-productos').on('focus', '.busqueda', function () {
@@ -283,9 +386,19 @@ $('#tabla-productos').on('focus', '.busqueda', function () {
                         ) {
 
                             // 🔥 VALIDACIÓN DE STOCK
-                            if (parseInt(data[0].stock_fisico) <= 0) {
+                          if (parseInt(data[0].stock_fisico) <= 0) {
 
                                 celda.text('');
+
+                                const fila = celda.closest('tr');
+
+                                fila.find('.precio').text('');
+                                fila.find('.total').text('');
+                                fila.find('.cantidad')
+                                    .val(1)
+                                    .prop('disabled', true)
+                                    .removeData('precio')
+                                    .removeData('stock_fisico');
 
                                 Swal.fire({
                                     title: "Sin stock",
@@ -294,6 +407,10 @@ $('#tabla-productos').on('focus', '.busqueda', function () {
                                     timer: 1200,
                                     showConfirmButton: false
                                 });
+
+                                setTimeout(function(){
+                                    celda.focus();
+                                },100);
 
                                 return;
                             }
@@ -323,9 +440,19 @@ $('#tabla-productos').on('focus', '.busqueda', function () {
                 const fila = celda.closest('tr');
 
                 // 🔥 VALIDACIÓN DE STOCK
-                if (parseInt(producto.stock_fisico) <= 0) {
+               if (parseInt(producto.stock_fisico) <= 0) {
 
                     celda.text('');
+
+                    const fila = celda.closest('tr');
+
+                    fila.find('.precio').text('');
+                    fila.find('.total').text('');
+                    fila.find('.cantidad')
+                        .val(1)
+                        .prop('disabled', true)
+                        .removeData('precio')
+                        .removeData('stock_fisico');
 
                     Swal.fire({
                         title: "Sin stock",
@@ -334,6 +461,10 @@ $('#tabla-productos').on('focus', '.busqueda', function () {
                         timer: 1200,
                         showConfirmButton: false
                     });
+
+                    setTimeout(function(){
+                        celda.focus();
+                    },100);
 
                     return false;
                 }
@@ -347,234 +478,348 @@ $('#tabla-productos').on('focus', '.busqueda', function () {
     }
 });
 
+/***************************************
+ * CONTROL DE CANTIDAD
+ ***************************************/
 $('#tabla-productos').on('input', '.cantidad', function () {
 
-    validarStockGlobal(); // 🔥 nueva validación
+    validarStockGlobal();
     actualizarTotales();
     $('#monto_pagado').trigger('input');
+
 });
 
 
+let filaSeleccionada = null;
+let borrando = false;
 
-        let filaSeleccionada = null;
-            /***************************************
-             * CONTROL GLOBAL DE TAB EN EL SISTEMA
-             ***************************************/
-            $(document).on('keydown', function (e) {
 
-                if (e.key !== 'Tab') return;
+/***************************************
+ * DETECTAR CUANDO SE ESTA BORRANDO
+ ***************************************/
+$('#tabla-productos').on('keydown', 'td[contenteditable="true"]', function(e){
 
-                // Elementos navegables del sistema
-                const elementos = $(
-                    'input:visible, button:visible, select:visible, textarea:visible, ' +
-                    'td[contenteditable="true"]:visible'
-                ).filter(':not([disabled])');
+    if(e.key === 'Backspace' || e.key === 'Delete'){
+        borrando = true;
+    } else {
+        borrando = false;
+    }
 
-                if (!elementos.length) return;
+});
 
-                const actual = document.activeElement;
-                let index = elementos.index(actual);
 
-                // Si el foco está fuera del sistema
-                if (index === -1) {
-                    e.preventDefault();
-                    elementos.first().focus();
-                    return;
-                }
+/***************************************
+ * CONTROL GLOBAL DE TAB
+ ***************************************/
+$(document).on('keydown', function (e) {
 
-                e.preventDefault(); // 🔥 Bloquear comportamiento del navegador
+    if (e.key !== 'Tab') return;
 
-                let siguiente;
+    const elementos = $(
+        'input:visible, button:visible, select:visible, textarea:visible, ' +
+        'td[contenteditable="true"]:visible'
+    ).filter(':not([disabled])');
 
-                // Shift + TAB (ir hacia atrás)
-                if (e.shiftKey) {
-                    siguiente = index - 1;
+    if (!elementos.length) return;
 
-                    if (siguiente < 0) {
-                        siguiente = elementos.length - 1;
-                    }
+    const actual = document.activeElement;
+    let index = elementos.index(actual);
 
-                } else {
+    if (index === -1) {
+        e.preventDefault();
+        elementos.first().focus();
+        return;
+    }
 
-                    siguiente = index + 1;
+    e.preventDefault();
 
-                    if (siguiente >= elementos.length) {
-                        siguiente = 0;
-                    }
-                }
+    let siguiente;
 
-                elementos.eq(siguiente).focus();
+    if (e.shiftKey) {
 
-            });
+        siguiente = index - 1;
 
-  
-        /***************************************
-         * NAVEGACIÓN ↑ ↓
-         ***************************************/
-        $(document).on('keydown', function (e) {
-
-            if ($('.ui-autocomplete').is(':visible')) return;
-
-            const filas = $('#tabla-productos tbody tr');
-
-            if (!filas.length) return;
-
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-
-                e.preventDefault();
-
-                if (!filaSeleccionada) {
-                    filaSeleccionada = filas.first();
-                } else {
-
-                    filaSeleccionada.removeClass('table-primary');
-
-                    if (e.key === 'ArrowDown' && !filaSeleccionada.is(':last-child')) {
-                        filaSeleccionada = filaSeleccionada.next();
-                    }
-
-                    if (e.key === 'ArrowUp' && !filaSeleccionada.is(':first-child')) {
-                        filaSeleccionada = filaSeleccionada.prev();
-                    }
-
-                }
-
-                resaltarFila(filaSeleccionada);
-
-                filaSeleccionada
-                    .find('td[contenteditable="true"]')
-                    .first()
-                    .focus();
-
-            }
-
-            // Eliminar fila con Delete
-            if (e.key === 'Delete' && filaSeleccionada) {
-                e.preventDefault();
-                const esPrimeraFila = filaSeleccionada.is(':first-child');
-
-                if (esPrimeraFila) {
-                    filaSeleccionada.find('[contenteditable="true"]').text('');
-                    filaSeleccionada.find('.precio, .total').text('');
-                    filaSeleccionada.find('.cantidad').val(1).prop('disabled', true).removeData('precio');
-                } else {
-                    const siguiente = filaSeleccionada.next().length ? filaSeleccionada.next() : filaSeleccionada.prev();
-                    filaSeleccionada.remove();
-                    filaSeleccionada = siguiente.length ? siguiente : null;
-                }
-
-                resaltarFila(filaSeleccionada);
-                if (filaSeleccionada) {
-                    filaSeleccionada.find('td[contenteditable="true"]').first().focus();
-                }
-                actualizarTotales();
-            }
-        });
-
-        $('#tabla-productos').on('keydown', 'td[contenteditable="true"]', function (e) {
-            const td = $(this)[0]; // elemento DOM
-            const tr = $(this).closest('tr');
-            const celdaIndex = $(this).index();
-
-            // Función para obtener posición del cursor dentro del contenteditable
-            function getCaretPosition(editableDiv) {
-                let caretPos = 0, sel, range;
-                if (window.getSelection) {
-                    sel = window.getSelection();
-                    if (sel.rangeCount) {
-                        range = sel.getRangeAt(0);
-                        const preRange = range.cloneRange();
-                        preRange.selectNodeContents(editableDiv);
-                        preRange.setEnd(range.endContainer, range.endOffset);
-                        caretPos = preRange.toString().length;
-                    }
-                }
-                return caretPos;
-            }
-
-            // Función para obtener longitud del texto dentro del contenteditable
-            function getTextLength(editableDiv) {
-                return $(editableDiv).text().length;
-            }
-
-            if (e.key === 'ArrowRight') {
-                const caretPos = getCaretPosition(td);
-                const textLen = getTextLength(td);
-                const inputCantidad = tr.find('.cantidad');
-
-                if (caretPos === textLen) {
-                    // Cursor al final, moverse a la siguiente celda
-                    e.preventDefault();
-                    const target = tr.children().eq(celdaIndex + 1);
-                    if (target.length && target.is('[contenteditable="true"]')) {
-                        target.focus();
-                        // Poner cursor al inicio en la nueva celda
-                        placeCaretAtStart(target[0]);
-                    }
-                }
-                // else: dejar que la flecha derecha mueva el cursor normalmente
-            } else if (e.key === 'ArrowLeft') {
-                const caretPos = getCaretPosition(td);
-                if (caretPos === 0) {
-                    // Cursor al inicio, moverse a la celda anterior
-                    e.preventDefault();
-                    const target = tr.children().eq(celdaIndex - 1);
-                    if (target.length && target.is('[contenteditable="true"]')) {
-                        target.focus();
-                        // Poner cursor al final en la nueva celda
-                        placeCaretAtEnd(target[0]);
-                    }
-                }
-                // else: dejar que la flecha izquierda mueva el cursor normalmente
-            }
-        });
-
-        // Funciones para posicionar cursor en contenteditable
-        function placeCaretAtStart(el) {
-            el.focus();
-            if (typeof window.getSelection != "undefined"
-                && typeof document.createRange != "undefined") {
-                const range = document.createRange();
-                range.selectNodeContents(el);
-                range.collapse(true);
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
+        if (siguiente < 0) {
+            siguiente = elementos.length - 1;
         }
 
-        function placeCaretAtEnd(el) {
-            el.focus();
-            if (typeof window.getSelection != "undefined"
-                && typeof document.createRange != "undefined") {
-                const range = document.createRange();
-                range.selectNodeContents(el);
-                range.collapse(false);
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
+    } else {
+
+        siguiente = index + 1;
+
+        if (siguiente >= elementos.length) {
+            siguiente = 0;
         }
 
+    }
 
-        // Función para resaltar fila
-        function resaltarFila(fila) {
-            $('#tabla-productos tbody tr').removeClass('table-primary');
-            if (fila) {
-                fila.addClass('table-primary');
+    elementos.eq(siguiente).focus();
+
+});
+
+
+/***************************************
+ * NAVEGACIÓN ↑ ↓
+ ***************************************/
+$(document).on('keydown', function (e) {
+
+    if ($('.ui-autocomplete').is(':visible')) return;
+
+    const filas = $('#tabla-productos tbody tr');
+
+    if (!filas.length) return;
+
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+
+        e.preventDefault();
+
+        if (!filaSeleccionada) {
+            filaSeleccionada = filas.first();
+        } else {
+
+            filaSeleccionada.removeClass('table-primary');
+
+            if (e.key === 'ArrowDown' && !filaSeleccionada.is(':last-child')) {
+                filaSeleccionada = filaSeleccionada.next();
             }
-        }
-        
-    let productos_temporales = null;
-    let password_admin = '';
 
-    /* =========================
-       FUNCIÓN: obtener productos
-       ========================= */
-    function obtenerProductos() {
+            if (e.key === 'ArrowUp' && !filaSeleccionada.is(':first-child')) {
+                filaSeleccionada = filaSeleccionada.prev();
+            }
+
+        }
+
+        resaltarFila(filaSeleccionada);
+
+        filaSeleccionada
+            .find('td[contenteditable="true"]')
+            .first()
+            .focus();
+
+    }
+
+
+    /***************************************
+     * LIMPIAR FILA CON ESC
+     ***************************************/
+    if (e.key === 'Escape' && filaSeleccionada) {
+
+        e.preventDefault();
+
+        filaSeleccionada.find('[contenteditable="true"]').text('');
+        filaSeleccionada.find('.precio, .total').text('');
+        filaSeleccionada.find('.cantidad').val(1).prop('disabled', true);
+
+        filaSeleccionada
+            .find('td[data-tipo="no_folio"]')
+            .focus();
+
+    }
+
+
+    /***************************************
+     * ELIMINAR FILA CON DELETE
+     ***************************************/
+    if (e.key === 'Delete' && filaSeleccionada) {
+
+        e.preventDefault();
+
+        const esPrimeraFila = filaSeleccionada.is(':first-child');
+
+        if (esPrimeraFila) {
+
+            filaSeleccionada.find('[contenteditable="true"]').text('');
+            filaSeleccionada.find('.precio, .total').text('');
+            filaSeleccionada.find('.cantidad')
+                .val(1)
+                .prop('disabled', true)
+                .removeData('precio');
+
+        } else {
+
+            const siguiente = filaSeleccionada.next().length
+                ? filaSeleccionada.next()
+                : filaSeleccionada.prev();
+
+            filaSeleccionada.remove();
+
+            filaSeleccionada = siguiente.length ? siguiente : null;
+
+        }
+
+        resaltarFila(filaSeleccionada);
+
+        if (filaSeleccionada) {
+
+            filaSeleccionada
+                .find('td[contenteditable="true"]')
+                .first()
+                .focus();
+
+        }
+
+        actualizarTotales();
+
+    }
+
+});
+
+
+/***************************************
+ * NAVEGACIÓN ENTRE CELDAS ← →
+ ***************************************/
+$('#tabla-productos').on('keydown', 'td[contenteditable="true"]', function (e) {
+
+    const td = $(this)[0];
+    const tr = $(this).closest('tr');
+    const celdaIndex = $(this).index();
+
+    function getCaretPosition(editableDiv) {
+
+        let caretPos = 0, sel, range;
+
+        if (window.getSelection) {
+
+            sel = window.getSelection();
+
+            if (sel.rangeCount) {
+
+                range = sel.getRangeAt(0);
+
+                const preRange = range.cloneRange();
+
+                preRange.selectNodeContents(editableDiv);
+
+                preRange.setEnd(range.endContainer, range.endOffset);
+
+                caretPos = preRange.toString().length;
+
+            }
+
+        }
+
+        return caretPos;
+
+    }
+
+
+    function getTextLength(editableDiv) {
+        return $(editableDiv).text().length;
+    }
+
+
+    if (e.key === 'ArrowRight') {
+
+        const caretPos = getCaretPosition(td);
+        const textLen = getTextLength(td);
+
+        if (caretPos === textLen) {
+
+            e.preventDefault();
+
+            const target = tr.children().eq(celdaIndex + 1);
+
+            if (target.length && target.is('[contenteditable="true"]')) {
+
+                target.focus();
+
+                placeCaretAtStart(target[0]);
+
+            }
+
+        }
+
+    }
+
+
+    else if (e.key === 'ArrowLeft') {
+
+        const caretPos = getCaretPosition(td);
+
+        if (caretPos === 0) {
+
+            e.preventDefault();
+
+            const target = tr.children().eq(celdaIndex - 1);
+
+            if (target.length && target.is('[contenteditable="true"]')) {
+
+                target.focus();
+
+                placeCaretAtEnd(target[0]);
+
+            }
+
+        }
+
+    }
+
+});
+
+
+/***************************************
+ * POSICIONAR CURSOR
+ ***************************************/
+function placeCaretAtStart(el) {
+
+    el.focus();
+
+    const range = document.createRange();
+    const sel = window.getSelection();
+
+    range.selectNodeContents(el);
+    range.collapse(true);
+
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+}
+
+
+function placeCaretAtEnd(el) {
+
+    el.focus();
+
+    const range = document.createRange();
+    const sel = window.getSelection();
+
+    range.selectNodeContents(el);
+    range.collapse(false);
+
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+}
+
+
+/***************************************
+ * RESALTAR FILA
+ ***************************************/
+function resaltarFila(fila) {
+
+    $('#tabla-productos tbody tr').removeClass('table-primary');
+
+    if (fila) {
+        fila.addClass('table-primary');
+    }
+
+}
+
+
+let productos_temporales = null;
+let password_admin = '';
+
+
+/***************************************
+ * OBTENER PRODUCTOS
+ ***************************************/
+function obtenerProductos() {
+
     const productos = [];
 
     $('#tabla-productos tbody tr').each(function () {
+
         const fila = $(this);
 
         const no_folio = fila.find('td[data-tipo="no_folio"]').text().trim();
@@ -583,12 +828,12 @@ $('#tabla-productos').on('input', '.cantidad', function () {
 
         const precio_unitario = parseFloat(fila.find('.precio').text()) || 0;
 
-        // 🔥 ESTOS SON LOS IMPORTANTES
         const precio_normal = parseFloat(fila.data('precio-normal')) || precio_unitario;
         const precio_mayoreo = parseFloat(fila.data('precio-mayoreo')) || null;
         const unidad_medida = fila.data('unidad-medida') || '';
 
         if (no_folio && cantidad > 0) {
+
             productos.push({
                 no_folio,
                 nombre,
@@ -598,10 +843,13 @@ $('#tabla-productos').on('input', '.cantidad', function () {
                 precio_mayoreo,
                 unidad_medida
             });
+
         }
+
     });
 
     return productos;
+
 }
 
 

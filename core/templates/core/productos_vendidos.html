@@ -1,0 +1,84 @@
+{% extends 'core/base.html' %}
+{% block title %}Productos Vendidos{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold text-dark">📦 Productos Vendidos</h2>
+</div>
+
+<!-- =======================
+ RESUMEN
+======================= -->
+
+<div class="row mb-4">
+
+    <div class="col-md-6">
+        <div class="card shadow-sm text-center">
+            <div class="card-body">
+                <h6 class="text-muted">Total productos vendidos</h6>
+                <h3 class="fw-bold text-primary">
+                    {{ total_productos }}
+                </h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm text-center">
+            <div class="card-body">
+                <h6 class="text-muted">Dinero generado</h6>
+                <h3 class="fw-bold text-success">
+                    ${{ total_dinero|floatformat:2 }}
+                </h3>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- =======================
+ TABLA
+======================= -->
+
+<div class="card shadow-sm">
+
+    <div class="card-header fw-semibold">
+        📊 Lista de productos vendidos
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered mb-0 align-middle">
+
+            <thead class="table-light">
+                <tr>
+                    <th>Producto</th>
+                    <th>Cantidad Vendida</th>
+                    <th>Total Generado</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for p in productos %}
+                <tr>
+                    <td class="fw-semibold">{{ p.nombre_producto }}</td>
+                    <td>{{ p.cantidad_total }}</td>
+                    <td>${{ p.dinero_total|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="text-center text-muted py-4">
+                        No hay productos vendidos
+                    </td>
+                </tr>
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+    </div>
+
+</div>
+
+{% endblock %}

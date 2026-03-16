@@ -68,6 +68,7 @@ urlpatterns = [
     path('etiquetas/masivo/', views.imprimir_etiquetas_masivo, name='imprimir_etiquetas_masivo'),
     path('sucursal/<int:id>/editar/', views.editar_sucursal, name='editar_sucursal'),
     path('validar-folio/', views.validar_folio, name='validar_folio'),
+    path('productos-vendidos/', views.productos_vendidos, name='productos_vendidos'),
 
 
 
