@@ -4,6 +4,30 @@
 
 {% block content %}
 
+<!-- MODAL BUSCAR PRODUCTO -->
+<div class="modal fade" id="modalBuscarProducto" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Buscar producto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <input type="text" id="inputBuscarProducto"
+               class="form-control mb-3"
+               placeholder="Escribe nombre o código...">
+
+        <div id="listaProductos" class="list-group"></div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <!-- ================= MODAL AUTORIZACIÓN ================= -->
 <div class="modal fade" id="modalPassword" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -27,6 +51,11 @@
             </div>
         </form>
     </div>
+</div>
+<div class="col-md-2">
+<button class="btn btn-primary" id="btnBuscarProducto">
+    🔍 Buscar producto
+</button>
 </div>
 
 <!-- ================= FORM VENTA ================= -->

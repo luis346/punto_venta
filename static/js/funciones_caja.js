@@ -2,6 +2,11 @@
  * VARIABLES GLOBALES
  ***************************************/
 let usarMayoreo = false;
+let filaSeleccionada = null;
+let borrando = false;
+
+
+
 
 
 /***************************************
@@ -27,6 +32,61 @@ function aplicarPrecioMayoreo(activar) {
     if (typeof actualizarTotales === 'function') {
         actualizarTotales();
     }
+}
+
+/***************************************
+ * VALIDAR STOCK GLOBAL POR PRODUCTO
+ ***************************************/
+function validarStockGlobal() {
+
+    const acumulado = {};
+
+    $('#tabla-productos tbody tr').each(function () {
+
+        const fila = $(this);
+
+        const no_folio = fila.find('input[data-tipo="no_folio"]')
+            .val()
+            .trim()
+            .toUpperCase();
+
+        const cantidadInput = fila.find('.cantidad');
+
+        const stockData = cantidadInput.data('stock_fisico');
+
+        if (!no_folio || stockData === undefined) return;
+
+        const cantidad = parseInt(cantidadInput.val()) || 0;
+        const stock = parseInt(stockData);
+
+        if (!acumulado[no_folio]) {
+            acumulado[no_folio] = {
+                total: 0,
+                stock: stock
+            };
+        }
+
+        acumulado[no_folio].total += cantidad;
+
+        if (acumulado[no_folio].total > acumulado[no_folio].stock) {
+
+            Swal.fire({
+                icon: "warning",
+                title: "Stock excedido",
+                text: "No hay suficiente inventario para este producto.",
+                timer: 1500,
+                showConfirmButton: false
+            });
+
+            const permitido =
+                cantidad - (acumulado[no_folio].total - acumulado[no_folio].stock);
+
+            cantidadInput.val(Math.max(permitido, 0));
+
+            acumulado[no_folio].total = acumulado[no_folio].stock;
+        }
+
+    });
 }
 
 
@@ -71,10 +131,11 @@ function buscarProductoExistente(no_folio){
 
     $('#tabla-productos tbody tr').each(function(){
 
-        const folio = $(this)
-            .find('td[data-tipo="no_folio"]')
-            .text()
-            .trim();
+       const folio = $(this)
+        .find('input[data-tipo="no_folio"]')
+        .val()
+        .trim()
+        .toUpperCase();
 
         if(folio === no_folio){
             filaEncontrada = $(this);
@@ -109,37 +170,43 @@ function seleccionarProducto(data, fila) {
     const filaExistente = buscarProductoExistente(data.no_folio);
 
     // 🔥 Si el producto ya existe
-    if (filaExistente) {
+    if (filaExistente && filaExistente[0] !== fila[0]) {
 
         const inputCantidad = filaExistente.find('.cantidad');
+
+        // ✅ OBTENER CANTIDAD ACTUAL
         let cantidadActual = parseInt(inputCantidad.val()) || 0;
 
-        inputCantidad.val(cantidadActual + 1);
-        inputCantidad.trigger('input');
+        // ✅ SUMAR
+        let nuevaCantidad = Math.max(1, cantidadActual + 1);
+
+        inputCantidad.val(nuevaCantidad);
+
+        // 🔥 VALIDAR COMO SISTEMA REAL
+        validarStockGlobal();
+        actualizarTotales();
+        $('#monto_pagado').trigger('input');
 
         resaltarFila(filaExistente);
 
         // 🔥 limpiar la fila actual donde se escaneó
-        fila.find('td[data-tipo="no_folio"]').text('');
-        fila.find('td[data-tipo="nombre"]').text('');
-        fila.find('.precio').text('');
-        fila.find('.total').text('');
+        setTimeout(() => {
+        fila.find('input[data-tipo="no_folio"]').val('').focus();
+        fila.find('input[data-tipo="nombre"]').val('');
+        fila.find('.precio, .total').text('');
         fila.find('.cantidad')
             .val(1)
             .prop('disabled', true)
             .removeData('precio')
             .removeData('stock_fisico');
-
-        setTimeout(function(){
-            fila.find('td[data-tipo="no_folio"]').focus();
-        },50);
+    }, 10);
 
         return;
     }
 
     // Llenar datos
-    fila.find('td[data-tipo="no_folio"]').text(data.no_folio);
-    fila.find('td[data-tipo="nombre"]').text(data.nombre);
+    fila.find('input[data-tipo="no_folio"]').val(data.no_folio);
+    fila.find('input[data-tipo="nombre"]').val(data.nombre);
 
     fila.data('precio-normal', parseFloat(data.precio));
     fila.data('precio-mayoreo', parseFloat(data.precio_mayoreo) || null);
@@ -158,13 +225,15 @@ function seleccionarProducto(data, fila) {
     fila.find('.total').text(precioInicial.toFixed(2));
 
     actualizarTotales();
+    validarStockGlobal();
+    
 
     // 🔥 crear nueva fila
     agregarFila();
 
     // 🔥 mover foco inmediatamente
     const nuevaFila = $('#tabla-productos tbody tr:last');
-    nuevaFila.find('td[data-tipo="no_folio"]').focus();
+    nuevaFila.find('input[data-tipo="no_folio"]').focus();
 }
 
 /***************************************
@@ -173,32 +242,40 @@ function seleccionarProducto(data, fila) {
 function agregarFila() {
 
     const fila = `
-        <tr>
-            <td contenteditable="true" class="busqueda" data-tipo="no_folio"></td>
-            <td contenteditable="true" class="busqueda" data-tipo="nombre"></td>
-            <td class="precio"></td>
-            <td>
-                <input type="number" class="form-control cantidad" min="1" value="1" disabled>
-            </td>
-            <td class="total"></td>
-        </tr>
+    <tr class="fila-producto">
+
+        <td>
+            <input type="text"
+                   class="form-control busqueda"
+                   data-tipo="no_folio"
+                   autocomplete="off">
+        </td>
+
+        <td>
+            <input type="text"
+                   class="form-control busqueda"
+                   data-tipo="nombre"
+                   autocomplete="off">
+        </td>
+
+        <td class="precio text-end"></td>
+
+        <td>
+            <input type="number"
+                   class="form-control cantidad text-center"
+                   min="1"
+                   value="1"
+                   disabled>
+        </td>
+
+        <td class="total text-end"></td>
+
+    </tr>
     `;
 
     $('#tabla-productos tbody').append(fila);
-
 }
 
-
-/***************************************
- * FOCO INICIAL
- ***************************************/
-$(document).ready(function(){
-
-    setTimeout(function () {
-        $('#tabla-productos tbody tr:first td[data-tipo="no_folio"]').focus();
-    }, 100);
-
-});
 
 /***************************************
  * DOCUMENT READY (ÚNICO)
@@ -207,13 +284,10 @@ $(document).ready(function () {
 
     agregarFila();
 
-    /***************************************
-     * ACTUALIZAR TOTALES
-     ***************************************/
-    $(document).on('input', '.cantidad', function () {
-        actualizarTotales();
-        $('#monto_pagado').trigger('input');
-    });
+     setTimeout(function () {
+        $('#tabla-productos tbody tr:first input[data-tipo="no_folio"]').focus();
+    }, 50);
+
 
     /***************************************
      * VALIDAR STOCK
@@ -232,6 +306,113 @@ $(document).ready(function () {
             $(this).val(stock_fisico);
         }
     });
+
+    /***************************************
+     * SELECCIONAR FILA (CLICK)
+     ***************************************/
+    $('#tabla-productos').on('click', 'tr', function () {
+
+        filaSeleccionada = $(this);
+
+        $('#tabla-productos tbody tr').removeClass('table-primary');
+        filaSeleccionada.addClass('table-primary');
+
+    });
+
+
+    $('#tabla-productos').on('focus', 'input', function () {
+
+        filaSeleccionada = $(this).closest('tr');
+
+        $('#tabla-productos tbody tr').removeClass('table-primary');
+        filaSeleccionada.addClass('table-primary');
+
+    });
+    
+/***************************************
+ * NAVEGACIÓN + DELETE (TECLADO PRO)
+ ***************************************/
+$(document).on('keydown', function (e) {
+
+    if ($('.ui-autocomplete').is(':visible')) return;
+
+    const filas = $('#tabla-productos tbody tr');
+
+    if (!filas.length) return;
+
+    // 🔽 BAJAR
+    if (e.key === 'ArrowDown') {
+
+        e.preventDefault();
+
+        if (!filaSeleccionada) {
+            filaSeleccionada = filas.first();
+        } else {
+            const siguiente = filaSeleccionada.next();
+            if (siguiente.length) {
+                filaSeleccionada = siguiente;
+            }
+        }
+
+        resaltarFila(filaSeleccionada);
+        filaSeleccionada.find('input[data-tipo="no_folio"]').focus();
+    }
+
+    // 🔼 SUBIR
+    if (e.key === 'ArrowUp') {
+
+        e.preventDefault();
+
+        if (!filaSeleccionada) {
+            filaSeleccionada = filas.last();
+        } else {
+            const anterior = filaSeleccionada.prev();
+            if (anterior.length) {
+                filaSeleccionada = anterior;
+            }
+        }
+
+        resaltarFila(filaSeleccionada);
+        filaSeleccionada.find('input[data-tipo="no_folio"]').focus();
+    }
+
+    // ❌ DELETE
+    if (e.key === 'Delete' && filaSeleccionada) {
+
+        e.preventDefault();
+
+        const esPrimeraFila = filaSeleccionada.is(':first-child');
+
+        if (esPrimeraFila) {
+
+            filaSeleccionada.find('input.busqueda').val('');
+            filaSeleccionada.find('.precio, .total').text('');
+            filaSeleccionada.find('.cantidad')
+                .val(1)
+                .prop('disabled', true)
+                .removeData('precio');
+
+        } else {
+
+            const siguiente = filaSeleccionada.next().length
+                ? filaSeleccionada.next()
+                : filaSeleccionada.prev();
+
+            filaSeleccionada.remove();
+
+            filaSeleccionada = siguiente.length ? siguiente : null;
+        }
+
+        resaltarFila(filaSeleccionada);
+
+        if (filaSeleccionada) {
+            filaSeleccionada.find('input[data-tipo="no_folio"]').focus();
+        }
+
+        actualizarTotales();
+    }
+
+});
 
     /***************************************
      * VALIDACIÓN DE PAGO Y CAMBIO
@@ -268,216 +449,67 @@ $(document).ready(function () {
         }
     });
 
-    /***************************************
- * VALIDAR STOCK GLOBAL POR PRODUCTO
- ***************************************/
-function validarStockGlobal() {
-
-    const acumulado = {};
-
-    $('#tabla-productos tbody tr').each(function () {
-
-        const fila = $(this);
-        const no_folio = fila.find('td[data-tipo="no_folio"]').text().trim();
-        const cantidadInput = fila.find('.cantidad');
-
-        const cantidad = parseInt(cantidadInput.val()) || 0;
-        const stock = parseInt(cantidadInput.data('stock_fisico')) || 0;
-
-        // 🔥 ignorar filas vacías o sin producto cargado
-        if (!no_folio || !cantidadInput.data('stock_fisico')) return;
-
-        if (!acumulado[no_folio]) {
-            acumulado[no_folio] = {
-                total: 0,
-                stock: stock
-            };
-        }
-
-        acumulado[no_folio].total += cantidad;
-
-        if (acumulado[no_folio].total > acumulado[no_folio].stock) {
-
-            Swal.fire({
-                icon: "warning",
-                title: "Stock excedido",
-                text: "No hay suficiente inventario para este producto.",
-                timer: 1500,
-                showConfirmButton: false
-            });
-
-            const permitido =
-                cantidad - (acumulado[no_folio].total - acumulado[no_folio].stock);
-
-            cantidadInput.val(Math.max(permitido, 0));
-
-            acumulado[no_folio].total = acumulado[no_folio].stock;
-        }
-
-    });
-
-}
 
 /***************************************
  * AUTOCOMPLETE DINÁMICO
  ***************************************/
-$('#tabla-productos').on('focus', '.busqueda', function () {
+$('#tabla-productos').on('keypress', 'input[data-tipo="no_folio"]', function (e) {
 
-    const celda = $(this);
-    const tipo = celda.data('tipo');
+    if (e.key === 'Enter') {
 
-    if (!celda.data('autocomplete')) {
+        e.preventDefault();
 
-        celda.autocomplete({
-            minLength: 1,
-            delay: 300,
+        const input = $(this);
+        const codigo = input.val().trim();
+        const fila = input.closest('tr');
 
-            source: function (request, response) {
+        if (!codigo) return;
 
-                $.ajax({
-                    url: BUSCAR_PRODUCTO_URL,
-                    data: {
-                        q: request.term,
-                        tipo: tipo
-                    },
-                    success: function (data) {
+        console.log("BUSCANDO:", codigo);
 
-                        if (data.length === 0) {
-
-                            const fila = celda.closest('tr');
-
-                            // Limpiar celda
-                            celda.text('');
-
-                            // Limpiar datos de la fila
-                            fila.find('.precio').text('');
-                            fila.find('.total').text('');
-                            fila.find('.cantidad')
-                                .val(1)
-                                .prop('disabled', true)
-                                .removeData('precio')
-                                .removeData('stock_fisico');
-
-                            fila.removeData('precio-normal');
-                            fila.removeData('precio-mayoreo');
-                            fila.removeData('unidad-medida');
-
-                            Swal.fire({
-                                title: "Producto no encontrado",
-                                text: "No existe un producto con ese código o referencia.",
-                                icon: "error",
-                                timer: 1200,
-                                showConfirmButton: false
-                            });
-
-                            setTimeout(function () {
-                                celda.focus();
-                            }, 100);
-
-                            return;
-                        }
-
-                        // 🔥 Inserción automática si coincide exacto
-                        if (
-                            tipo === "no_folio" &&
-                            data.length === 1 &&
-                            (data[0].no_folio == request.term ||
-                             data[0].referencia == request.term)
-                        ) {
-
-                            // 🔥 VALIDACIÓN DE STOCK
-                          if (parseInt(data[0].stock_fisico) <= 0) {
-
-                                celda.text('');
-
-                                const fila = celda.closest('tr');
-
-                                fila.find('.precio').text('');
-                                fila.find('.total').text('');
-                                fila.find('.cantidad')
-                                    .val(1)
-                                    .prop('disabled', true)
-                                    .removeData('precio')
-                                    .removeData('stock_fisico');
-
-                                Swal.fire({
-                                    title: "Sin stock",
-                                    text: "Este producto no tiene existencias.",
-                                    icon: "warning",
-                                    timer: 1200,
-                                    showConfirmButton: false
-                                });
-
-                                setTimeout(function(){
-                                    celda.focus();
-                                },100);
-
-                                return;
-                            }
-
-                            seleccionarProducto(data[0], celda.closest('tr'));
-                            return;
-                        }
-
-                        response($.map(data, function (item) {
-                            return {
-                                label:
-                                    item.nombre + ' - ' +
-                                    item.descripcion +
-                                    ' ($' + parseFloat(item.precio).toFixed(2) + ')' +
-                                    ' / Stock: ' + item.stock_fisico,
-                                value: item[tipo],
-                                item: item
-                            };
-                        }));
-                    }
-                });
+        $.ajax({
+            url: BUSCAR_PRODUCTO_URL,
+            data: {
+                q: codigo,
+                tipo: 'no_folio'
             },
+            success: function (data) {
 
-            select: function (event, ui) {
+                console.log("RESPUESTA:", data);
 
-                const producto = ui.item.item;
-                const fila = celda.closest('tr');
-
-                // 🔥 VALIDACIÓN DE STOCK
-               if (parseInt(producto.stock_fisico) <= 0) {
-
-                    celda.text('');
-
-                    const fila = celda.closest('tr');
-
-                    fila.find('.precio').text('');
-                    fila.find('.total').text('');
-                    fila.find('.cantidad')
-                        .val(1)
-                        .prop('disabled', true)
-                        .removeData('precio')
-                        .removeData('stock_fisico');
+                if (!data.length) {
 
                     Swal.fire({
-                        title: "Sin stock",
-                        text: "Este producto no tiene existencias.",
-                        icon: "warning",
-                        timer: 1200,
+                        title: "No encontrado",
+                        text: "Producto no existe",
+                        icon: "error",
+                        timer: 1000,
                         showConfirmButton: false
                     });
 
-                    setTimeout(function(){
-                        celda.focus();
-                    },100);
+                    input.select();
+                    return;
+                }
 
-                    return false;
+                const producto = data[0];
+
+                if (parseInt(producto.stock_fisico) <= 0) {
+                    Swal.fire({
+                        title: "Sin stock",
+                        icon: "warning",
+                        timer: 1000,
+                        showConfirmButton: false
+                    });
+                    input.select();
+                    return;
                 }
 
                 seleccionarProducto(producto, fila);
-                return false;
+
             }
         });
-
-        celda.data('autocomplete', true);
     }
 });
-
 /***************************************
  * CONTROL DE CANTIDAD
  ***************************************/
@@ -490,77 +522,6 @@ $('#tabla-productos').on('input', '.cantidad', function () {
 });
 
 
-let filaSeleccionada = null;
-let borrando = false;
-
-
-/***************************************
- * DETECTAR CUANDO SE ESTA BORRANDO
- ***************************************/
-$('#tabla-productos').on('keydown', 'td[contenteditable="true"]', function(e){
-
-    if(e.key === 'Backspace' || e.key === 'Delete'){
-        borrando = true;
-    } else {
-        borrando = false;
-    }
-
-});
-
-
-/***************************************
- * CONTROL GLOBAL DE TAB
- ***************************************/
-$(document).on('keydown', function (e) {
-
-    if (e.key !== 'Tab') return;
-
-    const elementos = $(
-        'input:visible, button:visible, select:visible, textarea:visible, ' +
-        'td[contenteditable="true"]:visible'
-    ).filter(':not([disabled])');
-
-    if (!elementos.length) return;
-
-    const actual = document.activeElement;
-    let index = elementos.index(actual);
-
-    if (index === -1) {
-        e.preventDefault();
-        elementos.first().focus();
-        return;
-    }
-
-    e.preventDefault();
-
-    let siguiente;
-
-    if (e.shiftKey) {
-
-        siguiente = index - 1;
-
-        if (siguiente < 0) {
-            siguiente = elementos.length - 1;
-        }
-
-    } else {
-
-        siguiente = index + 1;
-
-        if (siguiente >= elementos.length) {
-            siguiente = 0;
-        }
-
-    }
-
-    elementos.eq(siguiente).focus();
-
-});
-
-
-/***************************************
- * NAVEGACIÓN ↑ ↓
- ***************************************/
 $(document).on('keydown', function (e) {
 
     if ($('.ui-autocomplete').is(':visible')) return;
@@ -568,54 +529,6 @@ $(document).on('keydown', function (e) {
     const filas = $('#tabla-productos tbody tr');
 
     if (!filas.length) return;
-
-
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-
-        e.preventDefault();
-
-        if (!filaSeleccionada) {
-            filaSeleccionada = filas.first();
-        } else {
-
-            filaSeleccionada.removeClass('table-primary');
-
-            if (e.key === 'ArrowDown' && !filaSeleccionada.is(':last-child')) {
-                filaSeleccionada = filaSeleccionada.next();
-            }
-
-            if (e.key === 'ArrowUp' && !filaSeleccionada.is(':first-child')) {
-                filaSeleccionada = filaSeleccionada.prev();
-            }
-
-        }
-
-        resaltarFila(filaSeleccionada);
-
-        filaSeleccionada
-            .find('td[contenteditable="true"]')
-            .first()
-            .focus();
-
-    }
-
-
-    /***************************************
-     * LIMPIAR FILA CON ESC
-     ***************************************/
-    if (e.key === 'Escape' && filaSeleccionada) {
-
-        e.preventDefault();
-
-        filaSeleccionada.find('[contenteditable="true"]').text('');
-        filaSeleccionada.find('.precio, .total').text('');
-        filaSeleccionada.find('.cantidad').val(1).prop('disabled', true);
-
-        filaSeleccionada
-            .find('td[data-tipo="no_folio"]')
-            .focus();
-
-    }
 
 
     /***************************************
@@ -629,7 +542,7 @@ $(document).on('keydown', function (e) {
 
         if (esPrimeraFila) {
 
-            filaSeleccionada.find('[contenteditable="true"]').text('');
+            filaSeleccionada.find('input.busqueda').val('');
             filaSeleccionada.find('.precio, .total').text('');
             filaSeleccionada.find('.cantidad')
                 .val(1)
@@ -651,147 +564,14 @@ $(document).on('keydown', function (e) {
         resaltarFila(filaSeleccionada);
 
         if (filaSeleccionada) {
-
-            filaSeleccionada
-                .find('td[contenteditable="true"]')
-                .first()
-                .focus();
-
-        }
+        filaSeleccionada.find('input[data-tipo="no_folio"]').focus();
+    }
 
         actualizarTotales();
 
     }
 
 });
-
-
-/***************************************
- * NAVEGACIÓN ENTRE CELDAS ← →
- ***************************************/
-$('#tabla-productos').on('keydown', 'td[contenteditable="true"]', function (e) {
-
-    const td = $(this)[0];
-    const tr = $(this).closest('tr');
-    const celdaIndex = $(this).index();
-
-    function getCaretPosition(editableDiv) {
-
-        let caretPos = 0, sel, range;
-
-        if (window.getSelection) {
-
-            sel = window.getSelection();
-
-            if (sel.rangeCount) {
-
-                range = sel.getRangeAt(0);
-
-                const preRange = range.cloneRange();
-
-                preRange.selectNodeContents(editableDiv);
-
-                preRange.setEnd(range.endContainer, range.endOffset);
-
-                caretPos = preRange.toString().length;
-
-            }
-
-        }
-
-        return caretPos;
-
-    }
-
-
-    function getTextLength(editableDiv) {
-        return $(editableDiv).text().length;
-    }
-
-
-    if (e.key === 'ArrowRight') {
-
-        const caretPos = getCaretPosition(td);
-        const textLen = getTextLength(td);
-
-        if (caretPos === textLen) {
-
-            e.preventDefault();
-
-            const target = tr.children().eq(celdaIndex + 1);
-
-            if (target.length && target.is('[contenteditable="true"]')) {
-
-                target.focus();
-
-                placeCaretAtStart(target[0]);
-
-            }
-
-        }
-
-    }
-
-
-    else if (e.key === 'ArrowLeft') {
-
-        const caretPos = getCaretPosition(td);
-
-        if (caretPos === 0) {
-
-            e.preventDefault();
-
-            const target = tr.children().eq(celdaIndex - 1);
-
-            if (target.length && target.is('[contenteditable="true"]')) {
-
-                target.focus();
-
-                placeCaretAtEnd(target[0]);
-
-            }
-
-        }
-
-    }
-
-});
-
-
-/***************************************
- * POSICIONAR CURSOR
- ***************************************/
-function placeCaretAtStart(el) {
-
-    el.focus();
-
-    const range = document.createRange();
-    const sel = window.getSelection();
-
-    range.selectNodeContents(el);
-    range.collapse(true);
-
-    sel.removeAllRanges();
-    sel.addRange(range);
-
-}
-
-
-function placeCaretAtEnd(el) {
-
-    el.focus();
-
-    const range = document.createRange();
-    const sel = window.getSelection();
-
-    range.selectNodeContents(el);
-    range.collapse(false);
-
-    sel.removeAllRanges();
-    sel.addRange(range);
-
-}
-
 
 /***************************************
  * RESALTAR FILA
@@ -821,9 +601,8 @@ function obtenerProductos() {
     $('#tabla-productos tbody tr').each(function () {
 
         const fila = $(this);
-
-        const no_folio = fila.find('td[data-tipo="no_folio"]').text().trim();
-        const nombre = fila.find('td[data-tipo="nombre"]').text().trim();
+        const no_folio = fila.find('input[data-tipo="no_folio"]').val().trim();
+        const nombre = fila.find('input[data-tipo="nombre"]').val().trim();
         const cantidad = parseInt(fila.find('.cantidad').val()) || 0;
 
         const precio_unitario = parseFloat(fila.find('.precio').text()) || 0;
@@ -991,6 +770,10 @@ function obtenerProductos() {
 
         if (tipo_cliente === 'mayorista') {
             productos_temporales = productos;
+            if ($('.ui-autocomplete').is(':visible')) {
+            $('.busqueda').autocomplete('close');
+        }
+            document.activeElement.blur();
             $('#modalPassword').modal('show');
         } else {
             enviarVenta(productos);
@@ -1273,3 +1056,85 @@ document.addEventListener('DOMContentLoaded', function () {
     $('#permitir_pieza').prop('checked', false);
 
 });
+
+$('#btnBuscarProducto').on('click', function () {
+    $('#modalBuscarProducto').modal('show');
+
+    setTimeout(() => {
+        $('#inputBuscarProducto').focus();
+    }, 200);
+});
+
+$('#inputBuscarProducto').on('input', function () {
+
+    const texto = $(this).val().trim();
+
+    if (texto.length < 2) {
+        $('#listaProductos').empty();
+        return;
+    }
+
+    $.ajax({
+        url: BUSCAR_PRODUCTO_URL,
+        data: {
+            q: texto,
+            tipo: 'nombre'
+        },
+        success: function (data) {
+
+            let html = '';
+
+            data.forEach(p => {
+
+                html += `
+                <button class="list-group-item list-group-item-action item-producto"
+                    data-producto='${JSON.stringify(p)}'>
+
+                    <div><strong>${p.nombre}</strong></div>
+                    <small>
+                        ${p.descripcion} |
+                        $${parseFloat(p.precio).toFixed(2)} |
+                        Stock: ${p.stock_fisico}
+                    </small>
+
+                </button>
+                `;
+            });
+
+            $('#listaProductos').html(html);
+        }
+    });
+
+});
+
+$(document).on('click', '.item-producto', function () {
+
+    const producto = $(this).data('producto');
+
+    const fila = $('#tabla-productos tbody tr:last');
+
+    seleccionarProducto(producto, fila);
+
+    $('#modalBuscarProducto').modal('hide');
+
+    // 🔥 FORZAR FOCO CORRECTO
+    setTimeout(() => {
+        const nuevaFila = $('#tabla-productos tbody tr:last');
+        nuevaFila.find('input[data-tipo="no_folio"]').focus();
+    }, 300);
+});
+
+
+$('#inputBuscarProducto').on('keydown', function (e) {
+
+    if (e.key === 'Enter') {
+
+        const primer = $('#listaProductos .item-producto').first();
+
+        if (primer.length) {
+            primer.click();
+        }
+    }
+
+});
+
