@@ -1057,7 +1057,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 
+$(document).on('keydown', function (e) {
+
+    // 🔥 ABRIR MODAL CON F2
+    if (e.key === 'F2') {
+
+        e.preventDefault();
+
+        $('#modalBuscarProducto').modal('show');
+
+        setTimeout(() => {
+            $('#inputBuscarProducto').focus();
+        }, 200);
+
+        return; // 🚫 evita que siga procesando otras teclas
+    }
+
+});
+
 $('#btnBuscarProducto').on('click', function () {
+    
     $('#modalBuscarProducto').modal('show');
 
     setTimeout(() => {
