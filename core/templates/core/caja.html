@@ -1,59 +1,315 @@
 {% extends 'core/base.html' %}
+{% load static %}
 {% block content %}
 
+<!-- =======================
+ ESTILOS PERSONALIZADOS
+======================== -->
+<style>
+    /* Variables de color */
+    :root {
+        --primary: #4361ee;
+        --secondary: #3f37c9;
+        --success: #4cc9f0;
+        --danger: #f72585;
+        --warning: #f8961e;
+        --info: #4895ef;
+        --light: #f8f9fa;
+        --dark: #212529;
+    }
 
+    /* Tarjeta de búsqueda */
+    .search-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 30px;
+        color: white;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    }
 
+    .search-card input {
+        border: none;
+        border-radius: 15px;
+        padding: 15px 20px;
+        font-size: 1.1rem;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        transition: all 0.3s;
+    }
 
-    <!-- Modal -->
-<div class="modal fade" id="productModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Agregar Producto</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <input type="hidden" id="venta_id" value="{{ venta.id }}">
-      <div class="modal-body">
-        <input type="hidden" id="product_id">
-        <div class="mb-2">
-        <label>Buscar producto</label>
-        <select id="product_search" class="form-control" style="width: 100%;"></select>
+    .search-card input:focus {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+    }
+
+    .search-card button {
+        border-radius: 15px;
+        padding: 15px 30px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border: none;
+        background: white;
+        color: var(--primary);
+        transition: all 0.3s;
+    }
+
+    .search-card button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(255,255,255,0.3);
+    }
+
+    /* Tarjeta de venta */
+    .venta-card {
+        background: white;
+        border-radius: 20px;
+        padding: 25px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        margin-top: 30px;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .venta-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 20px;
+        border-bottom: 2px dashed #e0e0e0;
+        margin-bottom: 20px;
+    }
+
+    .folio-badge {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        padding: 10px 20px;
+        border-radius: 15px;
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+
+    .estado-badge {
+        padding: 8px 16px;
+        border-radius: 50px;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+
+    .estado-pagado { background: #d4edda; color: #155724; }
+    .estado-pendiente { background: #fff3cd; color: #856404; }
+    .estado-cancelado { background: #f8d7da; color: #721c24; }
+
+    /* Tabla profesional */
+    .table-pro {
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    }
+
+    .table-pro thead {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+
+    .table-pro th {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        padding: 15px;
+        border: none;
+    }
+
+    .table-pro td {
+        padding: 15px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .table-pro tbody tr {
+        transition: all 0.3s;
+    }
+
+    .table-pro tbody tr:hover {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+        transform: scale(1.01);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    /* Input de cantidad */
+    .cantidad-input {
+        width: 80px;
+        text-align: center;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 5px;
+        transition: all 0.3s;
+    }
+
+    .cantidad-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        outline: none;
+    }
+
+    /* Botones de acción */
+    .btn-action {
+        border-radius: 10px;
+        padding: 8px 12px;
+        transition: all 0.3s;
+        margin: 0 2px;
+    }
+
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+    }
+
+    /* Resumen de venta */
+    .resumen-card {
+        background: linear-gradient(135deg, #2b5876 0%, #4e4376 100%);
+        border-radius: 20px;
+        padding: 20px;
+        color: white;
+        margin-top: 20px;
+    }
+
+    .resumen-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .total-final {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #ffd700;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    /* Formulario de pago */
+    .pago-card {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        border-radius: 20px;
+        padding: 25px;
+        color: white;
+        margin-top: 20px;
+    }
+
+    .pago-input {
+        border: none;
+        border-radius: 15px;
+        padding: 12px 20px;
+        font-size: 1.1rem;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+
+    .cambio-display {
+        background: rgba(255,255,255,0.2);
+        border-radius: 15px;
+        padding: 15px;
+        font-size: 1.5rem;
+        font-weight: 600;
+        text-align: center;
+        backdrop-filter: blur(10px);
+    }
+
+    /* Ticket mejorado */
+    #ticket {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        max-width: 300px;
+        margin: 0 auto;
+    }
+
+    /* Animaciones */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animated {
+        animation: fadeInUp 0.6s ease;
+    }
+</style>
+
+<!-- =======================
+ MODAL AGREGAR PRODUCTO MEJORADO
+======================== -->
+<div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 20px;">
+            <div class="modal-header bg-primary text-white" style="border-radius: 20px 20px 0 0;">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus-circle"></i> Agregar Producto
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <input type="hidden" id="venta_id" value="{{ venta.id }}">
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="fas fa-search"></i> Buscar producto
+                    </label>
+                    <select id="product_search" class="form-control" style="width: 100%;"></select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="fas fa-sort-numeric-up"></i> Cantidad
+                    </label>
+                    <input type="number" id="product_qty" class="form-control" min="1" value="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="addProduct" class="btn btn-primary">
+                    <i class="fas fa-check"></i> Agregar
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+            </div>
         </div>
-        <div class="mb-2">
-          <label>Cantidad</label>
-          <input type="number" id="product_qty" class="form-control" min="1">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" id="addProduct" class="btn btn-primary">Agregar</button>
-      </div>
     </div>
-  </div>
 </div>
 
-
+<!-- =======================
+ MODAL CONTRASEÑA ADMIN (Mayorista)
+======================== -->
 {% if venta.tipo_cliente == 'mayorista' %}
-<div class="modal fade" id="modalPassword" tabindex="-1" aria-labelledby="modalPasswordLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade" id="modalPassword" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <form method="post" action="" id="formPagoConPassword">
             {% csrf_token %}
-            <!-- Aquí copiarás también los inputs ocultos para monto y forma de pago -->
             <input type="hidden" name="monto_pagado" id="hidden_monto_pagado">
             <input type="hidden" name="forma_pago" id="hidden_forma_pago">
-
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalPasswordLabel">Contraseña de Administrador</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            <div class="modal-content" style="border-radius: 20px;">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">
+                        <i class="fas fa-shield-alt"></i> Autorización requerida
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p>Introduce la contraseña del administrador para autorizar el pago:</p>
-                    <input type="password" name="password_admin" class="form-control"
-                        placeholder="Contraseña de administrador" autocomplete="new-password" required>
+                    <div class="text-center mb-3">
+                        <i class="fas fa-lock fa-3x text-warning"></i>
+                    </div>
+                    <p class="text-center">Introduce la contraseña del administrador:</p>
+                    <input type="password" name="password_admin" class="form-control form-control-lg"
+                        placeholder="Contraseña" autocomplete="new-password" required>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Confirmar Pago</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Confirmar Pago
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
                 </div>
             </div>
         </form>
@@ -61,139 +317,284 @@
 </div>
 {% endif %}
 
-<div class="container mt-5">
-    <h2 class="text-center mb-4" style="font-family: 'Poppins', sans-serif; color: #333;">CAJA</h2>
+<!-- =======================
+ MODAL CANCELAR VENTA
+======================== -->
+{% if venta and not venta.pagado %}
+<div class="modal fade" id="modalCancelarVenta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'cancelar_venta' venta.id %}">
+            {% csrf_token %}
+            <div class="modal-content" style="border-radius: 20px;">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle"></i> Confirmar Cancelación
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-lock fa-3x text-danger"></i>
+                    </div>
+                    <p class="text-center">Introduce la contraseña del administrador:</p>
+                    <input type="password" name="password_admin" class="form-control form-control-lg"
+                        placeholder="Contraseña" autocomplete="new-password" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times"></i> Cancelar Venta
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-arrow-left"></i> Volver
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
-    <form method="get" class="row g-3">
-        <div class="col-md-6">
-            <input type="text" name="folio" class="form-control" placeholder="Folio de venta" maxlength="10" required>
-        </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn btn-primary">Buscar</button>
-        </div>
-    </form>
-    <div class="col-md-12 mt-3">
-        <a href="{% url 'caja_completa' %}" class="btn btn-danger">Caja Rapida</a>
+<!-- =======================
+ CONTENIDO PRINCIPAL
+======================== -->
+<div class="container mt-5">
+    
+    <!-- Header con título animado -->
+    <div class="text-center mb-5 animated">
+        <h1 style="font-family: 'Poppins', sans-serif; font-weight: 700; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <i class="fas fa-cash-register"></i> CAJA REGISTRADORA
+        </h1>
+        <p class="text-muted">Gestión de ventas y pagos</p>
+    </div>
+
+    <!-- Búsqueda de venta -->
+    <div class="search-card animated">
+        <form method="get" class="row g-3">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-0">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" name="folio" class="form-control" 
+                        placeholder="🔍 Ingresa el folio de la venta (ej: V00001)" 
+                        maxlength="10" required
+                        value="{{ request.GET.folio }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-light w-100">
+                    <i class="fas fa-search"></i> Buscar
+                </button>
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'caja_completa' %}" class="btn btn-danger w-100">
+                    <i class="fas fa-bolt"></i> Caja Rápida
+                </a>
+            </div>
+        </form>
     </div>
 
     {% if venta and not venta.pagado %}
-    <button class="btn btn-outline-danger mt-3" data-bs-toggle="modal" data-bs-target="#modalCancelarVenta" {% if venta_bloqueada %}disabled{% endif %}>❌ Cancelar
-        Venta</button>
-
-    <!-- Modal -->
-    <div class="modal fade" id="modalCancelarVenta" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <form method="post" action="{% url 'cancelar_venta' venta.id %}">
-                {% csrf_token %}
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalLabel">Confirmar Cancelación</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>Introduce la contraseña del administrador para cancelar esta venta:</p>
-                        <input type="password" name="password_admin" class="form-control" required
-                            placeholder="Contraseña de administrador" autocomplete="new-password">
-                    </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-danger">Cancelar Venta</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    </div>
-                </div>
-            </form>
-        </div>
+    <div class="text-end mt-3">
+        <button class="btn btn-outline-danger btn-lg" data-bs-toggle="modal" data-bs-target="#modalCancelarVenta" 
+                {% if venta_bloqueada %}disabled{% endif %}>
+            <i class="fas fa-ban"></i> Cancelar Venta
+        </button>
     </div>
     {% endif %}
 
     {% if venta %}
-    <div class="mt-4">
-        <h4>Venta {{ venta.no_venta }} - {{ venta.get_tipo_cliente_display }}</h4>
-        <p><strong>Vendedor:</strong> {{ venta.vendedor }} | <strong>Fecha:</strong> {{ venta.fecha }}</p>
-
-        <table class="table table-bordered table-hover mt-3">
-            <thead class="table-light">
-                <tr>
-                    <th>Producto</th>
-                    <th>Descripcion</th>
-                    <th>Cantidad</th>
-                    <th>Precio Unitario</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for detalle in venta.detalles.all %}
-                <tr>
-    <td>{{ detalle.producto.nombre }}</td>
-    <td>{{ detalle.producto.descripcion }}</td>
-    <td>
-        <form method="post" action="{% url 'editar_detalle' detalle.id %}">
-            <input type="hidden" name="folio" value="{{ request.GET.folio }}">
-            {% csrf_token %}
-            <input type="number" name="cantidad" value="{{ detalle.cantidad }}" min="1" data-detalle-id="{{ detalle.id }}"
-                class="form-control form-control-sm" {% if venta_bloqueada %}disabled{% endif %}>
-    </td>
-    <td>${{ detalle.precio_unitario }}</td>
-    <td>${{ detalle.total }}</td>
-    <td>
-            <button class="btn btn-sm btn-warning" {% if venta_bloqueada %}disabled{% endif %}>💾</button>
-        </form>
-    </td>
-    <td>
-        <form method="post" action="{% url 'eliminar_detalle' detalle.id %}"
-              onsubmit="return confirm('¿Estás seguro de eliminar este producto?');">
-            {% csrf_token %}
-            <button class="btn btn-sm btn-danger" {% if venta_bloqueada %}disabled{% endif %}>❌</button>
-        </form>
-    </td>
-</tr>
-
-                {% endfor %}
-            </tbody>
-
-        </table>
-
-        {% if venta %}
-        <h3>Resumen de venta</h3>
-        <p>Total sin descuento: ${{ total_sin_descuento }}</p>
-        <p>Descuento aplicado: {{ descuento_porcentaje }}% (${{ descuento_monetario }})</p>
-        <p><strong>Total a pagar: ${{ total }}</strong></p>
-        {% endif %}
-
-
-        {% if venta.pagado %}
-        <div class="alert alert-success">✅ Esta venta ya fue pagada.</div>
-        <button class="btn btn-secondary mt-3" onclick="window.printTicket()">🧾 Imprimir Ticket</button>
-        {% elif venta.cancelada %}
-        <div class="alert alert-danger">❌ Esta venta ha sido cancelada.</div>
-        {% else %}
-        <div class="col-md-4">
-           <input type="text" id="cambio" class="form-control" placeholder="Cambio" readonly>
+    <!-- Tarjeta de venta encontrada -->
+    <div class="venta-card animated">
+        <div class="venta-header">
+            <div class="folio-badge">
+                <i class="fas fa-receipt"></i> {{ venta.no_venta }}
+            </div>
+            <div>
+                <span class="estado-badge {% if venta.pagado %}estado-pagado{% elif venta.cancelada %}estado-cancelado{% else %}estado-pendiente{% endif %}">
+                    {% if venta.pagado %}
+                        <i class="fas fa-check-circle"></i> Pagada
+                    {% elif venta.cancelada %}
+                        <i class="fas fa-times-circle"></i> Cancelada
+                    {% else %}
+                        <i class="fas fa-clock"></i> Pendiente
+                    {% endif %}
+                </span>
+            </div>
         </div>
-        <form method="post" class="mt-3" id="formPagoPrincipal">
-            {% csrf_token %}
-            <div class="row g-6">
-                <div class="col-md-4">
-                    <input type="number" step="0.01" name="monto_pagado" class="form-control" placeholder="Monto pagado"
-                        id="monto_pagado" required>
-                </div>
-                <div class="col-md-4">
-                    <select id="forma_pago" name="forma_pago" class="form-select" required>
-                        <option value="">Seleccionar forma de pago</option>
-                        <option value="efectivo">Efectivo</option>
-                        <option value="tarjeta">Tarjeta</option>
-                        <option value="transferencia">Transferencia</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-success">Registrar Pago</button>
+
+        <!-- Información de la venta -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card bg-light border-0">
+                    <div class="card-body">
+                        <small class="text-muted">Vendedor</small>
+                        <h6 class="mb-0"><i class="fas fa-user"></i> {{ venta.vendedor }}</h6>
+                    </div>
                 </div>
             </div>
-        </form>
+            <div class="col-md-4">
+                <div class="card bg-light border-0">
+                    <div class="card-body">
+                        <small class="text-muted">Tipo de cliente</small>
+                        <h6 class="mb-0">
+                            <i class="fas {% if venta.tipo_cliente == 'mayorista' %}fa-store{% else %}fa-user{% endif %}"></i>
+                            {{ venta.get_tipo_cliente_display }}
+                        </h6>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light border-0">
+                    <div class="card-body">
+                        <small class="text-muted">Fecha</small>
+                        <h6 class="mb-0"><i class="fas fa-calendar"></i> {{ venta.fecha|date:"d/m/Y H:i" }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botón agregar producto (F8) -->
+        {% if not venta.pagado and not venta.cancelada %}
+        <div class="text-end mb-3">
+            <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#productModal" id="btnAgregarProducto">
+                <i class="fas fa-plus-circle"></i> Agregar Producto (F8)
+            </button>
+            <small class="text-muted ms-2">Presiona F8 para acceso rápido</small>
+        </div>
+        {% endif %}
+
+        <!-- Tabla de productos -->
+        <div class="table-responsive">
+            <table class="table table-pro">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Descripción</th>
+                        <th class="text-center">Cantidad</th>
+                        <th class="text-end">P. Unitario</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detalle in venta.detalles.all %}
+                    <tr>
+                        <td class="fw-bold">{{ detalle.producto.nombre }}</td>
+                        <td><small class="text-muted">{{ detalle.producto.descripcion|truncatechars:30 }}</small></td>
+                        <td class="text-center">
+                            {% if not venta.pagado and not venta.cancelada %}
+                            <form method="post" action="{% url 'editar_detalle' detalle.id %}" class="d-inline">
+                                <input type="hidden" name="folio" value="{{ request.GET.folio }}">
+                                {% csrf_token %}
+                                <input type="number" name="cantidad" value="{{ detalle.cantidad }}" min="1" 
+                                    data-detalle-id="{{ detalle.id }}"
+                                    class="form-control form-control-sm cantidad-input d-inline-block"
+                                    {% if venta_bloqueada %}disabled{% endif %}>
+                            </form>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ detalle.cantidad }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">${{ detalle.precio_unitario|floatformat:2 }}</td>
+                        <td class="text-end fw-bold text-primary">${{ detalle.total|floatformat:2 }}</td>
+                        <td class="text-center">
+                            {% if not venta.pagado and not venta.cancelada %}
+                            <form method="post" action="{% url 'editar_detalle' detalle.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="cantidad" value="{{ detalle.cantidad }}">
+                                <input type="hidden" name="folio" value="{{ request.GET.folio }}">
+                                <button class="btn btn-sm btn-warning btn-action" title="Guardar cantidad">
+                                    <i class="fas fa-save"></i>
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'eliminar_detalle' detalle.id %}"
+                                  onsubmit="return confirm('¿Estás seguro de eliminar este producto?');" class="d-inline">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-danger btn-action" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5">
+                            <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No hay productos en esta venta</h5>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Resumen de venta -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="resumen-card">
+                    <h5><i class="fas fa-chart-line"></i> Resumen de venta</h5>
+                    <div class="resumen-item">
+                        <span>Subtotal:</span>
+                        <span>${{ total_sin_descuento|floatformat:2 }}</span>
+                    </div>
+                    {% if venta.descuento > 0 %}
+                    <div class="resumen-item">
+                        <span>Descuento ({{ venta.descuento }}%):</span>
+                        <span class="text-warning">-${{ descuento_monetario|floatformat:2 }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="resumen-item" style="border-bottom: none;">
+                        <span class="fw-bold">TOTAL A PAGAR:</span>
+                        <span class="total-final">${{ total|floatformat:2 }}</span>
+                    </div>
+                </div>
+            </div>
+
+            {% if not venta.pagado and not venta.cancelada %}
+            <div class="col-md-6">
+                <div class="pago-card">
+                    <h5><i class="fas fa-credit-card"></i> Registrar pago</h5>
+                    <form method="post" id="formPagoPrincipal">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Monto pagado</label>
+                            <input type="number" step="0.01" name="monto_pagado" class="form-control pago-input"
+                                id="monto_pagado" required placeholder="0.00">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Forma de pago</label>
+                            <select id="forma_pago" name="forma_pago" class="form-select pago-input" required>
+                                <option value="">Seleccionar</option>
+                                <option value="efectivo">💵 Efectivo</option>
+                                <option value="tarjeta">💳 Tarjeta</option>
+                                <option value="transferencia">🏦 Transferencia</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Cambio</label>
+                            <div class="cambio-display" id="cambio">$0.00</div>
+                        </div>
+                        <button type="submit" class="btn btn-light w-100 py-3">
+                            <i class="fas fa-check-circle"></i> Registrar y cobrar
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if venta.pagado %}
+        <div class="alert alert-success mt-4">
+            <i class="fas fa-check-circle"></i> Esta venta ya fue pagada.
+            <button class="btn btn-success float-end" onclick="printTicket()">
+                <i class="fas fa-print"></i> Imprimir Ticket
+            </button>
+        </div>
         {% endif %}
     </div>
-    <div class="mt-5">
 
-    </div>
     {% elif busqueda_realizada %}
     <script>
         Swal.fire({
@@ -201,6 +602,7 @@
             title: 'Venta no encontrada',
             text: 'No se encontró una venta con el folio proporcionado.',
             confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#4361ee'
         }).then(() => {
             window.location.href = "{% url 'caja' %}";
         });
@@ -208,265 +610,144 @@
     {% endif %}
 </div>
 
-<div id="ticket" style="width:220px;font-family:monospace;font-size:12px;">
-
+<!-- =======================
+ TICKET MEJORADO
+======================== -->
+<div id="ticket" style="display: none;">
     <div style="text-align:center;">
-        <img src="/static/img/logo.jpg" style="width:160px;margin-bottom:5px;">
+        <img src="{% static 'img/logo.jpg' %}" style="width:160px;margin-bottom:5px;">
         <div style="font-weight:bold;font-size:14px;">EL OFERTÓN</div>
         <div>{{ venta.sucursal.nombre }}</div>
         <div>{{ venta.sucursal.direccion }}</div>
     </div>
-
     <div style="border-top:1px dashed #000;margin:8px 0;"></div>
-
     <div>
         <div><strong>Folio:</strong> {{ venta.no_venta }}</div>
         <div><strong>Fecha:</strong> {{ venta.fecha|date:"d/m/Y H:i" }}</div>
         <div><strong>Cliente:</strong> {{ venta.get_tipo_cliente_display }}</div>
         <div><strong>Vendedor:</strong> {{ venta.vendedor }}</div>
     </div>
-
     <div style="border-top:1px dashed #000;margin:8px 0;"></div>
-
     <table style="width:100%;font-size:11px;">
         <thead>
             <tr>
-                <th style="text-align:left;">Prod</th>
+                <th style="text-align:left;">Producto</th>
                 <th style="text-align:center;">Cant</th>
                 <th style="text-align:right;">Total</th>
             </tr>
         </thead>
-
         <tbody>
-
         {% for detalle in venta.detalles.all %}
-
             <tr>
                 <td colspan="3" style="padding-top:4px;">
                     {{ detalle.producto.nombre }}
                 </td>
             </tr>
-
             <tr>
-
                 <td style="font-size:10px;">
-
                     {% if detalle.precio_unitario < detalle.producto.precio %}
-
-                        <span style="text-decoration:line-through;">
-                            ${{ detalle.producto.precio|floatformat:2 }}
-                        </span>
-
+                        <span style="text-decoration:line-through;">${{ detalle.producto.precio|floatformat:2 }}</span>
                         ${{ detalle.precio_unitario|floatformat:2 }}
-
                     {% else %}
-
                         ${{ detalle.precio_unitario|floatformat:2 }}
-
                     {% endif %}
-
                 </td>
-
-                <td style="text-align:center;">
-                    x{{ detalle.cantidad }}
-                </td>
-
-                <td style="text-align:right;">
-                    ${{ detalle.total|floatformat:2 }}
-                </td>
-
+                <td style="text-align:center;">x{{ detalle.cantidad }}</td>
+                <td style="text-align:right;">${{ detalle.total|floatformat:2 }}</td>
             </tr>
-
         {% endfor %}
-
         </tbody>
     </table>
-
     <div style="border-top:1px dashed #000;margin:8px 0;"></div>
-
     <div style="font-size:12px;">
-
         <div style="display:flex;justify-content:space-between;">
             <span>Subtotal:</span>
             <span>${{ total|floatformat:2 }}</span>
         </div>
-
         {% if venta.descuento > 0 %}
-
         <div style="display:flex;justify-content:space-between;">
             <span>Descuento ({{ venta.descuento }}%)</span>
             <span>-</span>
         </div>
-
         {% endif %}
-
         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:13px;margin-top:4px;">
             <span>TOTAL:</span>
             <span>${{ total|floatformat:2 }}</span>
         </div>
-
         {% with ultimo_pago=venta.pagos.last %}
-
         <div style="margin-top:6px;">
             <div><strong>Pago:</strong> {{ ultimo_pago.forma_pago }}</div>
             <div><strong>Recibido:</strong> ${{ ultimo_pago.monto_pagado|floatformat:2 }}</div>
             <div><strong>Cambio:</strong> ${{ cambio|floatformat:2 }}</div>
         </div>
-
         {% endwith %}
-
     </div>
-
     <div style="border-top:1px dashed #000;margin:8px 0;"></div>
-
     <div style="text-align:center;font-size:11px;">
         Gracias por su compra<br>
         Conserve su ticket
     </div>
-
 </div>
 
-<!-- jQuery primero -->
+<!-- =======================
+ SCRIPTS MEJORADOS
+======================== -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-<!-- Luego Select2 -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
-<!-- Bootstrap JS (después de jQuery) -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 
 
-
-{% if messages %}
-{% for message in messages %}
+<!-- Funciones de ticket -->
 <script>
-const tags = '{{ message.tags }}'.split(' ');
-const esExito = tags.includes('success');
-const accion = tags.length > 1 ? tags[1] : null;
-
-if (esExito) {
-    if (accion === 'pago') {
-        Swal.fire({
-            title: "¡Venta registrada!",
-            text: "¿Deseas imprimir el ticket?",
-            icon: "success",
-            showCancelButton: true,
-            confirmButtonText: "Imprimir",
-            cancelButtonText: "No"
-        }).then((result) => {
-            if (result.isConfirmed) {
-                printTicket();  // ✅ Imprime el ticket HTML
-            } else {
-                location.reload();
-            }
-        });
-    } else if (accion === 'actualizar') {
-        Swal.fire({
-            icon: 'success',
-            title: 'Cantidad actualizada',
-            text: '{{ message }}',
-            confirmButtonText: 'Aceptar'
-        });
-    } else if (accion === 'cancelar') {
-        Swal.fire({
-            icon: 'success',
-            title: 'Venta cancelada',
-            text: '{{ message }}',
-            confirmButtonText: 'Aceptar'
-        });
-    }
-} else {
-    Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: '{{ message }}',
-        confirmButtonText: 'Aceptar'
-    });
+window.printTicket = function() {
+    const contenido = document.getElementById("ticket").innerHTML;
+    const ventana = window.open('', '', 'width=400,height=600');
+    ventana.document.write(`
+        <html>
+            <head>
+                <title>Ticket de venta</title>
+                <style>
+                    body { font-family: monospace; font-size: 14px; padding: 20px; }
+                    hr { border-top: 1px dashed #000; }
+                    table { width: 100%; }
+                    td { vertical-align: top; }
+                </style>
+            </head>
+            <body onload="window.print(); window.close();">
+                ${contenido}
+            </body>
+        </html>
+    `);
+    ventana.document.close();
 }
 </script>
-{% endfor %}
-{% endif %}
 
+<!-- Cálculo de cambio -->
 <script>
-    window.printTicket = function () {
-        const contenido = document.getElementById("ticket").innerHTML;
-        const ventana = window.open('', '', 'width=400,height=600');
-        ventana.document.write(`
-            <html>
-                <head>
-                    <title>Ticket de venta</title>
-                    <style>
-                        body { font-family: monospace; font-size: 14px; padding: 20px; }
-                        hr { border-top: 1px dashed #000; }
-                        table { width: 100%; }
-                        td { vertical-align: top; }
-                    </style>
-                </head>
-                <body onload="window.print(); window.close();">
-                    ${contenido}
-                </body>
-            </html>
-        `);
-        ventana.document.close();
-        console.log("Ticket preparado para impresión.");
-        ventana.focus();
-    }
+document.addEventListener('DOMContentLoaded', function() {
+    const montoPagadoInput = document.getElementById('monto_pagado');
+    const cambioDiv = document.getElementById('cambio');
+    const total = parseFloat("{{ total|floatformat:2 }}");
 
-    document.addEventListener('DOMContentLoaded', function () {
-        const montoPagadoInput = document.getElementById('monto_pagado');
-        const cambioInput = document.getElementById('cambio');
-        const total = parseFloat("{{ total|floatformat:2 }}");
-
-        if (montoPagadoInput) {
-            montoPagadoInput.addEventListener('input', function () {
-                const pagado = parseFloat(montoPagadoInput.value);
-                if (!isNaN(pagado)) {
-                    const cambio = pagado - total;
-                    cambioInput.value = cambio >= 0 ? cambio.toFixed(2) : '';
-                } else {
-                    cambioInput.value = '';
-                }
-            });
-        }
-    });
-</script>
-
-{% if venta.tipo_cliente == 'mayorista' %}
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const formPrincipal = document.getElementById('formPagoPrincipal');
-        const modalPasswordElement = document.getElementById('modalPassword');
-        const formModal = document.getElementById('formPagoConPassword');
-
-        if (!formPrincipal || !modalPasswordElement || !formModal) {
-            console.warn('Formulario o elementos del modal no encontrados. ¿Estás seguro de que esta venta es de tipo mayorista?');
-            return;
-        }
-
-        const modalPassword = new bootstrap.Modal(modalPasswordElement);
-
-        formPrincipal.addEventListener('submit', function (e) {
-            e.preventDefault();  // Evitar el envío directo
-
-            const montoInput = document.getElementById('monto_pagado');
-            const formaPagoSelect = document.getElementById('forma_pago');
-
-            if (!montoInput || !formaPagoSelect) {
-                console.error('No se encontraron los campos monto_pagado o forma_pago');
-                return;
+    if (montoPagadoInput && cambioDiv) {
+        montoPagadoInput.addEventListener('input', function() {
+            const pagado = parseFloat(this.value) || 0;
+            const cambio = pagado - total;
+            
+            if (cambio >= 0) {
+                cambioDiv.textContent = `$${cambio.toFixed(2)}`;
+                cambioDiv.style.background = 'rgba(40, 167, 69, 0.3)';
+            } else {
+                cambioDiv.textContent = 'Pago insuficiente';
+                cambioDiv.style.background = 'rgba(220, 53, 69, 0.3)';
             }
-
-            // Obtener y copiar los valores al modal
-            document.getElementById('hidden_monto_pagado').value = montoInput.value;
-            document.getElementById('hidden_forma_pago').value = formaPagoSelect.value;
-
-            modalPassword.show();
         });
-    });
+    }
+});
 </script>
-{% endif %}
 
+<!-- Atajo F8 -->
 <script>
 document.addEventListener("keydown", function(e) {
     if (e.key === "F8") {
@@ -476,13 +757,56 @@ document.addEventListener("keydown", function(e) {
             $("#productModal").modal("show");
             setTimeout(() => {
                 $('#product_search').select2('open');
-                $('#product_search').focus();
             }, 300);
         }
     }
 });
 </script>
 
+<!-- Select2 mejorado -->
+<script>
+$('#product_search').select2({
+    placeholder: "Buscar producto por nombre o código...",
+    allowClear: true,
+    dropdownParent: $('#productModal'),
+    ajax: {
+        url: "{% url 'buscar_productos' %}",
+        dataType: 'json',
+        delay: 250,
+        data: function(params) {
+            return { q: params.term };
+        },
+        processResults: function(data) {
+            return {
+                results: data.results.map(function(item) {
+                    return {
+                        id: item.id,
+                        text: `${item.nombre} - ${item.descripcion} (Stock: ${item.stock})`
+                    };
+                })
+            };
+        },
+        cache: true
+    },
+    minimumInputLength: 1,
+    templateResult: formatProducto,
+    templateSelection: formatProductoSelection
+});
+
+function formatProducto(producto) {
+    if (producto.loading) return producto.text;
+    return $(`<div class="d-flex justify-content-between">
+        <span>${producto.text}</span>
+        <small class="text-muted">ID: ${producto.id}</small>
+    </div>`);
+}
+
+function formatProductoSelection(producto) {
+    return producto.text || producto.id;
+}
+</script>
+
+<!-- Agregar producto AJAX -->
 <script>
 document.getElementById('addProduct').addEventListener('click', function() {
     const producto_id = document.getElementById('product_search').value;
@@ -490,7 +814,11 @@ document.getElementById('addProduct').addEventListener('click', function() {
     const venta_id = document.getElementById('venta_id').value;
 
     if (!producto_id || !cantidad) {
-        Swal.fire('Error', 'Selecciona un producto y una cantidad válida', 'error');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campos incompletos',
+            text: 'Selecciona un producto y una cantidad válida'
+        });
         return;
     }
 
@@ -509,94 +837,119 @@ document.getElementById('addProduct').addEventListener('click', function() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            Swal.fire('Producto agregado', '', 'success').then(() => {
-                location.reload();  // O también puedes actualizar la tabla dinámicamente
-            });
-        } else {
-            Swal.fire('Error', data.error, 'error');
-        }
-    });
-});
-</script>
-
-
-<script>
-$('#product_search').select2({
-    placeholder: "Buscar producto...",
-    allowClear: true,
-    dropdownParent: $('#productModal'),  // <-- ESTA LÍNEA ES CLAVE
-    ajax: {
-        url: "{% url 'buscar_productos' %}",
-        dataType: 'json',
-        delay: 250,
-        data: function(params) {
-            return { q: params.term };
-        },
-        processResults: function(data) {
-            return {
-                results: data.results.map(function(item) {
-                    return {
-                        id: item.id,
-                        text: item.nombre + " - " + item.descripcion
-                    };
-                })
-            };
-        },
-        cache: true
-    },
-    minimumInputLength: 0
-});
-</script>
-
-<script>
-document.querySelectorAll('.cantidad-input').forEach(input => {
-    input.addEventListener('change', () => {
-        const detalleId = input.dataset.detalleId;
-        const maxStock = parseInt(input.dataset.stock);
-        const cantidad = parseInt(input.value);
-
-        if (cantidad > maxStock) {
             Swal.fire({
-                icon: 'warning',
-                title: 'Stock insuficiente',
-                text: `Solo hay ${maxStock} unidades disponibles.`,
-                confirmButtonText: 'Aceptar'
+                icon: 'success',
+                title: 'Producto agregado',
+                text: 'La página se recargará para mostrar los cambios',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => location.reload());
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.error || 'No se pudo agregar el producto'
             });
-            input.value = maxStock;
-            return;
         }
-
-        fetch("{% url 'actualizar_cantidad_producto' %}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "X-CSRFToken": "{{ csrf_token }}"
-            },
-            body: new URLSearchParams({
-                detalle_id: detalleId,
-                cantidad: cantidad
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                Swal.fire({
-                    icon: "success",
-                    title: "Actualizado",
-                    text: data.message
-                }).then(() => location.reload());
-            } else {
-                Swal.fire({
-                    icon: "error",
-                    title: "Error",
-                    text: data.error
-                });
-            }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de conexión',
+            text: 'Ocurrió un error al procesar la solicitud'
         });
     });
 });
 </script>
 
+<!-- Validación de cantidad -->
+<script>
+document.querySelectorAll('.cantidad-input').forEach(input => {
+    input.addEventListener('change', function() {
+        const cantidad = parseInt(this.value);
+        if (cantidad < 1) this.value = 1;
+    });
+});
+</script>
 
+<!-- Manejo de mensajes mejorado -->
+{% if messages %}
+{% for message in messages %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tags = '{{ message.tags }}'.split(' ');
+    const esExito = tags.includes('success');
+    const accion = tags.length > 1 ? tags[1] : null;
+
+    if (esExito) {
+        if (accion === 'pago') {
+            Swal.fire({
+                title: "¡Venta registrada!",
+                text: "¿Deseas imprimir el ticket?",
+                icon: "success",
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-print"></i> Imprimir',
+                cancelButtonText: '<i class="fas fa-times"></i> No',
+                confirmButtonColor: '#4361ee',
+                cancelButtonColor: '#6c757d'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    printTicket();
+                } else {
+                    location.reload();
+                }
+            });
+        } else {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Éxito!',
+                text: '{{ message }}',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+    } else {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: '{{ message }}',
+            confirmButtonColor: '#f72585'
+        });
+    }
+});
+</script>
+{% endfor %}
+{% endif %}
+
+<!-- Modal para mayorista -->
+{% if venta.tipo_cliente == 'mayorista' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formPrincipal = document.getElementById('formPagoPrincipal');
+    const modalPasswordElement = document.getElementById('modalPassword');
+    const formModal = document.getElementById('formPagoConPassword');
+
+    if (formPrincipal && modalPasswordElement && formModal) {
+        const modalPassword = new bootstrap.Modal(modalPasswordElement);
+
+        formPrincipal.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const montoInput = document.getElementById('monto_pagado');
+            const formaPagoSelect = document.getElementById('forma_pago');
+
+            if (!montoInput || !formaPagoSelect) {
+                console.error('Campos no encontrados');
+                return;
+            }
+
+            document.getElementById('hidden_monto_pagado').value = montoInput.value;
+            document.getElementById('hidden_forma_pago').value = formaPagoSelect.value;
+            modalPassword.show();
+        });
+    }
+});
+</script>
+{% endif %}
 
 {% endblock %}

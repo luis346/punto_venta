@@ -15,20 +15,21 @@
             🧾 Generar Arqueo de Caja
         </button>
     </form>
-</div>
 
     <form method="get" action="{% url 'productos_vendidos' %}">
         <button class="btn btn-outline-secondary">
-            🧾 Productos vendidos
+            📦 Productos vendidos
         </button>
     </form>
 </div>
+
 <!-- =======================
- FILTROS
+ FILTROS MEJORADOS
 ======================= -->
 <div class="card shadow-sm mb-4">
-    <div class="card-header fw-semibold">
-        🔍 Filtros
+    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+        <span>🔍 Filtros</span>
+        <small class="text-muted" id="filtros-activos"></small>
     </div>
 
     <div class="card-body">
@@ -40,7 +41,7 @@
                        name="fecha_inicio"
                        id="fecha_inicio"
                        class="form-control"
-                       value="{{ request.GET.fecha_inicio_dt }}">
+                       value="{{ request.GET.fecha_inicio }}">
             </div>
 
             <div class="col-md-3">
@@ -49,7 +50,7 @@
                        name="fecha_fin"
                        id="fecha_fin"
                        class="form-control"
-                       value="{{ request.GET.fecha_fin_dt }}">
+                       value="{{ request.GET.fecha_fin }}">
             </div>
 
             <div class="col-md-3">
@@ -59,14 +60,14 @@
                     {% for v in vendedores %}
                         <option value="{{ v.id }}"
                             {% if request.GET.vendedor == v.id|stringformat:"s" %}selected{% endif %}>
-                            {{ v }}
+                            {{ v.nombre }} ({{ v.sucursal.nombre }})
                         </option>
                     {% endfor %}
                 </select>
             </div>
 
             <div class="col-md-3 d-flex gap-2">
-                <button class="btn btn-primary w-100">
+                <button class="btn btn-primary w-100" id="btn-filtrar">
                     Filtrar
                 </button>
                 <button type="button"
@@ -81,13 +82,16 @@
 </div>
 
 <!-- =======================
- TABLA DE VENTAS
+ TABLA DE VENTAS MEJORADA
 ======================= -->
 <div class="card shadow-sm">
     <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
-        <span>📋 Ventas registradas</span>
+        <span>
+            📋 Ventas registradas
+            <span class="badge bg-secondary ms-2">{{ ventas|length }}</span>
+        </span>
 
-        <span class="badge bg-success fs-6">
+        <span class="badge bg-success fs-6" id="total-recaudado">
             Total: ${{ total_recaudado|floatformat:2 }}
         </span>
     </div>
@@ -103,12 +107,16 @@
                     <th style="width:120px">Acciones</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="tabla-ventas-body">
                 {% for venta in ventas %}
-                <tr class="{% if venta.cancelada %}table-danger{% endif %}">
-                    <td class="fw-semibold">{{ venta.no_venta }}</td>
-                    <td>{{ venta.vendedor }}</td>
-                    <td>{{ venta.fecha }}</td>
+                <tr class="{% if venta.cancelada %}table-danger{% endif %}" data-venta-id="{{ venta.id }}">
+                    <td class="fw-semibold">
+                        <a href="{% url 'detalle_venta' venta.id %}" class="text-decoration-none text-dark">
+                            {{ venta.no_venta }}
+                        </a>
+                    </td>
+                    <td>{{ venta.vendedor.nombre }}</td>
+                    <td>{{ venta.fecha|date:"d/m/Y H:i" }}</td>
                     <td>
                         {% if venta.cancelada %}
                             <span class="badge bg-danger">Cancelada</span>
@@ -122,14 +130,26 @@
                         {% if venta.cancelada %}
                         <form method="POST"
                               action="{% url 'eliminar_venta' venta.id %}"
-                              onsubmit="return confirm('¿Eliminar esta venta cancelada?')">
+                              onsubmit="return confirmarEliminacion(this, '{{ venta.no_venta }}')"
+                              class="form-eliminar">
                             {% csrf_token %}
                             <button class="btn btn-sm btn-outline-danger w-100">
                                 🗑 Eliminar
                             </button>
                         </form>
                         {% else %}
-                            <span class="text-muted small">—</span>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'detalle_venta' venta.id %}" 
+                                   class="btn btn-sm btn-outline-info w-100"
+                                   title="Ver detalles">
+                                    👁️
+                                </a>
+                                <button class="btn btn-sm btn-outline-secondary w-100"
+                                        onclick="imprimirTicket({{ venta.id }})"
+                                        title="Imprimir ticket">
+                                    🖨️
+                                </button>
+                            </div>
                         {% endif %}
                     </td>
                 </tr>
@@ -143,18 +163,331 @@
             </tbody>
         </table>
     </div>
+    
+    <!-- Carga dinámica (invisible) -->
+    <div class="card-footer bg-transparent" id="paginacion">
+        {% if ventas.has_previous or ventas.has_next %}
+        <nav aria-label="Paginación">
+            <ul class="pagination justify-content-center mb-0">
+                {% if ventas.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ ventas.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Anterior</a>
+                </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">{{ ventas.number }} de {{ ventas.paginator.num_pages }}</span>
+                </li>
+                
+                {% if ventas.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ ventas.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Siguiente</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal de confirmación mejorado (oculto) -->
+<div class="modal fade" id="modalConfirmar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">⚠️ Confirmar eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="modal-mensaje"></p>
+                <p class="text-muted small">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmar-eliminar">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- =======================
- SCRIPTS
+ SCRIPTS MEJORADOS
 ======================= -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-document.getElementById('btn-limpiar').addEventListener('click', function () {
+// Variables globales
+let formAEliminar = null;
+let modalConfirmacion = null;
+
+// Inicialización cuando carga la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar modal de Bootstrap
+    const modalElement = document.getElementById('modalConfirmar');
+    if (modalElement) {
+        modalConfirmacion = new bootstrap.Modal(modalElement);
+    }
+    
+    // Configurar botón limpiar
+    document.getElementById('btn-limpiar').addEventListener('click', limpiarFiltros);
+    
+    // Configurar validación de fechas
+    configurarValidacionFechas();
+    
+    // Mostrar filtros activos
+    mostrarFiltrosActivos();
+    
+    // Configurar atajos de teclado
+    configurarAtajosTeclado();
+    
+    // Auto-guardar filtros en localStorage
+    guardarFiltrosLocalmente();
+});
+
+// Función para limpiar filtros
+function limpiarFiltros() {
     document.getElementById('fecha_inicio').value = '';
     document.getElementById('fecha_fin').value = '';
     document.getElementById('vendedor').value = '';
-    document.getElementById('form-filtros').submit();
+    
+    // Remover filtros de la URL y recargar
+    const url = new URL(window.location);
+    url.searchParams.delete('fecha_inicio');
+    url.searchParams.delete('fecha_fin');
+    url.searchParams.delete('vendedor');
+    window.location.href = url.toString();
+}
+
+// Función mejorada para confirmar eliminación
+function confirmarEliminacion(form, noVenta) {
+    event.preventDefault();
+    formAEliminar = form;
+    
+    const mensaje = document.getElementById('modal-mensaje');
+    mensaje.innerHTML = `¿Estás seguro de eliminar la venta <strong>#${noVenta}</strong>?`;
+    
+    if (modalConfirmacion) {
+        modalConfirmacion.show();
+    } else {
+        // Fallback si no hay modal
+        return confirm(`¿Eliminar venta #${noVenta}?`);
+    }
+    return false;
+}
+
+// Configurar botón de confirmación del modal
+document.getElementById('confirmar-eliminar')?.addEventListener('click', function() {
+    if (formAEliminar) {
+        // Mostrar indicador de carga
+        const btn = formAEliminar.querySelector('button');
+        const textoOriginal = btn.innerHTML;
+        btn.innerHTML = '⏳ Eliminando...';
+        btn.disabled = true;
+        
+        // Enviar formulario
+        formAEliminar.submit();
+        
+        // Restaurar después de un tiempo (por si hay error)
+        setTimeout(() => {
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+        }, 3000);
+    }
+    if (modalConfirmacion) {
+        modalConfirmacion.hide();
+    }
 });
+
+// Validación de fechas
+function configurarValidacionFechas() {
+    const fechaInicio = document.getElementById('fecha_inicio');
+    const fechaFin = document.getElementById('fecha_fin');
+    
+    if (fechaInicio && fechaFin) {
+        fechaFin.addEventListener('change', function() {
+            if (fechaInicio.value && this.value && this.value < fechaInicio.value) {
+                mostrarNotificacion('La fecha "Hasta" no puede ser menor que "Desde"', 'warning');
+                this.value = fechaInicio.value;
+            }
+        });
+        
+        fechaInicio.addEventListener('change', function() {
+            if (fechaFin.value && this.value && fechaFin.value < this.value) {
+                mostrarNotificacion('La fecha "Hasta" se ha ajustado', 'info');
+                fechaFin.value = this.value;
+            }
+        });
+    }
+}
+
+// Mostrar filtros activos
+function mostrarFiltrosActivos() {
+    const params = new URLSearchParams(window.location.search);
+    const activos = [];
+    
+    if (params.get('fecha_inicio')) activos.push(`Desde: ${params.get('fecha_inicio')}`);
+    if (params.get('fecha_fin')) activos.push(`Hasta: ${params.get('fecha_fin')}`);
+    
+    const vendedorSelect = document.getElementById('vendedor');
+    if (params.get('vendedor') && vendedorSelect) {
+        const option = vendedorSelect.options[vendedorSelect.selectedIndex];
+        if (option && option.text) activos.push(`Vendedor: ${option.text}`);
+    }
+    
+    const spanActivos = document.getElementById('filtros-activos');
+    if (activos.length > 0 && spanActivos) {
+        spanActivos.innerHTML = `Filtros: ${activos.join(' • ')}`;
+    }
+}
+
+// Atajos de teclado
+function configurarAtajosTeclado() {
+    document.addEventListener('keydown', function(e) {
+        // Ctrl + F = enfocar primer filtro
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            document.getElementById('fecha_inicio')?.focus();
+        }
+        // Ctrl + L = limpiar filtros
+        if (e.ctrlKey && e.key === 'l') {
+            e.preventDefault();
+            limpiarFiltros();
+        }
+        // Escape = cerrar modal si está abierto
+        if (e.key === 'Escape' && modalConfirmacion) {
+            modalConfirmacion.hide();
+        }
+    });
+}
+
+// Guardar filtros en localStorage
+function guardarFiltrosLocalmente() {
+    const form = document.getElementById('form-filtros');
+    if (form) {
+        form.addEventListener('submit', function() {
+            const filtros = {
+                fecha_inicio: document.getElementById('fecha_inicio').value,
+                fecha_fin: document.getElementById('fecha_fin').value,
+                vendedor: document.getElementById('vendedor').value
+            };
+            localStorage.setItem('ultimos_filtros_ventas', JSON.stringify(filtros));
+        });
+    }
+}
+
+// Función para imprimir ticket
+function imprimirTicket(ventaId) {
+    const printWindow = window.open(`/ventas/${ventaId}/imprimir/`, '_blank');
+    
+    // Mostrar notificación
+    mostrarNotificacion('Generando ticket...', 'info');
+    
+    // Enfocar la ventana de impresión después de un momento
+    setTimeout(() => {
+        if (printWindow) printWindow.focus();
+    }, 500);
+}
+
+// Sistema simple de notificaciones
+function mostrarNotificacion(mensaje, tipo = 'info') {
+    // Crear elemento de notificación si no existe
+    let notificacion = document.getElementById('notificacion-temporal');
+    if (!notificacion) {
+        notificacion = document.createElement('div');
+        notificacion.id = 'notificacion-temporal';
+        notificacion.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 9999;
+            transition: opacity 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        document.body.appendChild(notificacion);
+    }
+    
+    // Configurar estilo según tipo
+    const colores = {
+        'info': '#17a2b8',
+        'success': '#28a745',
+        'warning': '#ffc107',
+        'error': '#dc3545'
+    };
+    notificacion.style.backgroundColor = colores[tipo] || colores.info;
+    notificacion.textContent = mensaje;
+    notificacion.style.opacity = '1';
+    
+    // Ocultar después de 3 segundos
+    setTimeout(() => {
+        notificacion.style.opacity = '0';
+    }, 3000);
+}
+
+// Resaltar fila al pasar el mouse (efecto adicional)
+document.querySelectorAll('#tabla-ventas-body tr').forEach(row => {
+    row.addEventListener('mouseenter', function() {
+        this.style.transition = 'background-color 0.2s';
+        this.style.backgroundColor = 'rgba(0,123,255,0.05)';
+    });
+    row.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = '';
+    });
+});
+
+// Confirmar antes de recargar si hay cambios sin guardar
+window.addEventListener('beforeunload', function(e) {
+    // Solo si hay filtros aplicados pero no enviados
+    const fechaInicio = document.getElementById('fecha_inicio').value;
+    const fechaFin = document.getElementById('fecha_fin').value;
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if ((fechaInicio || fechaFin) && 
+        (fechaInicio !== urlParams.get('fecha_inicio') || 
+         fechaFin !== urlParams.get('fecha_fin'))) {
+        // No mostrar mensaje personalizado por seguridad del navegador
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// Cargar últimos filtros (opcional)
+try {
+    const filtrosGuardados = localStorage.getItem('ultimos_filtros_ventas');
+    if (filtrosGuardados && !window.location.search) {
+        const filtros = JSON.parse(filtrosGuardados);
+        if (filtros.fecha_inicio) document.getElementById('fecha_inicio').value = filtros.fecha_inicio;
+        if (filtros.fecha_fin) document.getElementById('fecha_fin').value = filtros.fecha_fin;
+        if (filtros.vendedor) document.getElementById('vendedor').value = filtros.vendedor;
+    }
+} catch (e) {
+    console.log('No se pudieron cargar filtros guardados');
+}
 </script>
+
+<!-- Estilos adicionales mínimos -->
+<style>
+#notificacion-temporal {
+    animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+.table-hover tbody tr {
+    cursor: pointer;
+}
+.page-link {
+    padding: 0.375rem 0.75rem;
+}
+</style>
 
 {% endblock %}

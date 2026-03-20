@@ -5,6 +5,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Sistema de Punto de Venta profesional">
+    <meta name="author" content="Tu Empresa">
+    <meta name="theme-color" content="#2563eb">
+    
     <title>{% block title %}Sistema Punto de Venta{% endblock %}</title>
 
     <!-- BOOTSTRAP -->
@@ -13,163 +17,483 @@
 
     <!-- ICONOS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- ANIMATE.CSS para animaciones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 
     <!-- SWEETALERT -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- ESTILO GLOBAL PRO -->
+    
+    <!-- ESTILO GLOBAL PRO MEJORADO -->
     <style>
-:root {
-    --primary-color: #2563eb;
-    --primary-dark: #1e40af;
-    --bg-soft: #f8fafc;
-    --border-soft: #e5e7eb;
-}
+        :root {
+            --primary-color: #2563eb;
+            --primary-dark: #1e40af;
+            --primary-light: #3b82f6;
+            --secondary-color: #64748b;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --bg-soft: #f8fafc;
+            --bg-card: #ffffff;
+            --border-soft: #e5e7eb;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            --transition: all 0.2s ease;
+        }
 
-/* FONDO GLOBAL MÁS LIMPIO */
-body {
-    min-height: 100vh;
-    background: var(--bg-soft);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: #1f2937;
-}
+        /* FONDO GLOBAL MÁS LIMPIO */
+        body {
+            min-height: 100vh;
+            background: var(--bg-soft);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: var(--text-primary);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
 
-/* CONTENEDOR */
-.app-wrapper {
-    min-height: calc(100vh - 70px);
-    padding-bottom: 40px;
-}
+        body.loaded {
+            opacity: 1;
+        }
 
-/* CARDS PREMIUM */
-.card, .modal-content {
-    border-radius: 16px;
-    border: 1px solid var(--border-soft);
-    box-shadow: 0 8px 24px rgba(0,0,0,.04);
-    transition: all .2s ease;
-}
+        /* CONTENEDOR */
+        .app-wrapper {
+            min-height: calc(100vh - 70px);
+            padding-bottom: 40px;
+        }
 
-.card:hover {
-    box-shadow: 0 12px 28px rgba(0,0,0,.06);
-}
+        /* CARDS PREMIUM */
+        .card, .modal-content {
+            border-radius: 16px;
+            border: 1px solid var(--border-soft);
+            box-shadow: var(--shadow-md);
+            transition: var(--transition);
+            background: var(--bg-card);
+        }
 
-/* TABLAS MÁS ELEGANTES */
-.table {
-    border-color: var(--border-soft);
-}
+        .card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
 
-.table thead {
-    background-color: #f9fafb;
-}
+        /* TABLAS MÁS ELEGANTES */
+        .table {
+            border-color: var(--border-soft);
+            margin-bottom: 0;
+        }
 
-.table th {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color: #6b7280;
-}
+        .table thead {
+            background-color: #f9fafb;
+        }
 
-.table td {
-    font-size: 14px;
-}
+        .table th {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            padding: 12px 8px;
+        }
 
-/* BOTONES MÁS PRO */
-.btn {
-    border-radius: 12px;
-    font-weight: 500;
-    padding: 6px 14px;
-    transition: all .2s ease;
-}
+        .table td {
+            font-size: 14px;
+            padding: 12px 8px;
+            vertical-align: middle;
+        }
 
-.btn-primary {
-    background: var(--primary-color);
-    border: none;
-}
+        .table-hover tbody tr {
+            transition: var(--transition);
+        }
 
-.btn-primary:hover {
-    background: var(--primary-dark);
-}
+        .table-hover tbody tr:hover {
+            background-color: rgba(37, 99, 235, 0.05) !important;
+        }
 
-/* NAVBAR PROFESIONAL */
-.navbar {
-    background: white !important;
-    border-bottom: 1px solid var(--border-soft);
-    box-shadow: 0 2px 8px rgba(0,0,0,.03);
-}
+        /* BOTONES MÁS PRO */
+        .btn {
+            border-radius: 12px;
+            font-weight: 500;
+            padding: 8px 16px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
 
-.navbar-brand {
-    font-weight: 600;
-    color: var(--primary-color) !important;
-}
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
 
-.navbar .nav-link {
-    color: #374151 !important;
-    font-weight: 500;
-}
+        .btn:active::after {
+            width: 200px;
+            height: 200px;
+        }
 
-.navbar .nav-link:hover {
-    color: var(--primary-color) !important;
-}
+        .btn-primary {
+            background: var(--primary-color);
+            border: none;
+            color: white;
+        }
 
-/* BADGES MÁS MODERNOS */
-.badge {
-    font-weight: 500;
-    padding: 6px 10px;
-    border-radius: 8px;
-}
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
 
-/* DROPDOWN MÁS LIMPIO */
-.dropdown-menu {
-    border-radius: 14px;
-    border: 1px solid var(--border-soft);
-    box-shadow: 0 12px 30px rgba(0,0,0,.08);
-}
+        .btn-success {
+            background: var(--success-color);
+            border: none;
+        }
 
-/* INPUTS MÁS PREMIUM */
-.form-control, .form-select {
-    border-radius: 12px;
-    border: 1px solid var(--border-soft);
-    padding: 8px 12px;
-}
+        .btn-success:hover {
+            background: #0ca678;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
 
-.form-control:focus, .form-select:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(37,99,235,.15);
-}
+        .btn-warning {
+            background: var(--warning-color);
+            border: none;
+            color: white;
+        }
 
-/* FOOTER */
-footer {
-    font-size: .85rem;
-    color: #9ca3af;
-}
-.table-hover tbody tr {
-    transition: background-color .2s ease;
-}
-</style>
+        .btn-warning:hover {
+            background: #d97706;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            border: none;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline-primary {
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* NAVBAR PROFESIONAL */
+        .navbar {
+            background: white !important;
+            border-bottom: 1px solid var(--border-soft);
+            box-shadow: var(--shadow-sm);
+            padding: 12px 0;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            color: var(--primary-color) !important;
+            font-size: 1.25rem;
+        }
+
+        .navbar .nav-link {
+            color: var(--text-primary) !important;
+            font-weight: 500;
+            padding: 8px 16px !important;
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+
+        .navbar .nav-link:hover {
+            color: var(--primary-color) !important;
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .navbar .nav-link i {
+            margin-right: 6px;
+        }
+
+        /* BADGES MÁS MODERNOS */
+        .badge {
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            letter-spacing: 0.3px;
+        }
+
+        .badge.bg-success {
+            background: var(--success-color) !important;
+        }
+
+        .badge.bg-warning {
+            background: var(--warning-color) !important;
+            color: white !important;
+        }
+
+        .badge.bg-danger {
+            background: var(--danger-color) !important;
+        }
+
+        /* DROPDOWN MÁS LIMPIO */
+        .dropdown-menu {
+            border-radius: 14px;
+            border: 1px solid var(--border-soft);
+            box-shadow: var(--shadow-lg);
+            padding: 8px;
+            min-width: 220px;
+        }
+
+        .dropdown-item {
+            border-radius: 8px;
+            padding: 10px 16px;
+            transition: var(--transition);
+            font-weight: 500;
+        }
+
+        .dropdown-item i {
+            margin-right: 8px;
+            width: 20px;
+            color: var(--text-secondary);
+        }
+
+        .dropdown-item:hover {
+            background: rgba(37, 99, 235, 0.05);
+            color: var(--primary-color);
+        }
+
+        .dropdown-item:hover i {
+            color: var(--primary-color);
+        }
+
+        .dropdown-divider {
+            margin: 8px 0;
+            border-color: var(--border-soft);
+        }
+
+        /* INPUTS MÁS PREMIUM */
+        .form-control, .form-select {
+            border-radius: 12px;
+            border: 2px solid var(--border-soft);
+            padding: 10px 14px;
+            transition: var(--transition);
+            font-size: 14px;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+            outline: none;
+        }
+
+        .form-control.is-invalid {
+            border-color: var(--danger-color);
+        }
+
+        .form-control.is-valid {
+            border-color: var(--success-color);
+        }
+
+        /* MODALES */
+        .modal-content {
+            border: none;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid var(--border-soft);
+            padding: 20px 24px;
+        }
+
+        .modal-header .modal-title {
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--border-soft);
+            padding: 16px 24px;
+        }
+
+        /* ALERTAS */
+        .alert {
+            border-radius: 12px;
+            border: none;
+            padding: 16px 20px;
+        }
+
+        /* FOOTER */
+        footer {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding: 20px 0;
+            background: white;
+            border-top: 1px solid var(--border-soft);
+            margin-top: 40px !important;
+        }
+
+        /* ANIMACIONES DE CARGA */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* SCROLLBAR PERSONALIZADO */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* UTILIDADES EXTRA */
+        .cursor-pointer {
+            cursor: pointer;
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .container {
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+            
+            .btn {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+            
+            .navbar .nav-link {
+                padding: 8px !important;
+            }
+            
+            .table {
+                font-size: 13px;
+            }
+        }
+
+        /* ESTADOS DE CARGA */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(37, 99, 235, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* TOOLTIPS PERSONALIZADOS */
+        [data-tooltip] {
+            position: relative;
+            cursor: help;
+        }
+
+        [data-tooltip]:before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text-primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            display: none;
+            z-index: 1000;
+            margin-bottom: 5px;
+        }
+
+        [data-tooltip]:hover:before {
+            display: block;
+        }
+
+        /* NOTIFICACIONES FLOTANTES */
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
 </head>
 
-<body>
+<body class="loaded">
 
-    <!-- ================= MODAL SUCURSAL ================= -->
-    <div class="modal fade" id="modalSucursal" data-bs-backdrop="static" data-bs-keyboard="false">
+    <!-- ================= MODAL SUCURSAL MEJORADO ================= -->
+    <div class="modal fade" id="modalSucursal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <form method="POST" action="{% url 'seleccionar_sucursal' %}">
                     {% csrf_token %}
                     <div class="modal-header">
-                        <h5 class="modal-title">Selecciona sucursal</h5>
+                        <h5 class="modal-title">
+                            <i class="fa-solid fa-store"></i> Selecciona sucursal
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="text-muted">¿En qué sucursal vas a trabajar?</p>
+                        <p class="text-muted mb-3">¿En qué sucursal vas a trabajar hoy?</p>
                         <select name="sucursal_id" class="form-select" required>
-                            <option value="">-- Selecciona --</option>
+                            <option value="" disabled selected>-- Selecciona una sucursal --</option>
                             {% for sucursal in sucursales_usuario %}
-                            <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
+                            <option value="{{ sucursal.id }}">
+                                <i class="fa-solid fa-store"></i> {{ sucursal.nombre }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="modal-footer">
                         <button type="submit" class="btn btn-primary w-100">
-                            Entrar
+                            <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar
                         </button>
                     </div>
                 </form>
@@ -177,106 +501,150 @@ footer {
         </div>
     </div>
 
-    <!-- ================= NAVBAR ================= -->
-   <nav class="navbar navbar-expand-lg">
-        <div class="container-fluid">
+    <!-- ================= NOTIFICACIONES TOAST ================= -->
+    <div class="toast-notification" id="toast-container"></div>
+
+    <!-- ================= NAVBAR MEJORADO ================= -->
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container-fluid px-4">
 
             <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'index' %}">
-                <i class="fa-solid fa-cash-register"></i>
-                Punto de Venta
+                <i class="fa-solid fa-cash-register fa-xl"></i>
+                <span class="fw-bold">Punto de Venta</span>
             </a>
 
             {% if sucursal_actual %}
-            <span class="badge bg-success ms-2 px-3 py-2 rounded-pill">
-                <i class="fa-solid fa-store"></i> {{ sucursal_actual.nombre }}
+            <span class="badge bg-success ms-2 px-3 py-2 rounded-pill d-none d-lg-inline-flex">
+                <i class="fa-solid fa-store me-2"></i> {{ sucursal_actual.nombre }}
             </span>
             {% else %}
-            <span class="badge bg-warning text-dark ms-2 px-3 py-2 rounded-pill">
-                <i class="fa-solid fa-triangle-exclamation"></i> Sin sucursal
+            <span class="badge bg-warning text-dark ms-2 px-3 py-2 rounded-pill d-none d-lg-inline-flex">
+                <i class="fa-solid fa-triangle-exclamation me-2"></i> Sin sucursal
             </span>
             {% endif %}
 
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center gap-2">
+                <ul class="navbar-nav ms-auto align-items-center gap-1">
 
                     {% if user.is_authenticated %}
 
-                    {% if user.rol == 'ADMIN' %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'dashboard' %}">
-                            <i class="fa-solid fa-chart-line"></i> Dashboard
-                        </a>
-                    </li>
+                        <!-- Menú ADMIN -->
+                        {% if user.rol == 'ADMIN' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'dashboard' %}">
+                                <i class="fa-solid fa-chart-line"></i> Dashboard
+                            </a>
+                        </li>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'inventario' %}">
-                            <i class="fa-solid fa-boxes-stacked"></i> Inventario
-                        </a>
-                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'inventario' %}">
+                                <i class="fa-solid fa-boxes-stacked"></i> Inventario
+                            </a>
+                        </li>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'historial_ventas_admin' %}">
-                            <i class="fa-solid fa-receipt"></i> Ventas
-                        </a>
-                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'historial_ventas_admin' %}">
+                                <i class="fa-solid fa-receipt"></i> Ventas
+                            </a>
+                        </li>
 
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                            <i class="fa-solid fa-gear"></i> Configuración
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'configuracion' %}">Agregar vendedor</a></li>
-                            <li><a class="dropdown-item" href="{% url 'register' %}">Registrar usuario</a></li>
-                            <li><a class="dropdown-item" href="{% url 'usuarios' %}">Usuarios</a></li>
-                            <li><a class="dropdown-item" href="{% url 'sucursales' %}">Sucursales</a></li>
-                        </ul>
-                    </li>
-                    {% endif %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                                <i class="fa-solid fa-gear"></i> Configuración
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{% url 'configuracion' %}">
+                                    <i class="fa-solid fa-user-plus"></i> Agregar vendedor
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'register' %}">
+                                    <i class="fa-solid fa-user"></i> Registrar usuario
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'usuarios' %}">
+                                    <i class="fa-solid fa-users"></i> Usuarios
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'sucursales' %}">
+                                    <i class="fa-solid fa-store"></i> Sucursales
+                                </a></li>
+                            </ul>
+                        </li>
+                        {% endif %}
 
-                    {% if user.rol == 'CAJA' %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                            <i class="fa-solid fa-money-bill-wave"></i> Ventas
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'registro_ventas' %}">Nueva venta</a></li>
-                            <li><a class="dropdown-item" href="{% url 'caja_completa' %}">Caja</a></li>
-                            <li><a class="dropdown-item" href="{% url 'caja' %}">Búsqueda</a></li>
-                        </ul>
-                    </li>
+                        <!-- Menú CAJA -->
+                        {% if user.rol == 'CAJA' %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                                <i class="fa-solid fa-money-bill-wave"></i> Ventas
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{% url 'registro_ventas' %}">
+                                    <i class="fa-solid fa-cart-plus"></i> Nueva venta
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'caja_completa' %}">
+                                    <i class="fa-solid fa-cash-register"></i> Caja rápida
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'caja' %}">
+                                    <i class="fa-solid fa-magnifying-glass"></i> Buscar venta
+                                </a></li>
+                            </ul>
+                        </li>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'historial_ventas' %}">
-                            <i class="fa-solid fa-clock-rotate-left"></i> Historial
-                        </a>
-                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'historial_ventas' %}">
+                                <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                            </a>
+                        </li>
 
-                    <li class="nav-item">
-                        <a href="{% url 'inventario_usuario' %}" class="btn btn-outline-light position-relative">
-                            <i class="fa-solid fa-bell"></i>
-                            {% if num_notificaciones > 0 %}
-                            <span
-                                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                {{ num_notificaciones }}
-                            </span>
-                            {% endif %}
-                        </a>
-                    </li>
-                    {% endif %}
+                        <li class="nav-item">
+                            <a href="{% url 'inventario_usuario' %}" class="nav-link position-relative">
+                                <i class="fa-solid fa-bell"></i> Notificaciones
+                                {% if num_notificaciones > 0 %}
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    {{ num_notificaciones }}
+                                </span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        {% endif %}
 
-                    <a href="#" class="btn btn-outline-light ms-2" onclick="confirmarSalir(event)">
-                        <i class="fa-solid fa-right-from-bracket"></i> Salir
-                    </a>
+                        <!-- Separador -->
+                        <li class="nav-item d-none d-lg-block">
+                            <span class="nav-link disabled">|</span>
+                        </li>
 
-
+                        <!-- Información del usuario -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
+                                <i class="fa-solid fa-circle-user fa-xl"></i>
+                                <span>{{ user.username }}</span>
+                                <span class="badge bg-{% if user.rol == 'ADMIN' %}danger{% else %}info{% endif %}">
+                                    {{ user.get_rol_display }}
+                                </span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li class="dropdown-header">Mi cuenta</li>
+                                <li><a class="dropdown-item" href="#">
+                                    <i class="fa-solid fa-user"></i> Perfil
+                                </a></li>
+                                <li><a class="dropdown-item" href="#">
+                                    <i class="fa-solid fa-key"></i> Cambiar contraseña
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a href="#" class="dropdown-item text-danger" onclick="confirmarSalir(event)">
+                                        <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
 
                     {% else %}
                     <li class="nav-item">
-                        <a class="btn btn-light text-primary" href="{% url 'login' %}">
+                        <a class="btn btn-primary" href="{% url 'login' %}">
                             <i class="fa-solid fa-lock"></i> Iniciar sesión
                         </a>
                     </li>
@@ -286,84 +654,161 @@ footer {
         </div>
     </nav>
 
-    <!-- ================= CONTENIDO ================= -->
+    <!-- ================= CONTENIDO PRINCIPAL ================= -->
     <div class="app-wrapper">
         <div class="container mt-4">
+            <!-- Contenido principal -->
             {% block content %}{% endblock %}
         </div>
     </div>
 
-    <!-- FOOTER -->
+    <!-- ================= FOOTER MEJORADO ================= -->
     <footer class="text-center mt-5">
-        © {{ now|date:"Y" }} Sistema Punto de Venta · Todos los derechos reservados
+        <div class="container">
+            <p class="mb-1">
+                © {{ now|date:"Y" }} <span class="fw-bold">Sistema Punto de Venta</span> · Todos los derechos reservados
+            </p>
+            <p class="mb-0 small">
+                <i class="fa-regular fa-clock"></i> 
+                {% now "l, d F Y - H:i" %}
+            </p>
+        </div>
     </footer>
+    <!-- ================= SCRIPTS ================= -->
+    <!-- jQuery primero -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-    <!-- SCRIPTS -->
+    <!-- Bootstrap JS (con Popper incluido) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
+    <!-- SweetAlert (AHORA SÍ EN EL ORDEN CORRECTO) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Scripts personalizados -->
     {% block scripts %}{% endblock %}
 
+
+    <!-- ================= MANEJO DE MENSAJES MEJORADO ================= -->
     {% if messages %}
-    {% for message in messages %}
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-          Swal.fire({
-            icon: "{% if message.tags == 'success' %}success{% elif message.tags == 'error' %}error{% else %}info{% endif %}",
-            title: "{{ message|escapejs }}",
-            timer: 2500,
-            showConfirmButton: false,
-            toast: true,
-            position: 'top-end',
-            background: '#ffffff',
-            color: '#111827',
-            iconColor: '#2563eb'
-        });
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for message in messages %}
+                const icon = {
+                    'success': 'success',
+                    'error': 'error',
+                    'warning': 'warning',
+                    'info': 'info'
+                }['{{ message.tags }}'] || 'info';
+                
+                Swal.fire({
+                    icon: icon,
+                    title: '{{ message|escapejs }}',
+                    timer: 3000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end',
+                    background: '#ffffff',
+                    color: '#1f2937',
+                    iconColor: '#2563eb',
+                    timerProgressBar: true,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer);
+                        toast.addEventListener('mouseleave', Swal.resumeTimer);
+                    }
+                });
+            {% endfor %}
         });
     </script>
-    {% endfor %}
     {% endif %}
 
+    <!-- ================= MODAL SUCURSAL AUTOMÁTICO ================= -->
     {% if request.user.is_authenticated and request.user.rol == 'ADMIN' and not sucursal_actual %}
     <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const modal = new bootstrap.Modal(
-                document.getElementById('modalSucursal'),
-                { backdrop: 'static', keyboard: false }
-            );
-            modal.show();
+        document.addEventListener("DOMContentLoaded", function() {
+            const modalElement = document.getElementById('modalSucursal');
+            if (modalElement) {
+                const modal = new bootstrap.Modal(modalElement, {
+                    backdrop: 'static',
+                    keyboard: false
+                });
+                modal.show();
+            }
         });
     </script>
     {% endif %}
 
+    <!-- ================= FUNCIONES GLOBALES ================= -->
     <script>
-        function confirmarSalir(event) {
+        // Función para confirmar salida
+        window.confirmarSalir = function(event) {
             event.preventDefault();
 
             Swal.fire({
                 title: '¿Cerrar sesión?',
                 text: 'Tu sesión se cerrará y volverás al inicio',
-                icon: 'warning',
+                icon: 'question',
                 showCancelButton: true,
-                confirmButtonColor: '#0d6efd',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Sí, salir',
-                cancelButtonText: 'Cancelar'
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fa-solid fa-check"></i> Sí, salir',
+                cancelButtonText: '<i class="fa-solid fa-xmark"></i> Cancelar',
+                reverseButtons: true,
+                background: '#ffffff',
+                color: '#1f2937'
             }).then((result) => {
                 if (result.isConfirmed) {
                     window.location.href = "{% url 'logout' %}";
                 }
             });
-        }
+        };
+
+        // Función para mostrar notificaciones toast
+        window.mostrarToast = function(mensaje, tipo = 'info', duracion = 3000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${tipo} alert-dismissible fade show animate__animated animate__fadeInRight`;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fa-${tipo === 'success' ? 'solid fa-circle-check' : tipo === 'error' ? 'solid fa-circle-exclamation' : 'solid fa-circle-info'} me-2"></i>
+                    <span>${mensaje}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('animate__fadeInRight');
+                toast.classList.add('animate__fadeOutRight');
+                setTimeout(() => toast.remove(), 500);
+            }, duracion);
+        };
+
+        // Función para mostrar loader
+        window.mostrarLoader = function() {
+            Swal.fire({
+                title: 'Cargando...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                },
+                background: '#ffffff',
+                color: '#1f2937'
+            });
+        };
+
+        // Función para cerrar loader
+        window.cerrarLoader = function() {
+            Swal.close();
+        };
+
+        // Animación de entrada de la página
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.classList.add('loaded');
+        });
     </script>
-    <script>
-document.addEventListener("DOMContentLoaded", function () {
-    document.body.style.opacity = 0;
-    setTimeout(() => {
-        document.body.style.transition = "opacity .3s ease";
-        document.body.style.opacity = 1;
-    }, 50);
-});
-</script>
+
+    {% block extra_js %}{% endblock %}
 </body>
 
 </html>

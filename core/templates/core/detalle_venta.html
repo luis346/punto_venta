@@ -1,0 +1,193 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Detalle de Venta {{ venta.no_venta }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>🧾 Detalle de Venta #{{ venta.no_venta }}</h2>
+        <a href="{% url 'historial_ventas_admin' %}" class="btn btn-outline-secondary">
+            ← Volver al historial
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Información general de la venta -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Información General</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Folio:</th>
+                            <td>{{ venta.no_venta }}</td>
+                        </tr>
+                        <tr>
+                            <th>Sucursal:</th>
+                            <td>{{ venta.sucursal }}</td>
+                        </tr>
+                        <tr>
+                            <th>Vendedor:</th>
+                            <td>{{ venta.vendedor.nombre }}</td>
+                        </tr>
+                        <tr>
+                            <th>Usuario:</th>
+                            <td>{{ venta.usuario.get_full_name|default:venta.usuario.username }}</td>
+                        </tr>
+                        <tr>
+                            <th>Tipo Cliente:</th>
+                            <td>{{ venta.get_tipo_cliente_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fecha:</th>
+                            <td>{{ venta.fecha|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Estado:</th>
+                            <td>
+                                {% if venta.cancelada %}
+                                    <span class="badge bg-danger">Cancelada</span>
+                                    <small class="text-muted d-block">
+                                        {{ venta.fecha_cancelacion|date:"d/m/Y H:i" }}
+                                    </small>
+                                {% elif venta.pagado %}
+                                    <span class="badge bg-success">Pagada</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Pendiente</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Descuento:</th>
+                            <td>{{ venta.descuento }}%</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumen de pagos -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">💰 Pagos Realizados</h5>
+                </div>
+                <div class="card-body">
+                    {% if pagos %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Forma de Pago</th>
+                                    <th>Monto</th>
+                                    <th>Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pago in pagos %}
+                                <tr>
+                                    <td>{{ pago.get_forma_pago_display|default:pago.forma_pago }}</td>
+                                    <td>${{ pago.monto_pagado|floatformat:2 }}</td>
+                                    <td>{{ pago.fecha_pago|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-info">
+                                <tr>
+                                    <th>Total Pagado:</th>
+                                    <th colspan="2">${{ total_pagado|floatformat:2 }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    {% else %}
+                        <p class="text-muted mb-0">No hay pagos registrados</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle de productos -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">📦 Productos Vendidos</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unitario</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles %}
+                        <tr>
+                            <td>{{ detalle.producto.nombre }}</td>
+                            <td>{{ detalle.cantidad }}</td>
+                            <td>${{ detalle.precio_unitario|floatformat:2 }}</td>
+                            <td>${{ detalle.total|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-success">
+                        <tr>
+                            <th colspan="3" class="text-end">Subtotal:</th>
+                            <th>${{ subtotal|floatformat:2 }}</th>
+                        </tr>
+                        {% if venta.descuento > 0 %}
+                        <tr>
+                            <th colspan="3" class="text-end">Descuento ({{ venta.descuento }}%):</th>
+                            <th>-${{ descuento_aplicado|floatformat:2 }}</th>
+                        </tr>
+                        {% endif %}
+                        <tr class="table-primary">
+                            <th colspan="3" class="text-end">TOTAL:</th>
+                            <th>${{ venta_total|floatformat:2 }}</th>
+                        </tr>
+                        {% if total_pagado < venta_total %}
+                        <tr class="table-warning">
+                            <th colspan="3" class="text-end">Pendiente:</th>
+                            <th>${{ venta_total|add:"-"|add:total_pagado|floatformat:2 }}</th>
+                        </tr>
+                        {% endif %}
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones adicionales -->
+    <div class="d-flex gap-2 justify-content-end">
+        {% if not venta.cancelada and not venta.pagado %}
+        <button class="btn btn-success" onclick="registrarPago({{ venta.id }})">
+            💰 Registrar Pago
+        </button>
+        {% endif %}
+        
+        {% if not venta.cancelada %}
+        <button class="btn btn-warning" onclick="imprimirTicket({{ venta.id }})">
+            🖨️ Imprimir Ticket
+        </button>
+        {% endif %}
+        
+        <a href="{% url 'historial_ventas_admin' %}" class="btn btn-secondary">
+            ⬅️ Volver
+        </a>
+    </div>
+</div>
+
+<script>
+function imprimirTicket(ventaId) {
+    window.open(`/ventas/${ventaId}/imprimir/`, '_blank');
+}
+
+function registrarPago(ventaId) {
+    window.location.href = `/ventas/${ventaId}/pagar/`;
+}
+</script>
+{% endblock %}

@@ -4,6 +4,9 @@ from django.views.generic import TemplateView
 from django.utils.timezone import now, timedelta, make_aware
 from django.utils import timezone
 from django.db.models import Q
+from django.db.models import Sum, Q, F, ExpressionWrapper, DecimalField
+from django.db import transaction, IntegrityError
+from decimal import Decimal
 from django.core.files.storage import FileSystemStorage
 from django.db.models import Sum, F
 from django.db import transaction, IntegrityError
@@ -417,7 +420,6 @@ def inventario_view(request):
     # ==========================
     # OBTENER STOCKS
     # ==========================
-
     stocks = (
         Stock.objects
         .filter(sucursal=sucursal)
@@ -428,8 +430,6 @@ def inventario_view(request):
     # ==========================
     # FILTROS
     # ==========================
-
-   
     categorias = Categoria.objects.all()
     buscar = request.GET.get('nombre', '').strip()
     categoria_id = request.GET.get('categoria', '')
@@ -445,12 +445,50 @@ def inventario_view(request):
         stocks = stocks.filter(producto__categoria_id=categoria_id)
 
     # ==========================
-    # PAGINACIÓN
+    # PAGINACIÓN CON PAGE SIZE
     # ==========================
+    page_size = request.GET.get('page_size', '25')
+    try:
+        page_size = int(page_size)
+        if page_size not in [10, 25, 50, 100]:
+            page_size = 25
+    except ValueError:
+        page_size = 25
 
-    paginator = Paginator(stocks, 25)
+    paginator = Paginator(stocks, page_size)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    # ==========================
+    # ESTADÍSTICAS PARA DASHBOARD
+    # ==========================
+    stocks_query = Stock.objects.filter(sucursal=sucursal)
+    
+    # Total stock físico
+    total_stock_fisico = stocks_query.aggregate(
+        total=Sum('stock_fisico')
+    )['total'] or 0
+    
+    # Total stock virtual
+    total_stock_virtual = stocks_query.aggregate(
+        total=Sum('stock_virtual')
+    )['total'] or 0
+    
+    # Productos con stock bajo (≤ 3)
+    productos_bajos = stocks_query.filter(
+        stock_fisico__lte=3,
+        stock_fisico__gt=0
+    ).count()
+    
+    # Valor total del inventario
+    valor_total = stocks_query.annotate(
+        valor=ExpressionWrapper(
+            F('stock_fisico') * F('producto__precio'),
+            output_field=DecimalField()
+        )
+    ).aggregate(total=Sum('valor'))['total'] or 0
+    
+    valor_total = round(valor_total, 2)
 
     # ==========================
     # FORMULARIOS
@@ -472,7 +510,7 @@ def inventario_view(request):
     if request.method == 'POST':
 
         # ----------------------------------
-        # ACTUALIZAR STOCK
+        # ACTUALIZAR STOCK (con AJAX)
         # ----------------------------------
         if 'stock_id' in request.POST:
             try:
@@ -491,25 +529,54 @@ def inventario_view(request):
                         defaults={'stock_fisico': 0, 'stock_virtual': 0}
                     )
 
+                cambios = []
                 if stock_fisico != '':
-                    stock_fisico = int(stock_fisico)
-                    if stock_fisico < 0:
+                    stock_fisico_int = int(stock_fisico)
+                    if stock_fisico_int < 0:
                         raise ValueError("El stock físico no puede ser negativo.")
-                    stock.stock_fisico = stock_fisico
+                    if stock.stock_fisico != stock_fisico_int:
+                        stock.stock_fisico = stock_fisico_int
+                        cambios.append('físico')
 
                 if stock_virtual != '':
-                    stock_virtual = int(stock_virtual)
-                    if stock_virtual < 0:
+                    stock_virtual_int = int(stock_virtual)
+                    if stock_virtual_int < 0:
                         raise ValueError("El stock virtual no puede ser negativo.")
-                    stock.stock_virtual = stock_virtual
+                    if stock.stock_virtual != stock_virtual_int:
+                        stock.stock_virtual = stock_virtual_int
+                        cambios.append('virtual')
 
                 stock.save()
+
+                # Si es una petición AJAX
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Stock actualizado',
+                        'cambios': cambios
+                    })
+
                 messages.success(request, "Stock actualizado correctamente.")
                 return redirect(request.META.get('HTTP_REFERER', 'inventario'))
 
             except ValueError as e:
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    }, status=400)
                 messages.error(request, str(e))
                 return redirect('inventario')
+                
+            except Exception as e:
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Error al actualizar stock'
+                    }, status=500)
+                messages.error(request, "Error al actualizar stock")
+                return redirect('inventario')
+
         # ----------------------------------
         # GUARDAR PRODUCTO
         # ----------------------------------
@@ -542,7 +609,6 @@ def inventario_view(request):
                         # VALIDAR FOLIO
                         # ----------------------------------
                         if producto.no_folio:
-
                             existe = Producto.objects.filter(
                                 no_folio__iexact=producto.no_folio.strip()
                             )
@@ -551,16 +617,18 @@ def inventario_view(request):
                                 existe = existe.exclude(id=producto_editando.id)
 
                             if existe.exists():
-                                messages.error(
-                                    request,
-                                    f"El folio '{producto.no_folio}' ya existe."
-                                )
+                                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                                    return JsonResponse({
+                                        'success': False,
+                                        'error': f"El folio '{producto.no_folio}' ya existe."
+                                    }, status=400)
+                                messages.error(request, f"El folio '{producto.no_folio}' ya existe.")
                                 return redirect('inventario')
 
                         # ----------------------------------
                         # GENERAR REFERENCIA AUTOMÁTICA
                         # ----------------------------------
-                        if not producto.referencia and producto.categoria:
+                        if not producto.referencia and producto.categoria and producto.categoria.prefijo:
 
                             prefijo = producto.categoria.prefijo.upper()
 
@@ -571,7 +639,6 @@ def inventario_view(request):
                             )
 
                             max_numero = 0
-
                             for ref in referencias:
                                 try:
                                     numero = int(ref.split('-')[-1])
@@ -587,7 +654,6 @@ def inventario_view(request):
                         # VALIDAR REFERENCIA
                         # ----------------------------------
                         if producto.referencia:
-
                             referencia_existente = Producto.objects.filter(
                                 referencia__iexact=producto.referencia.strip()
                             )
@@ -598,20 +664,24 @@ def inventario_view(request):
                                 )
 
                             if referencia_existente.exists():
-                                messages.error(
-                                    request,
-                                    f"La referencia '{producto.referencia}' ya existe."
-                                )
+                                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                                    return JsonResponse({
+                                        'success': False,
+                                        'error': f"La referencia '{producto.referencia}' ya existe."
+                                    }, status=400)
+                                messages.error(request, f"La referencia '{producto.referencia}' ya existe.")
                                 return redirect('inventario')
 
                         # ----------------------------------
                         # VALIDAR PRECIO
                         # ----------------------------------
                         if producto.precio is not None and producto.precio < 0:
-                            messages.error(
-                                request,
-                                "El precio no puede ser negativo."
-                            )
+                            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                                return JsonResponse({
+                                    'success': False,
+                                    'error': "El precio no puede ser negativo."
+                                }, status=400)
+                            messages.error(request, "El precio no puede ser negativo.")
                             return redirect('inventario')
 
                         # ----------------------------------
@@ -620,16 +690,37 @@ def inventario_view(request):
                         producto.save()
 
                         # ----------------------------------
-                        # CREAR STOCK SI NO EXISTE
+                        # CREAR STOCK CON STOCK INICIAL
                         # ----------------------------------
-                        Stock.objects.get_or_create(
+                        stock_inicial = request.POST.get('stock_inicial')
+                        if stock_inicial and not producto_editando:
+                            try:
+                                stock_inicial = int(stock_inicial)
+                            except ValueError:
+                                stock_inicial = 0
+                        else:
+                            stock_inicial = 0
+
+                        stock, created = Stock.objects.get_or_create(
                             producto=producto,
                             sucursal=sucursal,
                             defaults={
-                                'stock_fisico': 0,
+                                'stock_fisico': stock_inicial,
                                 'stock_virtual': 0
                             }
                         )
+
+                        # Si ya existía pero no se está editando, actualizar solo si es nuevo producto
+                        if not producto_editando and not created:
+                            stock.stock_fisico += stock_inicial
+                            stock.save()
+
+                    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': True,
+                            'message': f"Producto '{producto.nombre}' guardado correctamente.",
+                            'producto_id': producto.id
+                        })
 
                     messages.success(
                         request,
@@ -638,26 +729,26 @@ def inventario_view(request):
                     return redirect('inventario')
 
                 except IntegrityError as e:
-
                     print("ERROR AL GUARDAR PRODUCTO:", e)
-
-                    messages.error(
-                        request,
-                        f"Error de base de datos al guardar el producto."
-                    )
-
+                    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': False,
+                            'error': "Error de base de datos al guardar el producto."
+                        }, status=500)
+                    messages.error(request, "Error de base de datos al guardar el producto.")
                     return redirect('inventario')
 
             else:
-
                 print("ERRORES FORMULARIO:", form_producto.errors)
-
-                messages.error(
-                    request,
-                    "Hay errores en el formulario. Revisa los campos."
-                )
-
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'error': "Errores en el formulario",
+                        'errors': form_producto.errors
+                    }, status=400)
+                messages.error(request, "Hay errores en el formulario. Revisa los campos.")
                 return redirect('inventario')
+
         # ----------------------------------
         # GUARDAR CATEGORÍA
         # ----------------------------------
@@ -669,18 +760,18 @@ def inventario_view(request):
                 try:
                     with transaction.atomic():
 
-                        # Guardar sin commit para poder ajustar campos
                         categoria = form_categoria.save(commit=False)
-
-                        # Normalizar nombre
                         categoria.nombre = categoria.nombre.strip().upper()
 
-                        # Verificar si ya existe una categoría con el mismo nombre
                         if Categoria.objects.filter(nombre=categoria.nombre).exists():
+                            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                                return JsonResponse({
+                                    'success': False,
+                                    'error': f"La categoría '{categoria.nombre}' ya existe."
+                                }, status=400)
                             messages.error(request, f"La categoría '{categoria.nombre}' ya existe.")
                             return redirect('inventario')
 
-                        # Generar prefijo si no se proporcionó
                         if not categoria.prefijo:
                             prefijo_base = categoria.nombre[:3].upper()
                             prefijo = prefijo_base
@@ -691,82 +782,114 @@ def inventario_view(request):
                             categoria.prefijo = prefijo
 
                         categoria.save()
-                        messages.success(request, f"Categoría '{categoria.nombre}' guardada correctamente con prefijo '{categoria.prefijo}'.")
+
+                        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                            return JsonResponse({
+                                'success': True,
+                                'message': f"Categoría '{categoria.nombre}' guardada correctamente.",
+                                'categoria': {
+                                    'id': categoria.id,
+                                    'nombre': categoria.nombre,
+                                    'prefijo': categoria.prefijo
+                                }
+                            })
+
+                        messages.success(
+                            request,
+                            f"Categoría '{categoria.nombre}' guardada correctamente con prefijo '{categoria.prefijo}'."
+                        )
 
                 except Exception as e:
-                    # Log del error en Render
                     print("ERROR AL GUARDAR CATEGORÍA:", str(e))
+                    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': False,
+                            'error': str(e)
+                        }, status=500)
                     messages.error(request, f"Ocurrió un error al guardar la categoría: {str(e)}")
 
                 return redirect('inventario')
 
             else:
-                # Errores de validación del formulario
                 errores_form = form_categoria.errors.as_json()
                 print("ERRORES FORMULARIO CATEGORÍA:", errores_form)
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'error': "Error en el formulario de categoría",
+                        'errors': form_categoria.errors
+                    }, status=400)
                 messages.error(request, "Error en el formulario de categoría. Revisa los campos.")
                 return redirect('inventario')
-            
+
         # ----------------------------------
         # IMPORTAR EXCEL
         # ----------------------------------
-
         elif 'subir_excel' in request.POST and request.FILES.get('archivo_excel'):
 
             archivo_excel = request.FILES['archivo_excel']
 
+            # Validar extensión
+            if not archivo_excel.name.endswith(('.xlsx', '.xls')):
+                messages.error(request, "El archivo debe ser .xlsx o .xls")
+                return redirect('inventario')
+
             try:
+                resultado = importar_productos_excel(archivo_excel, sucursal)
 
-                resultado = importar_productos_excel(
-                    archivo_excel,
-                    sucursal
-                )
-
-                if resultado["errores"] == 0:
-
+                if resultado.get("errores", 0) == 0:
                     messages.success(
                         request,
-                        f"Importación completada ✔️ | "
-                        f"Productos creados: {resultado['creados']} | "
-                        f"Actualizados: {resultado['actualizados']} | "
-                        f"Categorías nuevas: {resultado['categorias']} | "
-                        f"Filas ignoradas: {resultado['ignorados']}"
+                        f"✅ Importación completada exitosamente<br>"
+                        f"📦 Creados: {resultado.get('creados', 0)} | "
+                        f"🔄 Actualizados: {resultado.get('actualizados', 0)} | "
+                        f"📁 Categorías: {resultado.get('categorias', 0)} | "
+                        f"⏭️ Ignorados: {resultado.get('ignorados', 0)}"
                     )
-
                 else:
-
                     messages.warning(
                         request,
-                        f"Importación completada con advertencias ⚠️ | "
-                        f"Creados: {resultado['creados']} | "
-                        f"Actualizados: {resultado['actualizados']} | "
-                        f"Errores: {resultado['errores']}"
+                        f"⚠️ Importación con advertencias<br>"
+                        f"📦 Creados: {resultado.get('creados', 0)} | "
+                        f"🔄 Actualizados: {resultado.get('actualizados', 0)} | "
+                        f"❌ Errores: {resultado.get('errores', 0)}"
                     )
 
             except Exception as e:
-
                 print("ERROR IMPORTACIÓN:", str(e))
-
-                messages.error(
-                    request,
-                    f"Error al procesar el archivo: {str(e)}"
-                )
+                messages.error(request, f"Error al procesar el archivo: {str(e)}")
 
             return redirect('inventario')
-                
-        
+
     # ==========================
-    # CONTEXTO
+    # CONTEXTO ENRIQUECIDO
     # ==========================
     context = {
         'form_producto': form_producto,
         'form_categoria': form_categoria,
         'stocks': page_obj,
+        'page_obj': page_obj,  # Para paginación
         'categorias': categorias,
         'producto_editando': producto_editando,
         'sucursal_actual': sucursal,
-        'page_obj': page_obj,
+        
+        # Estadísticas para dashboard
+        'total_stock_fisico': total_stock_fisico,
+        'total_stock_virtual': total_stock_virtual,
+        'productos_bajos': productos_bajos,
+        'valor_total': valor_total,
+        
+        # Para filtros en tiempo real (AJAX)
+        'is_ajax': request.headers.get('x-requested-with') == 'XMLHttpRequest',
     }
+
+    # Si es petición AJAX y solo quiere la tabla
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.GET.get('nombre', '') != '':
+        return render(request, 'core/inventario_table.html', {
+            'page_obj': page_obj,
+            'total_stock_fisico': total_stock_fisico,
+            'total_stock_virtual': total_stock_virtual,
+        })
 
     return render(request, 'core/inventario.html', context)
 
@@ -1980,3 +2103,54 @@ def imprimir_etiquetas_masivo(request):
 
     return redirect('inventario')
 
+@login_required
+def detalle_venta(request, venta_id):
+    venta = get_object_or_404(Venta, id=venta_id)
+    detalles = venta.detalles.all()
+    pagos = venta.pagos.all()
+    
+    total_pagado = sum(pago.monto_pagado for pago in pagos)
+    
+    # Calcular subtotal de productos
+    subtotal = sum(detalle.total for detalle in detalles)
+    
+    # Aplicar descuento si existe
+    if venta.descuento > 0:
+        descuento_aplicado = subtotal * (venta.descuento / 100)
+        venta_total = subtotal - descuento_aplicado
+    else:
+        descuento_aplicado = 0
+        venta_total = subtotal
+    
+    context = {
+        'venta': venta,
+        'detalles': detalles,
+        'pagos': pagos,
+        'total_pagado': total_pagado,
+        'subtotal': subtotal,
+        'descuento_aplicado': descuento_aplicado,
+        'venta_total': venta_total,
+    }
+    return render(request, 'core/detalle_venta.html', context)
+
+
+@login_required
+def ultimas_ventas(request):
+    """API para obtener las últimas 5 ventas en formato JSON"""
+    ventas = Venta.objects.select_related('vendedor').order_by('-fecha')[:5]
+    
+    data = []
+    for venta in ventas:
+        # Calcular total de la venta
+        total = venta.detalles.aggregate(total=Sum('total'))['total'] or 0
+        
+        data.append({
+            'id': venta.id,
+            'no_venta': venta.no_venta,
+            'vendedor': venta.vendedor.nombre if venta.vendedor else 'N/A',
+            'fecha': venta.fecha.strftime('%d/%m/%Y %H:%M'),
+            'total': float(total),
+            'estado': 'cancelada' if venta.cancelada else 'pagada' if venta.pagado else 'pendiente'
+        })
+    
+    return JsonResponse(data, safe=False)

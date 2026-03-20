@@ -69,6 +69,8 @@ urlpatterns = [
     path('sucursal/<int:id>/editar/', views.editar_sucursal, name='editar_sucursal'),
     path('validar-folio/', views.validar_folio, name='validar_folio'),
     path('productos-vendidos/', views.productos_vendidos, name='productos_vendidos'),
+    path('venta/<int:venta_id>/', views.detalle_venta, name='detalle_venta'),
+    path('api/ultimas-ventas/', views.ultimas_ventas, name='ultimas_ventas'),
 
 
 

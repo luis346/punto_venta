@@ -4,86 +4,135 @@
 
 {% block content %}
 
-<!-- MODAL BUSCAR PRODUCTO -->
-<div class="modal fade" id="modalBuscarProducto" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+<!-- MODAL BUSCAR PRODUCTO MEJORADO -->
+<div class="modal fade" id="modalBuscarProducto" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
 
-      <div class="modal-header">
-        <h5 class="modal-title">Buscar producto</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-search"></i> Buscar producto</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
       <div class="modal-body">
+        <div class="input-group mb-3">
+          <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+          <input type="text" id="inputBuscarProducto"
+                 class="form-control form-control-lg"
+                 placeholder="Escribe nombre, código o escanea código de barras..."
+                 autofocus>
+          <button class="btn btn-outline-secondary" type="button" id="btnLimpiarBusqueda">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
 
-        <input type="text" id="inputBuscarProducto"
-               class="form-control mb-3"
-               placeholder="Escribe nombre o código...">
-
-        <div id="listaProductos" class="list-group"></div>
-
+        <div id="listaProductos" class="list-group" style="max-height: 400px; overflow-y: auto;"></div>
+        
+        <div class="text-muted small mt-2" id="contador-resultados"></div>
+      </div>
+      
+      <div class="modal-footer">
+        <span class="text-muted small"><i class="bi bi-lightning"></i> Atajo: F2</span>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
 
     </div>
   </div>
 </div>
 
-<!-- ================= MODAL AUTORIZACIÓN ================= -->
+<!-- ================= MODAL AUTORIZACIÓN MEJORADO ================= -->
 <div class="modal fade" id="modalPassword" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
         <form id="formPagoConPassword">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Autorización del Administrador</h5>
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">
+                        <i class="bi bi-shield-lock"></i> Autorización requerida
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="text-center mb-3">
+                        <i class="bi bi-person-badge fs-1 text-warning"></i>
+                    </div>
+                    <p class="text-muted small text-center">Ingresa tu contraseña de administrador</p>
                     <input type="password"
                            id="password_admin_input"
-                           class="form-control"
-                           placeholder="Contraseña del administrador"
-                           required>
+                           class="form-control form-control-lg text-center"
+                           placeholder="••••••••"
+                           required
+                           autocomplete="off">
+                    <div id="password-error" class="text-danger small mt-2 d-none">
+                        <i class="bi bi-exclamation-triangle"></i> Contraseña incorrecta
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary w-100">
-                        Confirmar
+                    <button type="submit" class="btn btn-primary w-100" id="btnConfirmarPassword">
+                        <span>Confirmar</span>
+                        <span class="spinner-border spinner-border-sm d-none" role="status"></span>
                     </button>
                 </div>
             </div>
         </form>
     </div>
 </div>
-<div class="col-md-2">
-<button class="btn btn-primary" id="btnBuscarProducto">
-    🔍 Buscar producto
-</button>
+
+<!-- BARRA DE ACCIONES RÁPIDAS MEJORADA -->
+<div class="row mb-3">
+    <div class="col-md-8">
+        <div class="btn-group" role="group">
+            <button class="btn btn-primary" id="btnBuscarProducto" title="Buscar producto (F2)">
+                <i class="bi bi-search"></i> Buscar producto
+            </button>
+            <button class="btn btn-outline-secondary" id="btnLimpiarTodo" title="Limpiar venta actual (F4)">
+                <i class="bi bi-eraser"></i> Limpiar
+            </button>
+            <button class="btn btn-outline-info" id="btnVentaRapida" title="Venta rápida (F5)">
+                <i class="bi bi-lightning"></i> Venta rápida
+            </button>
+        </div>
+    </div>
+    <div class="col-md-4 text-end">
+        <div class="text-muted">
+            <small><i class="bi bi-person"></i> {{ user.get_full_name|default:user.username }}</small>
+        </div>
+    </div>
 </div>
 
 <!-- ================= FORM VENTA ================= -->
 <form method="POST" id="formVentaCompleta">
     {% csrf_token %}
     <input type="hidden" name="no_venta" value="{{ no_venta }}">
+    <input type="hidden" name="productos_data" id="productos_data">
 
-    <!-- ===== DATOS GENERALES ===== -->
+    <!-- ===== DATOS GENERALES MEJORADOS ===== -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span class="fw-semibold">Caja rápida</span>
-            <span class="badge bg-danger fs-6">
-                Venta #{{ no_venta }}
-            </span>
+        <div class="card-header d-flex justify-content-between align-items-center bg-light">
+            <span class="fw-semibold"><i class="bi bi-cash-register"></i> Caja rápida</span>
+            <div>
+                <span class="badge bg-danger fs-6 me-2">
+                    <i class="bi bi-receipt"></i> #{{ no_venta }}
+                </span>
+                <span class="badge bg-secondary" id="hora-actual"></span>
+            </div>
         </div>
 
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-3">
-                    <label class="form-label">Tipo de cliente</label>
+                    <label class="form-label fw-medium">
+                        <i class="bi bi-people"></i> Tipo de cliente
+                    </label>
                     {{ form.tipo_cliente }}
                 </div>
 
                 <div class="col-md-3 d-none" id="descuento_container">
-                    <label class="form-label">Descuento</label>
+                    <label class="form-label fw-medium">
+                        <i class="bi bi-percent"></i> Descuento
+                    </label>
                     <select class="form-select" id="descuento" name="descuento">
-                        <option value="">Selecciona descuento</option>
-                        <option value="producto">Por producto</option>
+                        <option value="">Sin descuento</option>
+                        <option value="producto">Por producto (seleccionar)</option>
                         <option value="10">10%</option>
                         <option value="30">30%</option>
                         <option value="50">50%</option>
@@ -91,7 +140,9 @@
                 </div>
 
                 <div class="col-md-3">
-                    <label class="form-label">Vendedor</label>
+                    <label class="form-label fw-medium">
+                        <i class="bi bi-person-badge"></i> Vendedor
+                    </label>
                     {{ form.vendedor }}
                 </div>
 
@@ -99,7 +150,7 @@
                     <div class="form-check mt-4">
                         <input class="form-check-input" type="checkbox" id="permitir_pieza">
                         <label class="form-check-label" for="permitir_pieza">
-                            Permitir venta por pieza
+                            <i class="bi bi-scissors"></i> Permitir venta por pieza
                         </label>
                     </div>
                 </div>
@@ -109,87 +160,143 @@
 
 <div class="row g-4">
 
-    <!-- ========== COLUMNA IZQUIERDA / PRODUCTOS ========== -->
+    <!-- ========== COLUMNA IZQUIERDA / PRODUCTOS MEJORADA ========== -->
     <div class="col-lg-8">
 
         <div class="card shadow-sm mb-4">
-            <div class="card-header fw-semibold">
-                Productos
+            <div class="card-header fw-semibold d-flex justify-content-between align-items-center bg-light">
+                <span><i class="bi bi-box-seam"></i> Productos agregados</span>
+                <span class="badge bg-primary" id="contador-productos">0</span>
             </div>
             <div class="card-body p-0">
-                <table class="table table-bordered table-hover mb-0" id="tabla-productos">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Folio</th>
-                            <th>Nombre</th>
-                            <th>Precio</th>
-                            <th style="width:120px;">Cantidad</th>
-                            <th>Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- JS -->
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover mb-0" id="tabla-productos">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Folio</th>
+                                <th>Nombre</th>
+                                <th>Precio</th>
+                                <th style="width:120px;">Cantidad</th>
+                                <th>Total</th>
+                                <th style="width:50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-productos-body">
+                            <tr id="fila-vacia">
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No hay productos agregados
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot class="table-secondary" id="tabla-productos-footer">
+                            <tr>
+                                <th colspan="4" class="text-end">Subtotal:</th>
+                                <th colspan="2">$<span id="subtotal">0.00</span></th>
+                            </tr>
+                            <tr class="d-none" id="descuento-row">
+                                <th colspan="4" class="text-end">Descuento:</th>
+                                <th colspan="2">-$<span id="descuento-monto">0.00</span></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </div>
         </div>
 
     </div>
 
-    <!-- ========== COLUMNA DERECHA / COBRO ========== -->
+    <!-- ========== COLUMNA DERECHA / COBRO MEJORADA ========== -->
     <div class="col-lg-4">
 
-        <!-- TOTAL GRANDE -->
+        <!-- TOTAL GRANDE CON ANIMACIÓN -->
         <div class="card shadow-sm mb-3 border-danger">
             <div class="card-body text-center">
-                <div class="text-muted">Total a pagar</div>
-                <div class="display-4 fw-bold text-danger">
+                <div class="text-muted small">Total a pagar</div>
+                <div class="display-3 fw-bold text-danger animate__animated" id="total-general-container">
                     $<span id="total-general">0.00</span>
                 </div>
+                <div class="text-muted small mt-2" id="items-count"></div>
             </div>
         </div>
 
-        <!-- DATOS DE PAGO -->
+        <!-- DATOS DE PAGO MEJORADOS -->
         <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <i class="bi bi-credit-card"></i> Datos de pago
+            </div>
             <div class="card-body">
 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Monto pagado</label>
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-cash"></i> Monto pagado
+                    </label>
                     <input type="number"
                            step="0.01"
+                           min="0"
                            name="monto_pagado"
                            id="monto_pagado"
                            class="form-control form-control-lg"
+                           placeholder="0.00"
                            required>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Forma de pago</label>
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-credit-card"></i> Forma de pago
+                    </label>
                     <select id="forma_pago"
                             name="forma_pago"
                             class="form-select form-select-lg"
                             required>
                         <option value="">Seleccionar</option>
-                        <option value="efectivo">Efectivo</option>
-                        <option value="tarjeta">Tarjeta</option>
-                        <option value="transferencia">Transferencia</option>
+                        <option value="efectivo">💵 Efectivo</option>
+                        <option value="tarjeta">💳 Tarjeta</option>
+                        <option value="transferencia">🏦 Transferencia</option>
+                        <option value="mixto">🔄 Mixto</option>
                     </select>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Cambio</label>
-                    <input type="text"
-                           id="cambio"
-                           class="form-control form-control-lg"
-                           readonly>
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-arrow-return-left"></i> Cambio
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text"
+                               id="cambio"
+                               class="form-control form-control-lg bg-light"
+                               readonly
+                               value="0.00">
+                    </div>
                 </div>
 
                 <button type="submit"
-                        class="btn btn-success btn-lg w-100"
+                        class="btn btn-success btn-lg w-100 mb-2"
                         id="btn-registrar-venta">
-                    Registrar y cobrar
+                    <i class="bi bi-check-circle"></i> Registrar y cobrar
+                </button>
+                
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm w-100"
+                        id="btn-guardar-temporal"
+                        title="Guardar venta como pendiente">
+                    <i class="bi bi-save"></i> Guardar como pendiente
                 </button>
 
+            </div>
+        </div>
+
+        <!-- ÚLTIMAS VENTAS (mini widget) -->
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-light py-2">
+                <small><i class="bi bi-clock-history"></i> Últimas ventas</small>
+            </div>
+            <div class="card-body p-2" id="ultimas-ventas">
+                <div class="text-center text-muted small py-2">
+                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                    Cargando...
+                </div>
             </div>
         </div>
 
@@ -201,17 +308,193 @@
 <!-- ===== TICKET OCULTO ===== -->
 <div id="ticket-content" class="d-none"></div>
 
-<!-- ================= SCRIPTS ================= -->
+<!-- ================= SCRIPTS MEJORADOS ================= -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 
 <script>
     const BUSCAR_PRODUCTO_URL = "{% url 'buscar_producto' %}";
     const LOGO_URL = "{% static 'img/logo.jpg' %}";
+    const ULTIMAS_VENTAS_URL = "{% url 'ultimas_ventas' %}";
 </script>
 
 <script src="{% static 'js/funciones_caja.js' %}"></script>
+
+<!-- Scripts adicionales de mejoras -->
+<script>
+// Mostrar hora actual
+function actualizarHora() {
+    const ahora = new Date();
+    const hora = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('hora-actual').textContent = `🕐 ${hora}`;
+}
+setInterval(actualizarHora, 1000);
+actualizarHora();
+
+// Atajos de teclado
+document.addEventListener('keydown', function(e) {
+    // F2 - Buscar producto
+    if (e.key === 'F2') {
+        e.preventDefault();
+        document.getElementById('btnBuscarProducto').click();
+    }
+    // F4 - Limpiar todo
+    if (e.key === 'F4') {
+        e.preventDefault();
+        if (confirm('¿Limpiar todos los productos?')) {
+            if (typeof limpiarVentaCompleta === 'function') {
+                limpiarVentaCompleta();
+            } else {
+                limpiarVenta();
+            }
+        }
+    }
+    // F5 - Venta rápida (monto exacto)
+    if (e.key === 'F5') {
+        e.preventDefault();
+        const total = parseFloat(document.getElementById('total-general').textContent);
+        document.getElementById('monto_pagado').value = total.toFixed(2);
+        if (typeof calcularCambio === 'function') {
+            calcularCambio();
+        }
+    }
+});
+
+// Cargar últimas ventas
+function cargarUltimasVentas() {
+    fetch(ULTIMAS_VENTAS_URL)
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('ultimas-ventas');
+            if (data.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted small py-2">Sin ventas recientes</div>';
+                return;
+            }
+            
+            let html = '<div class="list-group list-group-flush">';
+            data.forEach(venta => {
+                html += `
+                    <div class="list-group-item p-2">
+                        <div class="d-flex justify-content-between">
+                            <small><strong>#${venta.no_venta}</strong></small>
+                            <small class="text-success">$${venta.total}</small>
+                        </div>
+                        <small class="text-muted">${venta.fecha}</small>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        })
+        .catch(() => {
+            document.getElementById('ultimas-ventas').innerHTML = 
+                '<div class="text-center text-muted small py-2">Error al cargar</div>';
+        });
+}
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar si la URL de últimas ventas existe
+    if (typeof ULTIMAS_VENTAS_URL !== 'undefined' && ULTIMAS_VENTAS_URL) {
+        cargarUltimasVentas();
+        setInterval(cargarUltimasVentas, 30000);
+    } else {
+        // Ocultar el widget si no hay URL
+        const widget = document.querySelector('.card.shadow-sm.mt-3');
+        if (widget) widget.style.display = 'none';
+    }
+    
+    // Botón limpiar todo
+    document.getElementById('btnLimpiarTodo')?.addEventListener('click', function() {
+        if (confirm('¿Limpiar todos los productos?')) {
+            if (typeof limpiarVentaCompleta === 'function') {
+                limpiarVentaCompleta();
+            } else if (typeof limpiarVenta === 'function') {
+                limpiarVenta();
+            }
+        }
+    });
+    
+    // Limpiar búsqueda
+    document.getElementById('btnLimpiarBusqueda')?.addEventListener('click', function() {
+        document.getElementById('inputBuscarProducto').value = '';
+        document.getElementById('listaProductos').innerHTML = '';
+    });
+});
+</script>
+
+<style>
+#notificacion {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+#total-general-container {
+    transition: transform 0.2s;
+}
+
+#total-general-container:hover {
+    transform: scale(1.05);
+}
+
+.cantidad-input {
+    width: 80px;
+    text-align: center;
+}
+
+.table tbody tr {
+    transition: background-color 0.2s;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(0,123,255,0.05) !important;
+}
+
+.btn-group .btn {
+    margin-right: 2px;
+}
+
+.modal-content {
+    border: none;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+.list-group-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+</style>
 
 {% endblock %}

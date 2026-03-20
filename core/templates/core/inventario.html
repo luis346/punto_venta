@@ -2,8 +2,78 @@
 {% load static %}
 {% block content %}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
+<!-- SweetAlert2 para alertas profesionales -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
 
+<!-- =======================
+ DASHBOARD DE ESTADÍSTICAS
+======================== -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">Total productos</h6>
+                        <h3 class="mt-2 mb-0">{{ page_obj.paginator.count }}</h3>
+                        <small class="opacity-75">en inventario</small>
+                    </div>
+                    <i class="bi bi-box-seam fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">Stock físico total</h6>
+                        <h3 class="mt-2 mb-0">{{ total_stock_fisico|default:"0" }}</h3>
+                        <small class="opacity-75">unidades</small>
+                    </div>
+                    <i class="bi bi-cpu fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">Stock bajo</h6>
+                        <h3 class="mt-2 mb-0">{{ productos_bajos|default:"0" }}</h3>
+                        <small class="opacity-75">≤ 3 unidades</small>
+                    </div>
+                    <i class="bi bi-exclamation-triangle fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">Valor inventario</h6>
+                        <h3 class="mt-2 mb-0">${{ valor_total|default:"0.00" }}</h3>
+                        <small class="opacity-75">precio venta</small>
+                    </div>
+                    <i class="bi bi-cash-stack fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =======================
+ ENCABEZADO
+======================== -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h3 class="fw-bold mb-0">Inventario</h3>
@@ -13,11 +83,12 @@
     </div>
 
     <div class="text-end">
-        <span class="badge bg-light text-dark border">
+        <span class="badge bg-light text-dark border" id="total-productos-badge">
             Total productos: {{ page_obj.paginator.count }}
         </span>
     </div>
 </div>
+
 <!-- =======================
  ACCIONES SUPERIORES
 ======================== -->
@@ -25,29 +96,29 @@
     <div class="card-body d-flex justify-content-between flex-wrap gap-3 align-items-center">
 
         <div class="d-flex gap-2 flex-wrap">
-            <button class="btn btn-primary px-4" data-bs-toggle="modal" data-bs-target="#modalProducto">
+            <button class="btn btn-primary px-4" data-bs-toggle="modal" data-bs-target="#modalProducto" title="Nuevo producto (Ctrl+N)">
                 + Nuevo producto
             </button>
 
-            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalCategoria">
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalCategoria" title="Gestionar categorías">
                 Categorías
             </button>
         </div>
 
         <div class="d-flex gap-2 flex-wrap align-items-center">
 
-            <a href="{% url 'exportar_excel' %}" class="btn btn-outline-dark btn-sm">
+            <a href="{% url 'exportar_excel' %}" class="btn btn-outline-dark btn-sm" title="Exportar todo (Ctrl+E)">
                 Exportar Excel
             </a>
 
-            <a href="{% url 'exportar_excel_bajo' %}" class="btn btn-outline-warning btn-sm">
+            <a href="{% url 'exportar_excel_bajo' %}" class="btn btn-outline-warning btn-sm" title="Exportar solo stock bajo">
                 Stock bajo
             </a>
 
-            <form method="POST" enctype="multipart/form-data" class="d-flex gap-2">
+            <form method="POST" enctype="multipart/form-data" class="d-flex gap-2" id="form-importar">
                 {% csrf_token %}
-                <input type="file" name="archivo_excel" class="form-control form-control-sm">
-                <button type="submit" name="subir_excel" class="btn btn-success btn-sm">
+                <input type="file" name="archivo_excel" class="form-control form-control-sm" accept=".xlsx,.xls" id="file-input">
+                <button type="submit" name="subir_excel" class="btn btn-success btn-sm" title="Importar desde Excel (Ctrl+I)">
                     Importar
                 </button>
             </form>
@@ -56,24 +127,30 @@
 
     </div>
 </div>
+
 <!-- =======================
- FILTROS
+ FILTROS MEJORADOS
 ======================== -->
 <div class="card shadow-sm border-0 mb-4">
     <div class="card-body">
         <form method="GET" id="form-filtros" class="row g-3 align-items-end">
-        <div class="col-md-4">
-                <label class="form-label small text-muted">Buscar</label>
+            <div class="col-md-4">
+                <label class="form-label small text-muted">
+                    <i class="bi bi-search"></i> Buscar
+                </label>
                 <input type="text" name="nombre" id="buscarInventario" 
-                    placeholder="Nombre, folio o referencia..."
+                    placeholder="Nombre, folio o referencia... (Ctrl+F)"
                     class="form-control"
-                    value="{{ request.GET.nombre }}">
+                    value="{{ request.GET.nombre }}"
+                    autocomplete="off">
             </div>
 
             <div class="col-md-4">
-                <label class="form-label small text-muted">Categoría</label>
-                <select name="categoria" class="form-select">
-                    <option value="">Todas</option>
+                <label class="form-label small text-muted">
+                    <i class="bi bi-tags"></i> Categoría
+                </label>
+                <select name="categoria" class="form-select" id="categoria-filtro">
+                    <option value="">Todas las categorías</option>
                     {% for cat in categorias %}
                     <option value="{{ cat.id }}"
                         {% if request.GET.categoria == cat.id|stringformat:"s" %}selected{% endif %}>
@@ -84,32 +161,72 @@
             </div>
 
             <div class="col-md-4 d-flex gap-2">
-                <button class="btn btn-primary w-100">
-                    Aplicar filtros
+                <button class="btn btn-primary w-100" id="btn-aplicar-filtros">
+                    <i class="bi bi-funnel"></i> Aplicar filtros
                 </button>
-                <a href="{% url 'inventario' %}" class="btn btn-light border w-100">
-                    Limpiar
+                <a href="{% url 'inventario' %}" class="btn btn-light border w-100" id="btn-limpiar-filtros" title="Limpiar filtros (Ctrl+L)">
+                    <i class="bi bi-eraser"></i> Limpiar
                 </a>
             </div>
-
         </form>
+        
+        <!-- Filtros activos -->
+        <div class="mt-2 small" id="filtros-activos">
+            {% if request.GET.nombre or request.GET.categoria %}
+            <span class="text-muted">Filtros activos:</span>
+            {% if request.GET.nombre %}
+                <span class="badge bg-light text-dark border ms-2">🔍 {{ request.GET.nombre }}</span>
+            {% endif %}
+            {% if request.GET.categoria %}
+                {% for cat in categorias %}
+                    {% if cat.id|stringformat:"s" == request.GET.categoria %}
+                    <span class="badge bg-light text-dark border ms-2">📁 {{ cat.nombre }}</span>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+            {% endif %}
+        </div>
     </div>
 </div>
+
 <!-- =======================
  TABLA INVENTARIO
 ======================== -->
 <form method="POST" action="{% url 'imprimir_etiquetas_masivo' %}" id="form-imprimir">
     {% csrf_token %}
 </form>
+
 <div class="card shadow-sm border-0">
     <div class="card-body p-0">
 
+        <!-- Barra de herramientas de tabla -->
+        <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+            <div class="d-flex align-items-center gap-3">
+                <span class="small text-muted">
+                    <span id="selected-count">0</span> de {{ page_obj.paginator.count }} seleccionados
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="btn-deseleccionar-todo" style="display: none;">
+                    <i class="bi bi-x-circle"></i> Deseleccionar
+                </button>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <label class="small text-muted">Mostrar:</label>
+                <select class="form-select form-select-sm w-auto" id="select-page-size">
+                    <option value="10" {% if request.GET.page_size == '10' %}selected{% endif %}>10</option>
+                    <option value="25" {% if request.GET.page_size == '25' %}selected{% endif %}>25</option>
+                    <option value="50" {% if request.GET.page_size == '50' %}selected{% endif %}>50</option>
+                    <option value="100" {% if request.GET.page_size == '100' %}selected{% endif %}>100</option>
+                </select>
+            </div>
+        </div>
+
         <div class="table-responsive">
             <table class="table align-middle table-hover mb-0" id="tabla-inventario">
-
                 <thead class="bg-light border-bottom">
                     <tr class="small text-muted text-uppercase">
-                        <th><input type="checkbox" id="check-all"></th>
+                        <th style="width: 40px;">
+                            <input type="checkbox" id="check-all" title="Seleccionar todo">
+                        </th>
                         <th>Folio</th>
                         <th>Referencia</th>
                         <th>Producto</th>
@@ -124,416 +241,560 @@
                     </tr>
                 </thead>
 
-            <tbody id="tabla-body">
-            {% for stock in page_obj %}
-            <tr
-                {% if stock.stock_fisico == 0 %}
-                    class="table-danger"
-                {% elif stock.stock_fisico <= 3 %}
-                    class="table-warning"
+                <tbody id="tabla-body">
+                    {% for stock in page_obj %}
+                    <tr data-id="{{ stock.producto.id }}"
+                        {% if stock.stock_fisico == 0 %}
+                            class="table-danger"
+                        {% elif stock.stock_fisico <= 3 %}
+                            class="table-warning"
+                        {% endif %}>
+                        <td>
+                            <input type="checkbox" name="productos" value="{{ stock.producto.id }}" form="form-imprimir" class="producto-checkbox">
+                        </td>
+                        <td>
+                            {% if stock.producto.no_folio|length == 13 %}
+                            <span class="badge bg-info" title="Código de barras">{{ stock.producto.no_folio }}</span>
+                            {% else %}
+                            {{ stock.producto.no_folio }}
+                            {% endif %}
+                        </td>
+                        <td><span class="small">{{ stock.producto.referencia|default:"—" }}</span></td>
+                        <td class="fw-medium">{{ stock.producto.nombre }}</td>
+                        <td>{{ stock.producto.categoria.nombre|default:"—" }}</td>
+                        <td class="text-end">${{ stock.producto.precio|floatformat:2 }}</td>
+                        <td class="text-end">${{ stock.producto.precio_mayoreo|floatformat:2|default:"—" }}</td>
+                        <td>{{ stock.producto.unidad_medida|default:"pza" }}</td>
+                        <td class="text-center">{{ stock.stock_virtual }}</td>
+                        <td class="text-center">{{ stock.stock_fisico }}</td>
+                        <td>
+                            {% if stock.stock_fisico == 0 %}
+                                <span class="badge bg-danger-subtle text-danger border" title="Producto agotado">
+                                    <i class="bi bi-x-circle"></i> Agotado
+                                </span>
+                            {% elif stock.stock_fisico <= 3 %}
+                                <span class="badge bg-warning-subtle text-warning border" title="Stock bajo">
+                                    <i class="bi bi-exclamation-triangle"></i> Bajo
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success-subtle text-success border" title="Disponible">
+                                    <i class="bi bi-check-circle"></i> Disponible
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex flex-column gap-1">
+                                {% if request.user.rol == 'ADMIN' %}
+                                    <form method="POST" class="d-flex gap-1 auto-save-form">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="stock_id" value="{{ stock.id }}">
+                                        <input type="hidden" name="producto_id" value="{{ stock.producto.id }}">
+
+                                        <input type="number" name="stock_virtual" value="{{ stock.stock_virtual }}"
+                                            class="form-control form-control-sm stock-input" min="0" 
+                                            placeholder="Virtual" title="Stock virtual"
+                                            style="width: 70px;">
+
+                                        <input type="number" name="stock_fisico" value="{{ stock.stock_fisico }}"
+                                            class="form-control form-control-sm stock-input" min="0" 
+                                            placeholder="Físico" title="Stock físico"
+                                            style="width: 70px;">
+                                    </form>
+
+                                    <div class="d-flex gap-1">
+                                        <a href="{% url 'inventario' %}?editar={{ stock.producto.id }}"
+                                            class="btn btn-sm btn-outline-warning flex-grow-1" title="Editar producto">
+                                            <i class="bi bi-pencil"></i> Editar
+                                        </a>
+                                        
+                                        {% if stock.stock_fisico == 0 and request.user.rol == 'ADMIN' %}
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-danger" 
+                                                title="Eliminar producto"
+                                                onclick="confirmarEliminacion({{ stock.producto.id }})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+
+                                {% if request.user.rol == 'USUARIO' and stock.stock_virtual > 0 %}
+                                    <form method="POST" action="{% url 'transferir_stock' stock.id %}" class="transferir-form">
+                                        {% csrf_token %}
+                                        <button class="btn btn-sm btn-primary w-100" title="Transferir a físico">
+                                            <i class="bi bi-arrow-left-right"></i> Transferir
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="12" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                            <h6>No hay productos</h6>
+                            <p class="small">Agrega tu primer producto haciendo clic en "Nuevo producto"</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                
+                <!-- Fila de totales -->
+                {% if page_obj %}
+                <tfoot class="table-light">
+                    <tr class="small fw-bold">
+                        <th colspan="9" class="text-end">Totales:</th>
+                        <th class="text-center">{{ total_stock_virtual|default:"0" }}</th>
+                        <th class="text-center">{{ total_stock_fisico|default:"0" }}</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </tfoot>
                 {% endif %}
-            >
-                <td>
-                   <input type="checkbox" name="productos" value="{{ stock.producto.id }}" form="form-imprimir">
-                </td>
-                <td>
-                {% if stock.producto.no_folio|length == 13 %}
-                <span class="badge bg-info">{{ stock.producto.no_folio }}</span>
-                {% else %}
-                {{ stock.producto.no_folio }}
-                {% endif %}
-                </td>
-                <td>{{ stock.producto.referencia }}</td>
-                <td>{{ stock.producto.nombre }}</td>
-                <td>{{ stock.producto.categoria }}</td>
-                <td>${{ stock.producto.precio }}</td>
-                <td>${{ stock.producto.precio_mayoreo }}</td>
-                <td>{{ stock.producto.unidad_medida }}</td>
-                <td>{{ stock.stock_virtual }}</td>
-                <td>{{ stock.stock_fisico }}</td>
-
-                <td>
-                   {% if stock.stock_fisico == 0 %}
-                    <span class="badge bg-danger-subtle text-danger border">
-                        Agotado
-                    </span>
-                    {% elif stock.stock_fisico <= 3 %}
-                    <span class="badge bg-warning-subtle text-warning border">
-                        Bajo
-                    </span>
-                    {% else %}
-                    <span class="badge bg-success-subtle text-success border">
-                        Disponible
-                    </span>
-                    {% endif %}
-                </td>
-
-                <td>
-                {% if request.user.rol == 'ADMIN' %}
-                    <form method="POST" class="d-flex gap-1 mb-1 auto-save">
-                        {% csrf_token %}
-                        <input type="hidden" name="stock_id" value="{{ stock.id }}">
-                        <input type="hidden" name="producto_id" value="{{ stock.producto.id }}">
-
-                        <input type="number" name="stock_virtual" value="{{ stock.stock_virtual }}"
-                            class="form-control form-control-sm stock-input" min="0">
-
-                        <input type="number" name="stock_fisico" value="{{ stock.stock_fisico }}"
-                            class="form-control form-control-sm stock-input" min="0">
-                    </form>
-
-                    <a href="{% url 'inventario' %}?editar={{ stock.producto.id }}"
-                        class="btn btn-sm btn-outline-warning">
-                        ✏ Editar
-                    </a>
-                {% endif %}
-
-                {% if request.user.rol == 'USUARIO' and stock.stock_virtual > 0 %}
-                    <form method="POST" action="{% url 'transferir_stock' stock.id %}">
-                        {% csrf_token %}
-                        <button class="btn btn-sm btn-primary">Transferir</button>
-                    </form>
-                {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+            </table>
+        </div>
     </div>
-    <!-- =======================
- PAGINACIÓN
-======================== -->
-<nav class="mt-4">
-    <ul class="pagination pagination-sm justify-content-center">
-
-        {% if page_obj.has_previous %}
-            <li class="page-item">
-                <a class="page-link" href="?page=1">&laquo;</a>
-            </li>
-        {% endif %}
-
-        <li class="page-item active">
-            <span class="page-link">
-                {{ page_obj.number }}
-            </span>
-        </li>
-
-        {% if page_obj.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
-                    &raquo;
-                </a>
-            </li>
-        {% endif %}
-
-    </ul>
-</nav>
-    <button type="submit" form="form-imprimir" class="btn btn-primary">
-    🏷 Imprimir etiquetas seleccionadas
-</button>
+</div>
 
 <!-- =======================
- MODAL CATEGORIA (MEJORADO)
+ PAGINACIÓN Y CONTROLES
 ======================== -->
-<div class="modal fade" id="modalCategoria">
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <div class="small text-muted">
+        Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} registros
+    </div>
+    
+    <nav>
+        <ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.nombre %}&nombre={{ request.GET.nombre }}{% endif %}{% if request.GET.categoria %}&categoria={{ request.GET.categoria }}{% endif %}" title="Primera página">
+                        <i class="bi bi-chevron-double-left"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.nombre %}&nombre={{ request.GET.nombre }}{% endif %}{% if request.GET.categoria %}&categoria={{ request.GET.categoria }}{% endif %}" title="Página anterior">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">
+                    {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.nombre %}&nombre={{ request.GET.nombre }}{% endif %}{% if request.GET.categoria %}&categoria={{ request.GET.categoria }}{% endif %}" title="Página siguiente">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.nombre %}&nombre={{ request.GET.nombre }}{% endif %}{% if request.GET.categoria %}&categoria={{ request.GET.categoria }}{% endif %}" title="Última página">
+                        <i class="bi bi-chevron-double-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+
+<!-- Botón de impresión mejorado -->
+<div class="d-flex align-items-center gap-2 mt-3">
+    <button type="submit" form="form-imprimir" class="btn btn-primary" id="btn-imprimir">
+        <i class="bi bi-printer"></i> Imprimir etiquetas 
+        <span class="badge bg-light text-dark ms-2" id="selected-count-badge">0</span>
+    </button>
+    <span class="text-muted small">seleccionados</span>
+</div>
+
+<!-- =======================
+ MODAL CATEGORIA MEJORADO
+======================== -->
+<div class="modal fade" id="modalCategoria" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-
-            <form method="POST">
+            <form method="POST" id="form-categoria">
                 {% csrf_token %}
                 <div class="modal-header">
-                    <h5 class="modal-title">📂 Categorías</h5>
+                    <h5 class="modal-title">
+                        <i class="bi bi-tags"></i> Categorías
+                    </h5>
                     <button class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
                     <div class="row g-3">
-
                         <!-- FORM -->
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Nombre de la categoría</label>
+                            <label class="form-label fw-semibold">Nombre</label>
                             {{ form_categoria.nombre }}
+                            <small class="text-muted">Ej: Electrónica</small>
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Prefijo (opcional)</label>
+                            <label class="form-label fw-semibold">Prefijo</label>
                             {{ form_categoria.prefijo }}
+                            <small class="text-muted">Ej: ELEC</small>
+                        </div>
+
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" name="guardar_categoria" class="btn btn-success w-100">
+                                <i class="bi bi-save"></i> Guardar
+                            </button>
                         </div>
 
                         <!-- LISTADO -->
-                        <div class="col-md-8 mt-3">
-                            <h6 class="fw-semibold mb-2">Categorías registradas</h6>
-
-                            <table class="table table-sm table-hover">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Nombre</th>
-                                        <th>Prefijo</th>
-                                        <th style="width:90px">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                {% for categoria in categorias %}
-                                    <tr>
-                                        <td>{{ categoria.nombre }}</td>
-                                        <td>{{ categoria.prefijo }}</td>
-                                        <td>
-                                            <form method="POST"
-                                                  action="{% url 'eliminar_categoria' categoria.id %}">
-                                                {% csrf_token %}
-                                                <button class="btn btn-sm btn-outline-danger">
-                                                    🗑
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="3" class="text-muted text-center">
-                                            Sin categorías
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                                </tbody>
-                            </table>
+                        <div class="col-12 mt-4">
+                            <h6 class="fw-semibold mb-3">Categorías registradas</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th>Prefijo</th>
+                                            <th>Productos</th>
+                                            <th style="width:90px">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for categoria in categorias %}
+                                        <tr>
+                                            <td>{{ categoria.nombre }}</td>
+                                            <td><code>{{ categoria.prefijo|default:"—" }}</code></td>
+                                            <td>{{ categoria.producto_set.count }}</td>
+                                            <td>
+                                                <form method="POST"
+                                                      action="{% url 'eliminar_categoria' categoria.id %}"
+                                                      class="form-eliminar-categoria">
+                                                    {% csrf_token %}
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-outline-danger btn-eliminar-categoria"
+                                                            data-nombre="{{ categoria.nombre }}"
+                                                            data-productos="{{ categoria.producto_set.count }}">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="4" class="text-muted text-center py-4">
+                                                <i class="bi bi-folder fs-2 d-block mb-2"></i>
+                                                Sin categorías registradas
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-
                     </div>
                 </div>
 
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button class="btn btn-success" name="guardar_categoria">
-                        Guardar
-                    </button>
                 </div>
             </form>
-
         </div>
     </div>
 </div>
 
-<style>
-
-/* CONTENEDOR DEL SCANNER */
-#reader{
-    position: relative;
-    width: 100%;
-    max-width: 350px;
-    height: 220px;
-    margin: auto;
-
-    border: 3px solid #0d6efd;
-    border-radius: 12px;
-
-    background: #000;
-    overflow: hidden;
-}
-
-/* VIDEO DE LA CAMARA */
-#reader video{
-    position: absolute;
-    top: 0;
-    left: 0;
-
-    width: 100%;
-    height: 100%;
-
-    object-fit: cover;
-}
-
-/* CANVAS (cuando lo usa el motor de escaneo) */
-#reader canvas{
-    position: absolute;
-    top: 0;
-    left: 0;
-
-    width: 100%;
-    height: 100%;
-}
-
-/* LINEA DE ESCANEO */
-.scan-line{
-    position: absolute;
-    width: 90%;
-    left: 5%;
-    height: 3px;
-
-    background: linear-gradient(90deg, transparent, red, transparent);
-    box-shadow: 0 0 8px red;
-
-    animation: scan 2s infinite linear;
-
-    pointer-events: none;
-}
-
-/* ANIMACION */
-@keyframes scan{
-
-    0%{
-        top: 10%;
-    }
-
-    50%{
-        top: 85%;
-    }
-
-    100%{
-        top: 10%;
-    }
-
-}
-
-</style>
-
 <!-- =======================
- MODAL PRODUCTO (LABELS)
+ MODAL PRODUCTO MEJORADO
 ======================== -->
 <div class="modal fade" id="modalProducto" 
      data-bs-backdrop="static" 
      data-bs-keyboard="false"
      tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <form method="POST" class="modal-content" id="formProducto">
             {% csrf_token %}
 
-            <div class="modal-header">
-                <h5 class="modal-title">📦 Producto</h5>
-                <button class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-box"></i> {{ producto_editar|yesno:"Editar,Nuevo" }} Producto
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            
 
-            <div class="modal-body row g-3">
-
-                <!-- FOLIO -->
-                        <div class="col-md-4">
-                        <label class="form-label">No. Folio</label>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <!-- FOLIO -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-upc-scan"></i> No. Folio
+                        </label>
                         <div class="input-group">
                             {{ form_producto.no_folio }}
-                            <button type="button" class="btn btn-outline-secondary" id="btnScan">
+                            <button type="button" class="btn btn-outline-secondary" id="btnScan" title="Escanear código">
                                 📷
                             </button>
                         </div>
-                    {% if form_producto.no_folio.errors %}
-                        <div class="text-danger small mt-1">
-                            {{ form_producto.no_folio.errors.0 }}
-                        </div>
+                        {% if form_producto.no_folio.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form_producto.no_folio.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div id="folio-error" class="text-danger small mt-1"></div>
+                    </div>
+
+                    <!-- NOMBRE -->
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Nombre</label>
+                        {{ form_producto.nombre }}
+                        {% if form_producto.nombre.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form_producto.nombre.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- REFERENCIA -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Referencia</label>
+                        {{ form_producto.referencia }}
+                        <small class="text-muted">Código interno</small>
+                    </div>
+
+                    <!-- CATEGORIA -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Categoría</label>
+                        {{ form_producto.categoria }}
+                        {% if form_producto.categoria.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form_producto.categoria.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- DESCRIPCION -->
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold">Descripción</label>
+                        {{ form_producto.descripcion }}
+                        {% if form_producto.descripcion.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form_producto.descripcion.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- PRECIO -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Precio</label>
+                        {{ form_producto.precio }}
+                        {% if form_producto.precio.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form_producto.precio.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- PRECIO MAYOREO -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Precio Mayoreo</label>
+                        {{ form_producto.precio_mayoreo }}
+                        <small class="text-muted">Opcional</small>
+                        {% if form_producto.precio_mayoreo.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form_producto.precio_mayoreo.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- UNIDAD -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Unidad medida</label>
+                        {{ form_producto.unidad_medida }}
+                        <small class="text-muted">Ej: pza, kg, m</small>
+                    </div>
+
+                    <!-- STOCK INICIAL (solo para nuevo producto) -->
+                    {% if not request.GET.editar %}
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Stock inicial</label>
+                        <input type="number" name="stock_inicial" class="form-control" value="0" min="0">
+                        <small class="text-muted">Cantidad inicial</small>
+                    </div>
                     {% endif %}
                 </div>
 
-                <!-- NOMBRE -->
-                <div class="col-md-4">
-                    <label class="form-label">Nombre</label>
-                    {{ form_producto.nombre }}
-                    {% if form_producto.nombre.errors %}
-                        <div class="text-danger small mt-1">
-                            {{ form_producto.nombre.errors.0 }}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <!-- CATEGORIA -->
-                <div class="col-md-4">
-                    <label class="form-label">Categoría</label>
-                    {{ form_producto.categoria }}
-                    {% if form_producto.categoria.errors %}
-                        <div class="text-danger small mt-1">
-                            {{ form_producto.categoria.errors.0 }}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <!-- DESCRIPCION -->
-                <div class="col-md-12">
-                    <label class="form-label">Descripción</label>
-                    {{ form_producto.descripcion }}
-                    {% if form_producto.descripcion.errors %}
-                        <div class="text-danger small mt-1">
-                            {{ form_producto.descripcion.errors.0 }}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <!-- PRECIO -->
-                <div class="col-md-3">
-                    <label class="form-label">Precio</label>
-                    {{ form_producto.precio }}
-                    {% if form_producto.precio.errors %}
-                        <div class="text-danger small mt-1">
-                            {{ form_producto.precio.errors.0 }}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <!-- PRECIO MAYOREO -->
-                <div class="col-md-3">
-                    <label class="form-label">Precio Mayoreo</label>
-                    {{ form_producto.precio_mayoreo }}
-                    {% if form_producto.precio_mayoreo.errors %}
-                        <div class="text-danger small mt-1">
-                            {{ form_producto.precio_mayoreo.errors.0 }}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <!-- UNIDAD -->
-                <div class="col-md-3">
-                    <label class="form-label">Unidad de medida</label>
-                    {{ form_producto.unidad_medida }}
-                    {% if form_producto.unidad_medida.errors %}
-                        <div class="text-danger small mt-1">
-                            {{ form_producto.unidad_medida.errors.0 }}
-                        </div>
-                    {% endif %}
-                </div>
                 <!-- =======================
                 SCANNER (OCULTO)
-            ======================== -->
-           <div id="scannerContainer" style="display:none;">
-            <hr>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <strong>Escanear código</strong>
-                <button type="button" class="btn btn-sm btn-secondary" id="btnVolverScanner">
-                    ← Volver
-                </button>
-            </div>
+                ======================== -->
+                <div id="scannerContainer" style="display:none;" class="mt-3">
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong class="text-primary">
+                            <i class="bi bi-camera"></i> Escanear código
+                        </strong>
+                        <button type="button" class="btn btn-sm btn-secondary" id="btnVolverScanner">
+                            <i class="bi bi-arrow-left"></i> Volver
+                        </button>
+                    </div>
 
-            <div class="mb-2">
-                <select id="cameraSelect" class="form-select form-select-sm"></select>
-            </div>
+                    <div class="mb-2">
+                        <select id="cameraSelect" class="form-select form-select-sm"></select>
+                    </div>
 
-            <div id="reader" style="width:100%;">
-            </div>
-        </div>
-
+                    <div id="reader" style="width:100%;">
+                        <div class="scan-line"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="modal-footer">
-            <a href="{% url 'inventario' %}" class="btn btn-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     Cancelar
-                </a>
+                </button>
                 <button type="submit" class="btn btn-primary" name="guardar_producto" id="btnGuardarProducto">
-                    Guardar producto
+                    <i class="bi bi-save"></i> Guardar producto
                 </button>
             </div>
-
         </form>
     </div>
 </div>
 
+<!-- Estilos adicionales -->
+<style>
+/* CONTENEDOR DEL SCANNER */
+#reader {
+    position: relative;
+    width: 100%;
+    max-width: 350px;
+    height: 220px;
+    margin: auto;
+    border: 3px solid #0d6efd;
+    border-radius: 12px;
+    background: #000;
+    overflow: hidden;
+}
 
+/* VIDEO DE LA CAMARA */
+#reader video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* CANVAS */
+#reader canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* LINEA DE ESCANEO */
+.scan-line {
+    position: absolute;
+    width: 90%;
+    left: 5%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, red, transparent);
+    box-shadow: 0 0 8px red;
+    animation: scan 2s infinite linear;
+    pointer-events: none;
+    z-index: 10;
+}
+
+@keyframes scan {
+    0% { top: 10%; }
+    50% { top: 85%; }
+    100% { top: 10%; }
+}
+
+/* Estilos para notificaciones */
+.saved-msg {
+    animation: fadeOut 2s ease forwards;
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #28a745;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+@keyframes fadeOut {
+    0% { opacity: 1; }
+    70% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Tooltips personalizados */
+[title] {
+    cursor: help;
+}
+
+/* Mejoras para la tabla */
+.table td, .table th {
+    vertical-align: middle;
+}
+
+.stock-input {
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.stock-input:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+}
+
+/* Hover en filas */
+.table tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05) !important;
+}
+
+/* Badges de estado */
+.badge {
+    padding: 6px 10px;
+    font-weight: 500;
+}
+
+/* Animación para cambios */
+@keyframes highlight {
+    0% { background-color: #d4edda; }
+    100% { background-color: transparent; }
+}
+
+.highlight {
+    animation: highlight 1s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .stock-input {
+        width: 50px !important;
+        font-size: 12px;
+    }
+}
+</style>
+
+<!-- Scripts -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
-<!-- =======================
- JS PRO UNIFICADO
-======================== -->
-{% if form_producto.errors or request.GET.editar %}
-<script>
-document.addEventListener("DOMContentLoaded", function () {
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+<!-- Script principal mejorado -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
     let lastKeyTime = 0;
     let timeout = null;
+    let searchTimeout = null;
 
+    // Elementos del DOM
     const formProducto = document.getElementById("formProducto");
     const folioInput = document.getElementById("id_no_folio");
     const btnGuardar = document.getElementById("btnGuardarProducto");
@@ -542,235 +803,149 @@ document.addEventListener("DOMContentLoaded", function () {
     const tablaInventario = document.getElementById("tabla-inventario");
     const formFiltros = document.getElementById("form-filtros");
     const modalElement = document.getElementById("modalProducto");
+    const categoriaFiltro = document.getElementById("categoria-filtro");
+    const selectPageSize = document.getElementById("select-page-size");
+    const btnImprimir = document.getElementById("btn-imprimir");
+    const btnDeseleccionar = document.getElementById("btn-deseleccionar-todo");
+
+    /* =========================
+       ATALJOS DE TECLADO
+    ========================= */
+    document.addEventListener('keydown', function(e) {
+        // Ctrl + N = Nuevo producto
+        if (e.ctrlKey && e.key === 'n') {
+            e.preventDefault();
+            document.querySelector('[data-bs-target="#modalProducto"]')?.click();
+        }
+        
+        // Ctrl + F = Enfocar búsqueda
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            buscarInventario?.focus();
+            buscarInventario?.select();
+        }
+        
+        // Ctrl + E = Exportar Excel
+        if (e.ctrlKey && e.key === 'e') {
+            e.preventDefault();
+            window.location.href = "{% url 'exportar_excel' %}";
+        }
+        
+        // Ctrl + L = Limpiar filtros
+        if (e.ctrlKey && e.key === 'l') {
+            e.preventDefault();
+            window.location.href = "{% url 'inventario' %}";
+        }
+        
+        // Ctrl + I = Importar Excel
+        if (e.ctrlKey && e.key === 'i') {
+            e.preventDefault();
+            document.getElementById('file-input')?.click();
+        }
+    });
 
     /* =========================
        BLOQUEAR ENTER ESCÁNER
-    ========================== */
+    ========================= */
     if (formProducto) {
-
         formProducto.addEventListener("keydown", function(e) {
-
             if (e.key === "Enter") {
-
                 const now = new Date().getTime();
                 const diff = now - lastKeyTime;
                 lastKeyTime = now;
 
                 if (diff < 50) {
                     e.preventDefault();
-                    console.log("ENTER de escáner bloqueado");
                 }
-
             }
-
         });
-
     }
 
     /* =========================
-       CHECKBOX SELECCIONAR TODO
-    ========================== */
+       CHECKBOX SELECCIONAR TODO MEJORADO
+    ========================= */
+    function actualizarContadorSeleccionados() {
+        const checkboxes = document.querySelectorAll('input[name="productos"]');
+        const seleccionados = Array.from(checkboxes).filter(cb => cb.checked).length;
+        
+        // Actualizar contadores
+        document.getElementById('selected-count').textContent = seleccionados;
+        document.getElementById('selected-count-badge').textContent = seleccionados;
+        
+        // Actualizar estado del check-all
+        if (checkAll) {
+            if (seleccionados === 0) {
+                checkAll.checked = false;
+                checkAll.indeterminate = false;
+            } else if (seleccionados === checkboxes.length) {
+                checkAll.checked = true;
+                checkAll.indeterminate = false;
+            } else {
+                checkAll.indeterminate = true;
+            }
+        }
+        
+        // Mostrar/ocultar botón deseleccionar
+        if (btnDeseleccionar) {
+            btnDeseleccionar.style.display = seleccionados > 0 ? 'inline-block' : 'none';
+        }
+        
+        // Habilitar/deshabilitar botón imprimir
+        if (btnImprimir) {
+            btnImprimir.disabled = seleccionados === 0;
+        }
+    }
+
     if (checkAll) {
-
-        checkAll.addEventListener("change", function () {
-
-            document.querySelectorAll('input[name="productos"]').forEach(cb => {
-                cb.checked = this.checked;
-            });
-
+        checkAll.addEventListener("change", function() {
+            const checkboxes = document.querySelectorAll('input[name="productos"]');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            actualizarContadorSeleccionados();
         });
-
     }
 
-    /* =========================
-       AUTO GUARDAR STOCK
-    ========================== */
-    document.querySelectorAll(".stock-input").forEach(input => {
-
-        input.addEventListener("change", function () {
-
-            const form = this.closest("form");
-            if (form) form.submit();
-
-        });
-
+    // Escuchar cambios en checkboxes individuales
+    document.addEventListener('change', function(e) {
+        if (e.target.matches('input[name="productos"]')) {
+            actualizarContadorSeleccionados();
+        }
     });
 
-    /* =========================
-       VALIDAR FOLIO AJAX
-    ========================== */
-    if (folioInput && btnGuardar) {
-
-        folioInput.addEventListener("keyup", function() {
-
-            clearTimeout(timeout);
-
-            timeout = setTimeout(() => {
-
-                const folio = this.value.trim().toUpperCase();
-
-                if (!folio) {
-                    limpiarError();
-                    btnGuardar.disabled = false;
-                    return;
-                }
-
-                fetch(`/validar-folio/?folio=${folio}`)
-                .then(response => response.json())
-                .then(data => {
-
-                    if (data.existe) {
-
-                        mostrarError("⚠ Ya existe un producto con ese folio");
-                        btnGuardar.disabled = true;
-
-                    } else {
-
-                        limpiarError();
-                        btnGuardar.disabled = false;
-
-                    }
-
-                });
-
-            }, 350);
-
+    // Botón deseleccionar todo
+    if (btnDeseleccionar) {
+        btnDeseleccionar.addEventListener('click', function() {
+            document.querySelectorAll('input[name="productos"]').forEach(cb => cb.checked = false);
+            if (checkAll) checkAll.checked = false;
+            actualizarContadorSeleccionados();
         });
-
-        function mostrarError(mensaje) {
-
-            let errorDiv = document.getElementById("folio-error");
-
-            if (!errorDiv) {
-
-                errorDiv = document.createElement("div");
-                errorDiv.id = "folio-error";
-                errorDiv.classList.add("text-danger","small","mt-1");
-
-                folioInput.parentNode.appendChild(errorDiv);
-
-            }
-
-            errorDiv.innerText = mensaje;
-
-        }
-
-        function limpiarError() {
-
-            const errorDiv = document.getElementById("folio-error");
-            if (errorDiv) errorDiv.remove();
-
-        }
-
     }
 
     /* =========================
-       BUSCADOR INVENTARIO AJAX
-    ========================== */
-    if (buscarInventario && tablaInventario && formFiltros) {
-
-        formFiltros.addEventListener("submit", function(e){
-            e.preventDefault();
-        });
-
-        buscarInventario.addEventListener("keyup", function(){
-
-            clearTimeout(timeout);
-
-            timeout = setTimeout(() => {
-
-                const params = new URLSearchParams({
-                    nombre: buscarInventario.value
-                });
-
-                fetch(window.location.pathname + "?" + params.toString(), {
-                    headers: {
-                        "X-Requested-With":"XMLHttpRequest"
-                    }
-                })
-                .then(response => response.text())
-                .then(html => {
-
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html,"text/html");
-
-                    const nuevaTabla = doc.getElementById("tabla-inventario");
-
-                    if (nuevaTabla) {
-                        tablaInventario.innerHTML = nuevaTabla.innerHTML;
-                    }
-
-                    buscarInventario.focus();
-                    buscarInventario.setSelectionRange(
-                        buscarInventario.value.length,
-                        buscarInventario.value.length
-                    );
-
-                });
-
-            },300);
-
-        });
-
-    }
-
-    /* =========================
-       CONTROL MODAL PRODUCTO
-    ========================== */
-    if (modalElement) {
-
-        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-
-     
-        modal.show();
-    
-
-        modalElement.addEventListener("hide.bs.modal", function () {
-
-            if (document.activeElement) {
-                document.activeElement.blur();
-            }
-
-        });
-
-        modalElement.addEventListener("hidden.bs.modal", function () {
-
-            if (formProducto) formProducto.reset();
-
-            const errorDiv = document.getElementById("folio-error");
-            if (errorDiv) errorDiv.remove();
-
-            if (btnGuardar) btnGuardar.disabled = false;
-
-            const url = new URL(window.location);
-            url.searchParams.delete("editar");
-
-            window.history.replaceState({}, document.title, url.pathname);
-
-        });
-
-    }
-
-});
-</script>
-{% endif %}
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-
+       AUTO GUARDAR STOCK MEJORADO
+    ========================= */
     document.querySelectorAll(".stock-input").forEach(input => {
-
-        let timeout = null;
+        let inputTimeout = null;
 
         input.addEventListener("input", function() {
-
-            // Espera 500ms después de que el usuario deje de escribir
-            clearTimeout(timeout);
-            timeout = setTimeout(() => {
-
+            clearTimeout(inputTimeout);
+            
+            // Guardar valor original
+            const originalValue = this.defaultValue;
+            const newValue = this.value;
+            
+            inputTimeout = setTimeout(() => {
                 const form = this.closest("form");
                 if (!form) return;
 
                 const formData = new FormData(form);
+                const row = this.closest('tr');
+
+                // Mostrar indicador de guardando
+                const spinner = document.createElement('span');
+                spinner.className = 'spinner-border spinner-border-sm ms-1';
+                spinner.style.width = '12px';
+                spinner.style.height = '12px';
+                this.parentNode.appendChild(spinner);
 
                 fetch("{% url 'inventario' %}", {
                     method: "POST",
@@ -782,29 +957,315 @@ document.addEventListener("DOMContentLoaded", function() {
                 })
                 .then(resp => resp.json())
                 .then(data => {
+                    spinner.remove();
+                    
                     if (data.success) {
-                        // Opcional: mostrar mensaje visual al lado del input
-                        if (!this.nextElementSibling || !this.nextElementSibling.classList.contains("saved-msg")) {
-                            const span = document.createElement("span");
-                            span.className = "saved-msg text-success small ms-1";
-                            span.innerText = "✔ guardado";
-                            this.parentNode.appendChild(span);
-                            setTimeout(() => span.remove(), 1500);
-                        }
+                        // Resaltar fila
+                        row.classList.add('highlight');
+                        setTimeout(() => row.classList.remove('highlight'), 1000);
+                        
+                        // Mostrar check de guardado
+                        const savedMsg = document.createElement('span');
+                        savedMsg.className = 'saved-msg';
+                        savedMsg.innerHTML = '✓';
+                        this.parentNode.appendChild(savedMsg);
+                        setTimeout(() => savedMsg.remove(), 1500);
+                        
+                        // Actualizar valor por defecto
+                        this.defaultValue = this.value;
                     } else {
-                        console.error("Error guardando stock", data.error);
+                        // Restaurar valor original
+                        this.value = originalValue;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.error || 'Error al guardar',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
                     }
                 })
-                .catch(err => console.error("Error en la petición:", err));
-
-            }, 100);
-
+                .catch(err => {
+                    spinner.remove();
+                    console.error("Error:", err);
+                    this.value = originalValue;
+                });
+            }, 500);
         });
-
     });
 
+    /* =========================
+       VALIDAR FOLIO AJAX
+    ========================= */
+    if (folioInput && btnGuardar) {
+        folioInput.addEventListener("keyup", function() {
+            clearTimeout(timeout);
+
+            timeout = setTimeout(() => {
+                const folio = this.value.trim().toUpperCase();
+
+                if (!folio) {
+                    limpiarError();
+                    btnGuardar.disabled = false;
+                    return;
+                }
+
+                fetch(`/validar-folio/?folio=${folio}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.existe) {
+                        mostrarError("⚠ Ya existe un producto con ese folio");
+                        btnGuardar.disabled = true;
+                    } else {
+                        limpiarError();
+                        btnGuardar.disabled = false;
+                    }
+                });
+            }, 350);
+        });
+
+        function mostrarError(mensaje) {
+            let errorDiv = document.getElementById("folio-error");
+            if (!errorDiv) {
+                errorDiv = document.createElement("div");
+                errorDiv.id = "folio-error";
+                errorDiv.classList.add("text-danger", "small", "mt-1");
+                folioInput.parentNode.appendChild(errorDiv);
+            }
+            errorDiv.innerText = mensaje;
+            errorDiv.style.display = 'block';
+        }
+
+        function limpiarError() {
+            const errorDiv = document.getElementById("folio-error");
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+            }
+        }
+    }
+
+    /* =========================
+       FILTROS EN TIEMPO REAL
+    ========================= */
+    function aplicarFiltros() {
+        if (!buscarInventario || !tablaInventario) return;
+
+        const params = new URLSearchParams({
+            nombre: buscarInventario.value,
+            categoria: categoriaFiltro?.value || ''
+        });
+
+        // Mostrar indicador de carga
+        tablaInventario.style.opacity = '0.5';
+        
+        fetch(window.location.pathname + "?" + params.toString(), {
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+        })
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            const nuevaTabla = doc.getElementById("tabla-inventario");
+
+            if (nuevaTabla) {
+                tablaInventario.innerHTML = nuevaTabla.innerHTML;
+                tablaInventario.style.opacity = '1';
+                
+                // Actualizar totales
+                const nuevoTotal = doc.querySelector('.badge.bg-light');
+                if (nuevoTotal) {
+                    document.querySelector('.badge.bg-light').innerHTML = nuevoTotal.innerHTML;
+                }
+                
+                // Re-inicializar eventos
+                inicializarEventosTabla();
+            }
+        })
+        .catch(() => {
+            tablaInventario.style.opacity = '1';
+        });
+    }
+
+    if (buscarInventario) {
+        buscarInventario.addEventListener("keyup", function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(aplicarFiltros, 300);
+        });
+    }
+
+    if (categoriaFiltro) {
+        categoriaFiltro.addEventListener("change", aplicarFiltros);
+    }
+
+    /* =========================
+       SELECTOR DE FILAS POR PÁGINA
+    ========================= */
+    if (selectPageSize) {
+        selectPageSize.addEventListener('change', function() {
+            const url = new URL(window.location);
+            url.searchParams.set('page_size', this.value);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+        });
+    }
+
+    /* =========================
+       CONFIRMAR ELIMINACIÓN CATEGORÍA
+    ========================= */
+    document.querySelectorAll('.btn-eliminar-categoria').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const form = this.closest('form');
+            const nombre = this.dataset.nombre;
+            const productos = parseInt(this.dataset.productos);
+
+            let mensaje = `¿Eliminar la categoría "${nombre}"?`;
+            if (productos > 0) {
+                mensaje = `La categoría "${nombre}" tiene ${productos} producto(s) asociado(s). ¿Eliminar de todas formas?`;
+            }
+
+            Swal.fire({
+                title: 'Confirmar eliminación',
+                text: mensaje,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+
+    /* =========================
+       CONFIRMAR ELIMINACIÓN PRODUCTO
+    ========================= */
+    window.confirmarEliminacion = function(productoId) {
+        Swal.fire({
+            title: '¿Eliminar producto?',
+            text: 'Esta acción no se puede deshacer',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Aquí iría la lógica para eliminar
+                window.location.href = `/eliminar-producto/${productoId}/`;
+            }
+        });
+    };
+
+    /* =========================
+       INICIALIZAR EVENTOS DE TABLA
+    ========================= */
+    function inicializarEventosTabla() {
+        // Re-inicializar auto-save para nuevos inputs
+        document.querySelectorAll(".stock-input").forEach(input => {
+            if (!input.hasAttribute('data-initialized')) {
+                input.setAttribute('data-initialized', 'true');
+                
+                let inputTimeout;
+                input.addEventListener("input", function() {
+                    clearTimeout(inputTimeout);
+                    inputTimeout = setTimeout(() => {
+                        const form = this.closest("form");
+                        if (form) {
+                            const event = new Event('change');
+                            this.dispatchEvent(event);
+                        }
+                    }, 500);
+                });
+            }
+        });
+    }
+
+    inicializarEventosTabla();
+    actualizarContadorSeleccionados();
+
+    /* =========================
+       TOOLTIPS DE BOOTSTRAP
+    ========================= */
+    const tooltipTriggerList = document.querySelectorAll('[title]');
+    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => {
+        return new bootstrap.Tooltip(tooltipTriggerEl, {
+            placement: 'top'
+        });
+    });
+
+    /* =========================
+       CONTROL MODAL PRODUCTO
+    ========================= */
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+
+        // Si hay errores o editar, mostrar modal
+        {% if form_producto.errors or request.GET.editar %}
+        modal.show();
+        {% endif %}
+
+        modalElement.addEventListener("hide.bs.modal", function() {
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
+        });
+
+        modalElement.addEventListener("hidden.bs.modal", function() {
+            if (formProducto) formProducto.reset();
+            limpiarError();
+            if (btnGuardar) btnGuardar.disabled = false;
+
+            const url = new URL(window.location);
+            url.searchParams.delete("editar");
+            window.history.replaceState({}, document.title, url.pathname);
+        });
+    }
+
+    /* =========================
+       IMPORTAR EXCEL - VALIDACIÓN
+    ========================= */
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (!['xlsx', 'xls'].includes(ext)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Archivo inválido',
+                        text: 'Por favor selecciona un archivo Excel (.xlsx o .xls)'
+                    });
+                    this.value = '';
+                }
+            }
+        });
+    }
+
+    const formImportar = document.getElementById('form-importar');
+    if (formImportar) {
+        formImportar.addEventListener('submit', function(e) {
+            const file = fileInput?.files[0];
+            if (!file) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Selecciona un archivo',
+                    text: 'Debes seleccionar un archivo Excel para importar'
+                });
+            }
+        });
+    }
 });
 </script>
+
+<!-- Script del Scanner (ya existente) -->
 <script>
 let scannerActivo = false;
 let html5QrCode;
@@ -816,39 +1277,40 @@ const reader = document.getElementById('reader');
 const formFields = document.querySelectorAll('#modalProducto .modal-body > div:not(#scannerContainer)');
 const inputFolio = document.getElementById('id_no_folio');
 
-btnScan.addEventListener('click', () => {
+if (btnScan) {
+    btnScan.addEventListener('click', () => {
+        formFields.forEach(div => div.style.display = 'none');
+        scannerContainer.style.display = 'block';
+        reader.innerHTML = '<div class="scan-line"></div>';
+        iniciarScanner();
+    });
+}
 
-    formFields.forEach(div => div.style.display = 'none');
-    scannerContainer.style.display = 'block';
+if (btnVolverScanner) {
+    btnVolverScanner.addEventListener('click', cerrarScanner);
+}
 
-    reader.innerHTML = '<div class="scan-line"></div>';
-
-    iniciarScanner();
-
-});
-
-btnVolverScanner.addEventListener('click', cerrarScanner);
-
-function iniciarScanner(){
-
+function iniciarScanner() {
     html5QrCode = new Html5Qrcode("reader");
 
     Html5Qrcode.getCameras().then(devices => {
-
-        if(!devices.length){
-            alert("No se encontró cámara");
+        if (!devices.length) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Sin cámara',
+                text: 'No se encontró ninguna cámara'
+            });
             return;
         }
 
-        // 🔎 Buscar cámara trasera
+        // Buscar cámara trasera
         let cameraId = devices.find(d =>
             d.label.toLowerCase().includes("back") ||
             d.label.toLowerCase().includes("rear") ||
             d.label.toLowerCase().includes("environment")
         )?.id;
 
-        // Si no encuentra, usa la última (normalmente la trasera)
-        if(!cameraId){
+        if (!cameraId) {
             cameraId = devices[devices.length - 1].id;
         }
 
@@ -857,7 +1319,6 @@ function iniciarScanner(){
             {
                 fps: 20,
                 qrbox: { width: 300, height: 150 },
-
                 formatsToSupport: [
                     Html5QrcodeSupportedFormats.EAN_13,
                     Html5QrcodeSupportedFormats.EAN_8,
@@ -867,42 +1328,49 @@ function iniciarScanner(){
                     Html5QrcodeSupportedFormats.CODE_39
                 ]
             },
-
             (decodedText) => {
-
+                // Reproducir sonido
                 new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg").play();
-                navigator.vibrate?.(200);
+                
+                // Vibrar si es compatible
+                if (navigator.vibrate) navigator.vibrate(200);
 
                 inputFolio.value = decodedText;
                 inputFolio.dispatchEvent(new Event('input'));
 
-                cerrarScanner();
-            }
+                // Mostrar notificación de éxito
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Código escaneado',
+                    text: decodedText,
+                    timer: 1500,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
 
+                cerrarScanner();
+            },
+            (errorMessage) => {
+                // Error de escaneo - ignorar
+            }
         );
 
         scannerActivo = true;
-
     });
-
 }
 
-function cerrarScanner(){
-
-    if(scannerActivo && html5QrCode){
-
-        html5QrCode.stop().then(()=>{
+function cerrarScanner() {
+    if (scannerActivo && html5QrCode) {
+        html5QrCode.stop().then(() => {
             reader.innerHTML = "";
         });
-
         scannerActivo = false;
     }
 
     scannerContainer.style.display = 'none';
     formFields.forEach(div => div.style.display = '');
-
 }
 </script>
-
 
 {% endblock %}
