@@ -71,6 +71,8 @@ urlpatterns = [
     path('productos-vendidos/', views.productos_vendidos, name='productos_vendidos'),
     path('venta/<int:venta_id>/', views.detalle_venta, name='detalle_venta'),
     path('api/ultimas-ventas/', views.ultimas_ventas, name='ultimas_ventas'),
+    path('actualizar-producto-desde-venta/', views.actualizar_producto_desde_venta, name='actualizar_producto_desde_venta'),
+    path('api/obtener-stock-producto/', views.obtener_stock_producto_api, name='obtener_stock_producto'),
 
 
 

@@ -50,12 +50,12 @@ def importar_productos_excel(archivo_excel, sucursal):
 
         productos_referencia = {p.referencia: p for p in Producto.objects.all() if p.referencia}
 
+        # Solo necesitamos stocks_db para verificar existencia, no para actualizar
         stocks_db = {s.producto_id: s for s in Stock.objects.filter(sucursal=sucursal)}
 
         nuevos_productos = []
         productos_actualizar = []
         nuevos_stocks = []
-        stocks_actualizar = []
 
         ultimo = Producto.objects.order_by('-id').first()
 
@@ -133,9 +133,9 @@ def importar_productos_excel(archivo_excel, sucursal):
                     precio_mayoreo = 0
 
                 # -------------------------
-                # STOCK
+                # STOCK - SOLO PARA PRODUCTOS NUEVOS
                 # -------------------------
-
+                # Leemos el stock solo para productos nuevos, pero NO actualizamos existentes
                 stock_fisico = row.get("stock_fisico", 0)
                 stock_virtual = row.get("stock_virtual", 0)
 
@@ -199,24 +199,34 @@ def importar_productos_excel(archivo_excel, sucursal):
 
                 if producto:
 
+                    # ==========================================
+                    # PRODUCTO EXISTENTE - SOLO ACTUALIZAR DATOS
+                    # EL STOCK NO SE TOCA
+                    # ==========================================
+                    
                     producto.nombre = nombre
                     producto.descripcion = descripcion
                     producto.categoria = categoria
                     producto.precio = precio
                     producto.precio_mayoreo = precio_mayoreo
                     
+                    # Verificar si la unidad de medida cambió (opcional)
+                    if unidad_medida:
+                        producto.unidad_medida = unidad_medida
+                    
                     productos_actualizar.append(producto)
-                    stock = stocks_db.get(producto.id)
-
-                    if stock:
-                        stock.stock_fisico = stock_fisico
-                        stock.stock_virtual = stock_virtual
-                        stocks_actualizar.append(stock)
-
+                    
+                    # IMPORTANTE: NO se actualiza el stock
+                    # El stock permanece exactamente como está en la base de datos
+                    
                     actualizados += 1
 
                 else:
 
+                    # ==========================================
+                    # PRODUCTO NUEVO - CREAR CON STOCK
+                    # ==========================================
+                    
                     if not no_folio or no_folio in productos_folio:
                         no_folio = generar_folio()
 
@@ -236,7 +246,7 @@ def importar_productos_excel(archivo_excel, sucursal):
                     productos_folio[no_folio] = nuevo
                     productos_referencia[referencia] = nuevo
 
-                    # guardar stock para después
+                    # Guardar stock solo para productos nuevos
                     nuevo._stock_fisico = stock_fisico
                     nuevo._stock_virtual = stock_virtual
 
@@ -244,10 +254,10 @@ def importar_productos_excel(archivo_excel, sucursal):
 
             except Exception as e:
 
-                errores.append(str(e))
+                errores.append(f"Fila {i+2}: {str(e)}")
 
         # -------------------------
-        # CREAR PRODUCTOS
+        # CREAR PRODUCTOS NUEVOS
         # -------------------------
 
         if nuevos_productos:
@@ -255,24 +265,18 @@ def importar_productos_excel(archivo_excel, sucursal):
             Producto.objects.bulk_create(nuevos_productos)
 
         # -------------------------
-        # ACTUALIZAR PRODUCTOS
+        # ACTUALIZAR PRODUCTOS EXISTENTES
         # -------------------------
 
         if productos_actualizar:
 
             Producto.objects.bulk_update(
                 productos_actualizar,
-                ["nombre", "descripcion", "categoria", "precio", "precio_mayoreo"]
+                ["nombre", "descripcion", "categoria", "precio", "precio_mayoreo", "unidad_medida"]
             )
 
-            if stocks_actualizar:
-                Stock.objects.bulk_update(
-                    stocks_actualizar,
-                    ["stock_fisico", "stock_virtual"]
-                )
-
         # -------------------------
-        # CREAR STOCK
+        # CREAR STOCK SOLO PARA PRODUCTOS NUEVOS
         # -------------------------
 
         for producto in nuevos_productos:
@@ -298,5 +302,7 @@ def importar_productos_excel(archivo_excel, sucursal):
         "actualizados": actualizados,
         "categorias": categorias_creadas,
         "ignorados": filas_ignoradas,
-        "errores": len(errores)
+        "errores": len(errores),
+        "detalle_errores": errores[:10] if errores else [],
+        "mensaje": f"{actualizados} productos actualizados (stock preservado), {creados} productos nuevos creados"
     }

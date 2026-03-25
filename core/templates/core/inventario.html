@@ -71,6 +71,167 @@
     </div>
 </div>
 
+<!-- Modal de configuración de impresión -->
+<div class="modal fade" id="modalConfigurarImpresion" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-printer"></i> Configurar impresión de etiquetas
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formConfigurarImpresion" method="POST" action="{% url 'imprimir_etiquetas_masivo' %}" target="_blank">
+                {% csrf_token %}
+                <input type="hidden" name="productos" id="productos_para_imprimir">
+                
+                <div class="modal-body">
+                    <!-- Vista previa -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <i class="bi bi-eye"></i> Vista previa
+                        </div>
+                        <div class="card-body text-center" id="vista-previa">
+                            <div class="border p-3 d-inline-block" style="background: white;">
+                                <div id="preview-etiqueta" style="width: 200px; height: 120px; border: 1px dashed #ccc; position: relative; background: white;">
+                                    <!-- Vista previa generada con JavaScript -->
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">Vista previa aproximada - el tamaño real dependerá de la impresora</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tamaño de etiqueta -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-rulers"></i> Tamaño de etiqueta
+                            </label>
+                            <select name="tamano_etiqueta" id="tamano_etiqueta" class="form-select">
+                                <option value="3x2">Muy pequeña (3cm x 2cm)</option>
+                                <option value="4x2.5" selected>Pequeña (4cm x 2.5cm)</option>
+                                <option value="5x3">Mediana (5cm x 3cm)</option>
+                                <option value="6x4">Grande (6cm x 4cm)</option>
+                                <option value="custom">Personalizado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3" id="custom-ancho-container" style="display: none;">
+                            <label class="form-label">Ancho (cm)</label>
+                            <input type="number" name="ancho_personalizado" id="ancho_personalizado" class="form-control" step="0.5" min="2" max="10" value="5">
+                        </div>
+                        <div class="col-md-3" id="custom-alto-container" style="display: none;">
+                            <label class="form-label">Alto (cm)</label>
+                            <input type="number" name="alto_personalizado" id="alto_personalizado" class="form-control" step="0.5" min="1.5" max="8" value="3">
+                        </div>
+                    </div>
+                    
+                    <!-- Qué mostrar -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <i class="bi bi-eye-slash"></i> Elementos a mostrar
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="mostrar_nombre" id="mostrar_nombre" checked>
+                                        <label class="form-check-label" for="mostrar_nombre">
+                                            <i class="bi bi-fonts"></i> Nombre
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="mostrar_folio" id="mostrar_folio" checked>
+                                        <label class="form-check-label" for="mostrar_folio">
+                                            <i class="bi bi-upc-scan"></i> Folio
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="mostrar_referencia" id="mostrar_referencia">
+                                        <label class="form-check-label" for="mostrar_referencia">
+                                            <i class="bi bi-tag"></i> Referencia
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="mostrar_precio" id="mostrar_precio" checked>
+                                        <label class="form-check-label" for="mostrar_precio">
+                                            <i class="bi bi-cash"></i> Precio
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="mostrar_numero_codigo" id="mostrar_numero_codigo" checked>
+                                        <label class="form-check-label" for="mostrar_numero_codigo">
+                                            <i class="bi bi-123"></i> Número debajo del código
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Configuración del código de barras -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <i class="bi bi-upc-scan"></i> Configuración del código de barras
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Altura (cm)</label>
+                                    <select name="altura_codigo" id="altura_codigo" class="form-select">
+                                        <option value="0.6">Pequeña (0.6cm)</option>
+                                        <option value="0.8" selected>Mediana (0.8cm)</option>
+                                        <option value="1.0">Grande (1.0cm)</option>
+                                        <option value="1.2">Extra grande (1.2cm)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Ancho de barra (mm)</label>
+                                    <select name="ancho_barra" id="ancho_barra" class="form-select">
+                                        <option value="0.02">Muy fino (0.2mm)</option>
+                                        <option value="0.03" selected>Fino (0.3mm)</option>
+                                        <option value="0.04">Normal (0.4mm)</option>
+                                        <option value="0.05">Grueso (0.5mm)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Fuente del número</label>
+                                    <select name="fuente_numero" id="fuente_numero" class="form-select">
+                                        <option value="7">Pequeña (7pt)</option>
+                                        <option value="8" selected>Normal (8pt)</option>
+                                        <option value="9">Mediana (9pt)</option>
+                                        <option value="10">Grande (10pt)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="btnImprimirConfigurado">
+                        <i class="bi bi-printer"></i> Imprimir etiquetas
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- =======================
  ENCABEZADO
 ======================== -->
@@ -404,7 +565,8 @@
 
 <!-- Botón de impresión mejorado -->
 <div class="d-flex align-items-center gap-2 mt-3">
-    <button type="submit" form="form-imprimir" class="btn btn-primary" id="btn-imprimir">
+   <!-- Reemplaza el botón de imprimir original por este -->
+    <button type="button" class="btn btn-primary" id="btn-imprimir" title="Imprimir etiquetas">
         <i class="bi bi-printer"></i> Imprimir etiquetas 
         <span class="badge bg-light text-dark ms-2" id="selected-count-badge">0</span>
     </button>
@@ -1371,6 +1533,179 @@ function cerrarScanner() {
     scannerContainer.style.display = 'none';
     formFields.forEach(div => div.style.display = '');
 }
+
+
+// Script para configuración de impresión
+document.addEventListener('DOMContentLoaded', function() {
+    // Elementos del DOM
+    const tamanoEtiqueta = document.getElementById('tamano_etiqueta');
+    const anchoPersonalizado = document.getElementById('ancho_personalizado');
+    const altoPersonalizado = document.getElementById('alto_personalizado');
+    const customAnchoContainer = document.getElementById('custom-ancho-container');
+    const customAltoContainer = document.getElementById('custom-alto-container');
+    
+    // Mostrar/ocultar campos personalizados
+    tamanoEtiqueta.addEventListener('change', function() {
+        const isCustom = this.value === 'custom';
+        customAnchoContainer.style.display = isCustom ? 'block' : 'none';
+        customAltoContainer.style.display = isCustom ? 'block' : 'none';
+        actualizarVistaPrevia();
+    });
+    
+    // Actualizar vista previa cuando cambie cualquier opción
+    const elementosActualizar = [
+        'tamano_etiqueta', 'ancho_personalizado', 'alto_personalizado',
+        'mostrar_nombre', 'mostrar_folio', 'mostrar_referencia', 
+        'mostrar_precio', 'mostrar_numero_codigo', 'altura_codigo', 
+        'ancho_barra', 'fuente_numero'
+    ];
+    
+    elementosActualizar.forEach(id => {
+        const elemento = document.getElementById(id);
+        if (elemento) {
+            elemento.addEventListener('change', actualizarVistaPrevia);
+            if (elemento.type === 'checkbox') {
+                elemento.addEventListener('click', actualizarVistaPrevia);
+            }
+        }
+    });
+    
+    // Función para actualizar vista previa
+    function actualizarVistaPrevia() {
+        // Obtener configuración
+        let anchoCm = 4, altoCm = 2.5;
+        
+        if (tamanoEtiqueta.value === 'custom') {
+            anchoCm = parseFloat(anchoPersonalizado.value) || 4;
+            altoCm = parseFloat(altoPersonalizado.value) || 2.5;
+        } else {
+            const tamaños = {
+                '3x2': [3, 2],
+                '4x2.5': [4, 2.5],
+                '5x3': [5, 3],
+                '6x4': [6, 4]
+            };
+            [anchoCm, altoCm] = tamaños[tamanoEtiqueta.value] || [4, 2.5];
+        }
+        
+        // Escalar para vista previa (1cm = 20px)
+        const anchoPx = anchoCm * 20;
+        const altoPx = altoCm * 20;
+        
+        // Actualizar tamaño del contenedor de vista previa
+        const previewDiv = document.getElementById('preview-etiqueta');
+        previewDiv.style.width = `${anchoPx}px`;
+        previewDiv.style.height = `${altoPx}px`;
+        
+        // Obtener opciones
+        const mostrarNombre = document.getElementById('mostrar_nombre').checked;
+        const mostrarFolio = document.getElementById('mostrar_folio').checked;
+        const mostrarReferencia = document.getElementById('mostrar_referencia').checked;
+        const mostrarPrecio = document.getElementById('mostrar_precio').checked;
+        const mostrarNumeroCodigo = document.getElementById('mostrar_numero_codigo').checked;
+        const alturaCodigo = parseFloat(document.getElementById('altura_codigo').value);
+        const fuenteNumero = document.getElementById('fuente_numero').value;
+        
+        // Datos de ejemplo para vista previa
+        const productoEjemplo = {
+            nombre: 'Producto Ejemplo',
+            folio: '750123456789',
+            referencia: 'REF-001',
+            precio: '99.99'
+        };
+        
+        // Generar HTML de vista previa
+        let previewHtml = `<div style="width:100%; height:100%; position:relative; font-family: monospace; font-size: 10px; padding: 2px;">`;
+        
+        let posY = 5;
+        
+        if (mostrarNombre) {
+            previewHtml += `<div style="text-align:center; font-weight:bold; font-size: 8px; margin-bottom: 2px;">${productoEjemplo.nombre}</div>`;
+            posY += 10;
+        }
+        
+        if (mostrarFolio) {
+            previewHtml += `<div style="text-align:center; font-size: 6px;">FOLIO: ${productoEjemplo.folio}</div>`;
+            posY += 8;
+        }
+        
+        if (mostrarReferencia) {
+            previewHtml += `<div style="text-align:center; font-size: 6px;">REF: ${productoEjemplo.referencia}</div>`;
+            posY += 8;
+        }
+        
+        if (mostrarPrecio) {
+            previewHtml += `<div style="text-align:center; font-weight:bold; font-size: 10px; color: #2c3e50;">$${productoEjemplo.precio}</div>`;
+            posY += 12;
+        }
+        
+        // Simular código de barras
+        const alturaBarraPx = alturaCodigo * 20;
+        previewHtml += `
+            <div style="position: absolute; bottom: ${mostrarNumeroCodigo ? 15 : 5}px; left: 10%; width: 80%;">
+                <div style="background: repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px); height: ${alturaBarraPx}px;"></div>
+        `;
+        
+        if (mostrarNumeroCodigo) {
+            previewHtml += `<div style="text-align:center; font-size: ${fuenteNumero}px; margin-top: 2px;">${productoEjemplo.folio}</div>`;
+        }
+        
+        previewHtml += `</div>`;
+        previewHtml += `</div>`;
+        
+        previewDiv.innerHTML = previewHtml;
+    }
+    
+    // Manejar envío del formulario
+    document.getElementById('formConfigurarImpresion').addEventListener('submit', function(e) {
+        // Los productos ya deberían estar seleccionados
+        const productosSeleccionados = [];
+        document.querySelectorAll('input[name="productos"]:checked').forEach(cb => {
+            productosSeleccionados.push(cb.value);
+        });
+        
+        if (productosSeleccionados.length === 0) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sin selección',
+                text: 'Selecciona al menos un producto para imprimir'
+            });
+            return;
+        }
+        
+        document.getElementById('productos_para_imprimir').value = JSON.stringify(productosSeleccionados);
+    });
+    
+    // Botón para abrir modal de configuración
+    const btnImprimirOriginal = document.getElementById('btn-imprimir');
+    if (btnImprimirOriginal) {
+        btnImprimirOriginal.addEventListener('click', function(e) {
+            e.preventDefault();
+            // Recoger productos seleccionados
+            const productosSeleccionados = [];
+            document.querySelectorAll('input[name="productos"]:checked').forEach(cb => {
+                productosSeleccionados.push(cb.value);
+            });
+            
+            if (productosSeleccionados.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sin selección',
+                    text: 'Selecciona al menos un producto para imprimir'
+                });
+                return;
+            }
+            
+            // Mostrar modal de configuración
+            const modal = new bootstrap.Modal(document.getElementById('modalConfigurarImpresion'));
+            modal.show();
+            
+            // Actualizar vista previa con el primer producto seleccionado
+            actualizarVistaPrevia();
+        });
+    }
+});
 </script>
 
 {% endblock %}

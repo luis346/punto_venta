@@ -5,24 +5,17 @@ let usarMayoreo = false;
 let filaSeleccionada = null;
 let productos_temporales = null;
 let password_admin = '';
-let borrando = false;
 
 /***************************************
- * APLICAR PRECIO MAYOREO (VERIFICADA)
+ * APLICAR PRECIO MAYOREO
  ***************************************/
 function aplicarPrecioMayoreo(activar) {
-    console.log("Aplicar mayoreo:", activar);
-    
     $('#tabla-productos tbody tr').each(function () {
         const fila = $(this);
-        
-        // Saltar fila vacía
         if (fila.attr('id') === 'fila-vacia') return;
         
         const precioNormal = fila.data('precio-normal');
         const precioMayoreo = fila.data('precio-mayoreo');
-        
-        console.log("Fila - normal:", precioNormal, "mayoreo:", precioMayoreo);
         
         let precio;
         if (activar && precioMayoreo) {
@@ -30,28 +23,24 @@ function aplicarPrecioMayoreo(activar) {
         } else if (precioNormal) {
             precio = precioNormal;
         } else {
-            return; // No hay precio, salir
+            return;
         }
 
         fila.find('.precio').text(parseFloat(precio).toFixed(2));
         fila.find('.cantidad').data('precio', precio);
     });
 
-    if (typeof actualizarTotales === 'function') {
-        actualizarTotales();
-    }
+    if (typeof actualizarTotales === 'function') actualizarTotales();
 }
 
 /***************************************
- * VALIDAR STOCK GLOBAL POR PRODUCTO
+ * VALIDAR STOCK GLOBAL
  ***************************************/
 function validarStockGlobal() {
     const acumulado = {};
 
     $('#tabla-productos tbody tr').each(function () {
         const fila = $(this);
-        
-        // Saltar fila vacía si existe
         if (fila.attr('id') === 'fila-vacia') return;
         
         const inputFolio = fila.find('input[data-tipo="no_folio"]');
@@ -68,10 +57,7 @@ function validarStockGlobal() {
         const stock = parseInt(stockData);
 
         if (!acumulado[no_folio]) {
-            acumulado[no_folio] = {
-                total: 0,
-                stock: stock
-            };
+            acumulado[no_folio] = { total: 0, stock: stock };
         }
 
         acumulado[no_folio].total += cantidad;
@@ -101,8 +87,6 @@ function actualizarTotales() {
 
     $('#tabla-productos tbody tr').each(function () {
         const fila = $(this);
-        
-        // Saltar fila vacía
         if (fila.attr('id') === 'fila-vacia') return;
         
         const precio = parseFloat(fila.find('.precio').text()) || 0;
@@ -115,10 +99,8 @@ function actualizarTotales() {
         total += totalFila;
     });
 
-    // Actualizar subtotal en el footer
     $('#subtotal').text(subtotal.toFixed(2));
     
-    // Aplicar descuento global si existe
     const descuentoGlobal = $('#descuento').val();
     if (descuentoGlobal && descuentoGlobal !== 'producto' && descuentoGlobal !== '') {
         const descuentoMonto = subtotal * (parseFloat(descuentoGlobal) / 100);
@@ -130,8 +112,6 @@ function actualizarTotales() {
     }
 
     $('#total-general').text(total.toFixed(2));
-    
-    // Actualizar contador de productos
     actualizarContadorProductos();
     
     return total;
@@ -144,7 +124,6 @@ function actualizarContadorProductos() {
     const numProductos = $('#tabla-productos tbody tr.fila-producto').filter(function() {
         return $(this).find('input[data-tipo="no_folio"]').val().trim() !== '';
     }).length;
-    
     $('#contador-productos').text(numProductos);
 }
 
@@ -159,8 +138,6 @@ function buscarProductoExistente(no_folio) {
 
     $('#tabla-productos tbody tr').each(function() {
         const fila = $(this);
-        
-        // Saltar fila vacía
         if (fila.attr('id') === 'fila-vacia') return;
         
         const input = fila.find('input[data-tipo="no_folio"]');
@@ -181,11 +158,8 @@ function buscarProductoExistente(no_folio) {
  ***************************************/
 function resaltarFila(fila) {
     if (!fila || !fila.length) return;
-    
     fila.addClass('table-warning');
-    setTimeout(function() {
-        fila.removeClass('table-warning');
-    }, 600);
+    setTimeout(() => fila.removeClass('table-warning'), 600);
 }
 
 /***************************************
@@ -197,11 +171,14 @@ function limpiarFila(fila) {
     fila.find('input[data-tipo="no_folio"]').val('');
     fila.find('input[data-tipo="nombre"]').val('');
     fila.find('.precio, .total').text('');
-    fila.find('.cantidad')
-        .val(1)
-        .prop('disabled', true)
-        .removeData('precio')
-        .removeData('stock_fisico');
+    fila.find('.cantidad').val(1).prop('disabled', true).removeData('precio').removeData('stock_fisico');
+    
+    const btnActualizar = fila.find('.btn-actualizar-producto');
+    if (btnActualizar.length) {
+        btnActualizar.prop('disabled', true).attr('data-producto-id', '').attr('data-producto-nombre', '').attr('data-precio', '0').attr('data-precio-mayoreo', '0');
+    }
+    
+    fila.removeData('precio-normal').removeData('precio-mayoreo').removeAttr('data-producto-id');
 }
 
 /***************************************
@@ -220,7 +197,6 @@ function eliminarFila(fila) {
         filaSeleccionada = siguiente.length ? siguiente : null;
     }
 
-    // Mostrar fila vacía si no hay productos
     if ($('#tabla-productos tbody tr.fila-producto').length === 0) {
         $('#fila-vacia').show();
     } else {
@@ -238,72 +214,49 @@ function limpiarVentaCompleta() {
     $('#fila-vacia').show();
     agregarFila();
     
-    $('#total-general').text('0.00');
-    $('#subtotal').text('0.00');
+    $('#total-general, #subtotal').text('0.00');
     $('#contador-productos').text('0');
-    $('#monto_pagado').val('');
-    $('#cambio').val('0.00');
+    $('#monto_pagado, #cambio').val('');
     $('#descuento-row').addClass('d-none');
     
-    setTimeout(() => {
-        $('#tabla-productos tbody tr:first input[data-tipo="no_folio"]').focus();
-    }, 50);
+    setTimeout(() => $('#tabla-productos tbody tr:first input[data-tipo="no_folio"]').focus(), 50);
 }
 
 /***************************************
- * INSERTAR PRODUCTO EN FILA (CORREGIDA)
+ * INSERTAR PRODUCTO EN FILA
  ***************************************/
 function seleccionarProducto(data, fila) {
     if (!fila || !fila.length) return;
 
-    console.log("Datos del producto:", {
-        nombre: data.nombre,
-        precio_normal: data.precio,
-        precio_mayoreo: data.precio_mayoreo,
-        usarMayoreo: usarMayoreo
-    });
-
     const filaExistente = buscarProductoExistente(data.no_folio);
 
-    // Si el producto ya existe
+    // Si el producto ya existe en otra fila
     if (filaExistente && filaExistente.length && filaExistente[0] !== fila[0]) {
         const inputCantidad = filaExistente.find('.cantidad');
-        
         if (inputCantidad.length) {
-            let cantidadActual = parseInt(inputCantidad.val()) || 0;
-            let nuevaCantidad = Math.max(1, cantidadActual + 1);
-            
+            let nuevaCantidad = (parseInt(inputCantidad.val()) || 0) + 1;
             inputCantidad.val(nuevaCantidad);
             
             validarStockGlobal();
             actualizarTotales();
             $('#monto_pagado').trigger('input');
-            
             resaltarFila(filaExistente);
-            
-            setTimeout(() => {
-                limpiarFila(fila);
-            }, 10);
+            setTimeout(() => limpiarFila(fila), 10);
         }
         return;
     }
 
-    // Llenar datos - CORREGIDO: Guardar ambos precios
+    // Llenar datos
     fila.find('input[data-tipo="no_folio"]').val(data.no_folio);
     fila.find('input[data-tipo="nombre"]').val(data.nombre);
-
-    // Guardar precios en la fila
+    fila.attr('data-producto-id', data.id);
     fila.data('precio-normal', parseFloat(data.precio));
     
-    // Si viene precio_mayoreo, guardarlo, si no, usar el precio normal
     const precioMayoreo = data.precio_mayoreo ? parseFloat(data.precio_mayoreo) : parseFloat(data.precio);
     fila.data('precio-mayoreo', precioMayoreo);
-    
     fila.data('unidad-medida', data.unidad_medida || '');
 
-    // Determinar qué precio mostrar inicialmente
     const precioInicial = (usarMayoreo && precioMayoreo) ? precioMayoreo : parseFloat(data.precio);
-
     fila.find('.precio').text(precioInicial.toFixed(2));
 
     fila.find('.cantidad')
@@ -311,19 +264,25 @@ function seleccionarProducto(data, fila) {
         .prop('disabled', false)
         .data('precio', precioInicial)
         .data('stock_fisico', parseInt(data.stock_fisico) || 0);
-
     fila.find('.total').text(precioInicial.toFixed(2));
+    
+    // Habilitar botón de actualizar
+    const btnActualizar = fila.find('.btn-actualizar-producto');
+    if (btnActualizar.length) {
+        btnActualizar.prop('disabled', false)
+            .attr('data-producto-id', data.id)
+            .attr('data-producto-nombre', data.nombre)
+            .attr('data-precio', data.precio)
+            .attr('data-precio-mayoreo', data.precio_mayoreo || 0);
+    }
 
     actualizarTotales();
     validarStockGlobal();
 
-    // Crear nueva fila
+    // Crear nueva fila para siguiente producto
     agregarFila();
-
-    // Mover foco inmediatamente
     setTimeout(() => {
-        const nuevaFila = $('#tabla-productos tbody tr:last');
-        nuevaFila.find('input[data-tipo="no_folio"]').focus();
+        $('#tabla-productos tbody tr:last input[data-tipo="no_folio"]').focus();
     }, 50);
 }
 
@@ -331,42 +290,38 @@ function seleccionarProducto(data, fila) {
  * AGREGAR NUEVA FILA
  ***************************************/
 function agregarFila() {
-    // Ocultar fila vacía
     $('#fila-vacia').hide();
+    
+    const puedeVerBoton = window.USER_ROL === 'ADMIN' || window.USER_ROL === 'CAJA' || window.USER_IS_SUPERUSER === true;
+    
+    const botonActualizar = puedeVerBoton ? `
+        <button type="button" class="btn btn-sm btn-info btn-actualizar-producto" style="margin-right: 5px;" disabled>
+            <i class="bi bi-pencil-square"></i>
+        </button>
+    ` : '';
     
     const fila = `
     <tr class="fila-producto">
-        <td>
-            <input type="text"
-                   class="form-control busqueda"
-                   data-tipo="no_folio"
-                   autocomplete="off"
-                   placeholder="Código">
+        <td style="width: 120px;">
+            <input type="text" class="form-control busqueda" data-tipo="no_folio" autocomplete="off" placeholder="Código">
         </td>
         <td>
-            <input type="text"
-                   class="form-control busqueda"
-                   data-tipo="nombre"
-                   autocomplete="off"
-                   placeholder="Nombre"
-                   readonly>
+            <input type="text" class="form-control busqueda" data-tipo="nombre" autocomplete="off" placeholder="Nombre" readonly>
         </td>
-        <td class="precio text-end align-middle"></td>
-        <td>
-            <input type="number"
-                   class="form-control cantidad text-center"
-                   min="1"
-                   value="1"
-                   disabled>
+        <td class="precio text-end align-middle">0.00</td>
+        <td style="width: 100px;">
+            <input type="number" class="form-control cantidad text-center" min="1" value="1" disabled>
         </td>
-        <td class="total text-end align-middle"></td>
-        <td class="text-center">
-            <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-fila" title="Eliminar">
-                <i class="bi bi-trash"></i>
-            </button>
+        <td class="total text-end align-middle">0.00</td>
+        <td class="text-center" style="width: 90px;">
+            <div class="btn-group btn-group-sm">
+                ${botonActualizar}
+                <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-fila" title="Eliminar">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
         </td>
-    </tr>
-    `;
+    </tr>`;
 
     $('#tabla-productos tbody').append(fila);
 }
@@ -379,8 +334,6 @@ function obtenerProductos() {
 
     $('#tabla-productos tbody tr').each(function () {
         const fila = $(this);
-        
-        // Saltar fila vacía
         if (fila.attr('id') === 'fila-vacia') return;
         
         const inputFolio = fila.find('input[data-tipo="no_folio"]');
@@ -388,27 +341,20 @@ function obtenerProductos() {
         const cantidadInput = fila.find('.cantidad');
         const precioSpan = fila.find('.precio');
         
-        if (!inputFolio.length || !inputNombre.length || !cantidadInput.length || !precioSpan.length) {
-            return;
-        }
+        if (!inputFolio.length || !inputNombre.length || !cantidadInput.length || !precioSpan.length) return;
         
         const no_folio = inputFolio.val()?.trim();
-        const nombre = inputNombre.val()?.trim();
         const cantidad = parseInt(cantidadInput.val()) || 0;
-        const precio_unitario = parseFloat(precioSpan.text()) || 0;
-        const precio_normal = parseFloat(fila.data('precio-normal')) || precio_unitario;
-        const precio_mayoreo = parseFloat(fila.data('precio-mayoreo')) || null;
-        const unidad_medida = fila.data('unidad-medida') || '';
 
         if (no_folio && cantidad > 0) {
             productos.push({
-                no_folio,
-                nombre,
-                cantidad,
-                precio_unitario,
-                precio_normal,
-                precio_mayoreo,
-                unidad_medida
+                no_folio: no_folio,
+                nombre: inputNombre.val()?.trim(),
+                cantidad: cantidad,
+                precio_unitario: parseFloat(precioSpan.text()) || 0,
+                precio_normal: parseFloat(fila.data('precio-normal')) || 0,
+                precio_mayoreo: parseFloat(fila.data('precio-mayoreo')) || null,
+                unidad_medida: fila.data('unidad-medida') || ''
             });
         }
     });
@@ -417,37 +363,12 @@ function obtenerProductos() {
 }
 
 /***************************************
- * VALIDACIÓN MAYOREO
- ***************************************/
-function validarMinimoMayoreo(productos) {
-    if (!usarMayoreo) return true;
-
-    let totalPiezas = 0;
-    productos.forEach(p => {
-        totalPiezas += p.cantidad;
-    });
-
-    if (totalPiezas >= 6) return true;
-    if ($('#permitir_pieza').is(':checked')) return true;
-
-    Swal.fire({
-        title: "Venta mayorista inválida",
-        text: "El mayoreo requiere mínimo 6 piezas.",
-        icon: "warning"
-    });
-
-    return false;
-}
-
-/***************************************
  * ENVÍO DE VENTA
  ***************************************/
 function enviarVenta(productos) {
-    const tipo_cliente = $('select[name="tipo_cliente"]').val();
-
     const data = {
         no_venta: $('input[name="no_venta"]').val(),
-        tipo_cliente: tipo_cliente,
+        tipo_cliente: $('select[name="tipo_cliente"]').val(),
         vendedor: $('select[name="vendedor"]').val(),
         vendedor_nombre: $('select[name="vendedor"] option:selected').text(),
         productos: JSON.stringify(productos),
@@ -463,9 +384,7 @@ function enviarVenta(productos) {
         url: '',
         method: 'POST',
         data: data,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        },
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
         success: function (response) {
             if (response.success) {
                 data.sucursal_nombre = response.sucursal_nombre || '';
@@ -477,15 +396,7 @@ function enviarVenta(productos) {
                 
                 Swal.fire({
                     title: "¡Venta registrada!",
-                    html: `
-                        ¿Deseas imprimir el ticket?<br>
-                        <strong>Total:</strong> $${total.toFixed(2)}<br>
-                        <strong>Pagado:</strong> $${pagado.toFixed(2)}<br>
-                        <strong>Cambio:</strong> 
-                        <span style="color:red; font-size:18px;">
-                            $${cambio.toFixed(2)}
-                        </span>
-                    `,
+                    html: `¿Deseas imprimir el ticket?<br><strong>Total:</strong> $${total.toFixed(2)}<br><strong>Cambio:</strong> $${cambio.toFixed(2)}`,
                     icon: "success",
                     showCancelButton: true,
                     confirmButtonText: "Imprimir",
@@ -499,28 +410,16 @@ function enviarVenta(productos) {
                     }
                 });
             } else if (response.error) {
-                Swal.fire({
-                    title: "Error!",
-                    text: response.error,
-                    icon: "error"
-                });
+                Swal.fire({ title: "Error!", text: response.error, icon: "error" });
             }
         },
         error: function (xhr) {
             let mensajeError = "Error al registrar la venta.";
             try {
                 const responseJson = JSON.parse(xhr.responseText);
-                if (responseJson.error) {
-                    mensajeError = responseJson.error;
-                }
-            } catch (e) {
-                mensajeError = xhr.statusText || mensajeError;
-            }
-            Swal.fire({
-                title: "Error!",
-                text: mensajeError,
-                icon: "error"
-            });
+                if (responseJson.error) mensajeError = responseJson.error;
+            } catch (e) {}
+            Swal.fire({ title: "Error!", text: mensajeError, icon: "error" });
         }
     });
 }
@@ -532,17 +431,7 @@ function registrarVenta() {
     const productos = obtenerProductos();
 
     if (productos.length === 0) {
-        Swal.fire({
-            title: "Ups!",
-            text: "Agrega al menos un producto con cantidad mayor a 0.",
-            icon: "error",
-            timer: 2000,
-            showConfirmButton: false
-        });
-        return;
-    }
-
-    if (!validarMinimoMayoreo(productos)) {
+        Swal.fire({ title: "Ups!", text: "Agrega al menos un producto.", icon: "error", timer: 2000, showConfirmButton: false });
         return;
     }
 
@@ -550,187 +439,389 @@ function registrarVenta() {
 
     if (tipo_cliente === 'mayorista') {
         productos_temporales = productos;
-        if ($('.ui-autocomplete').is(':visible')) {
-            $('.busqueda').autocomplete('close');
-        }
-        document.activeElement?.blur();
         $('#modalPassword').modal('show');
         setTimeout(() => $('#password_admin_input').focus(), 300);
     } else {
         enviarVenta(productos);
     }
 }
-
 /***************************************
- * IMPRIMIR TICKET
+ * IMPRIMIR TICKET - VERSIÓN PROFESIONAL
  ***************************************/
-function armarYImprimirTicket(data) {
-    const productos = typeof data.productos === "string"
-        ? JSON.parse(data.productos)
-        : data.productos;
 
-    const totalCalculado = productos.reduce(
-        (acc, p) => acc + (parseFloat(p.precio_unitario) * parseInt(p.cantidad)),
-        0
-    );
+function redondearTotal(total) {
+    const centavos = total - Math.floor(total);
+    return centavos > 0.60 ? Math.ceil(total) : Math.floor(total);
+}
 
-    const fechaHoraPago = new Date().toLocaleString('es-MX', {
+function formatearNumero(numero) {
+    return new Intl.NumberFormat('es-MX', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(numero);
+}
+
+function formatearFecha(fecha) {
+    return new Intl.DateTimeFormat('es-MX', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
+        second: '2-digit',
         hour12: false
-    });
-
-    const ticketHtml = `
-    <div style="width: 220px; font-family: monospace; font-size: 12px;">
-        <div style="text-align:center;">
-            <img src="${LOGO_URL}" style="width:160px; margin-bottom:5px;" />
-            <div style="font-weight:bold; font-size:14px;">EL OFERTÓN</div>
-            <div>${data.sucursal_nombre || ''}</div>
-            <div>${data.sucursal_direccion || ''}</div>
-        </div>
-        <div style="border-top:1px dashed #000; margin:8px 0;"></div>
-        <div>
-            <div><strong>Folio:</strong> ${data.no_venta}</div>
-            <div><strong>Fecha:</strong> ${fechaHoraPago}</div>
-            <div><strong>Cliente:</strong> ${data.tipo_cliente}</div>
-            <div><strong>Vendedor:</strong> ${data.vendedor_nombre}</div>
-        </div>
-        <div style="border-top:1px dashed #000; margin:8px 0;"></div>
-        <table style="width:100%; font-size:11px;">
-            <thead>
-                <tr>
-                    <th style="text-align:left;">Prod</th>
-                    <th style="text-align:center;">Cant</th>
-                    <th style="text-align:right;">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${productos.map(p => {
-                    const precioNormal = p.precio_normal
-                        ? parseFloat(p.precio_normal)
-                        : parseFloat(p.precio_unitario);
-                    const precioUnitario = parseFloat(p.precio_unitario);
-                    const subtotal = precioUnitario * p.cantidad;
-                    const esMayoreoProducto = precioUnitario < precioNormal;
-
-                    return `
-                        <tr>
-                            <td colspan="3" style="padding-top:4px;">
-                                ${p.nombre}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="font-size:10px;">
-                                ${esMayoreoProducto
-                                    ? `<span style="text-decoration:line-through;">
-                                          $${precioNormal.toFixed(2)}
-                                       </span>
-                                       $${precioUnitario.toFixed(2)}`
-                                    : `$${precioUnitario.toFixed(2)}`
-                                }
-                            </td>
-                            <td style="text-align:center;">
-                                x${p.cantidad}
-                            </td>
-                            <td style="text-align:right;">
-                                $${subtotal.toFixed(2)}
-                            </td>
-                        </tr>
-                    `;
-                }).join('')}
-            </tbody>
-        </table>
-        <div style="border-top:1px dashed #000; margin:8px 0;"></div>
-        <div style="font-size:12px;">
-            <div style="display:flex; justify-content:space-between;">
-                <span>Subtotal:</span>
-                <span>$${totalCalculado.toFixed(2)}</span>
-            </div>
-            ${data.descuento && data.descuento > 0 ? `
-                <div style="display:flex; justify-content:space-between;">
-                    <span>Descuento (${data.descuento}%):</span>
-                    <span>-</span>
-                </div>
-            ` : ''}
-            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; margin-top:4px;">
-                <span>TOTAL:</span>
-                <span>$${totalCalculado.toFixed(2)}</span>
-            </div>
-            <div style="margin-top:6px;">
-                <div><strong>Pago:</strong> ${data.forma_pago}</div>
-                <div><strong>Recibido:</strong> $${parseFloat(data.monto_pagado).toFixed(2)}</div>
-                ${data.cambio !== undefined
-                    ? `<div><strong>Cambio:</strong> $${parseFloat(data.cambio).toFixed(2)}</div>`
-                    : ''
-                }
-            </div>
-        </div>
-        <div style="border-top:1px dashed #000; margin:8px 0;"></div>
-        <div style="text-align:center; font-size:11px;">
-            Gracias por su compra<br>
-            Conserve su ticket
-        </div>
-    </div>
-    `;
-
-    const ventana = window.open('', '', 'width=400,height=600');
-    ventana.document.write(`
-    <html>
-        <head>
-            <title>Ticket</title>
-            <style>
-                body {
-                    font-family: monospace;
-                    font-size: 12px;
-                    padding: 10px;
-                }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                }
-                th {
-                    font-weight: bold;
-                }
-            </style>
-        </head>
-        <body onload="window.print(); window.close();">
-            ${ticketHtml}
-        </body>
-    </html>
-    `);
-    ventana.document.close();
-
-    setTimeout(() => {
-        location.reload();
-    }, 1500);
+    }).format(fecha);
 }
 
+function armarYImprimirTicket(data) {
+    const productos = typeof data.productos === "string" ? JSON.parse(data.productos) : data.productos;
+    const totalOriginal = productos.reduce((acc, p) => acc + (parseFloat(p.precio_unitario) * parseInt(p.cantidad)), 0);
+    const totalRedondeado = redondearTotal(totalOriginal);
+    const fechaActual = new Date();
+    const folioTicket = `${data.no_venta}-${fechaActual.getTime().toString().slice(-6)}`;
+    
+    // Calcular IVA (16% sobre el total)
+    const iva = totalOriginal * 0.16;
+    const subtotal = totalOriginal - iva;
+    
+    // Calcular cambio si existe
+    const cambio = data.cambio ? parseFloat(data.cambio) : 0;
+    
+    const ticketHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Ticket de venta - ${data.no_venta}</title>
+        <style>
+            @page {
+                size: 80mm 297mm;
+                margin: 0;
+            }
+            body {
+                font-family: 'Courier New', monospace;
+                font-size: 11px;
+                width: 80mm;
+                margin: 0 auto;
+                padding: 8px 4px;
+                background: white;
+                color: #000;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            .ticket {
+                width: 100%;
+                max-width: 80mm;
+                margin: 0 auto;
+            }
+            .text-center {
+                text-align: center;
+            }
+            .text-right {
+                text-align: right;
+            }
+            .text-left {
+                text-align: left;
+            }
+            .bold {
+                font-weight: bold;
+            }
+            .dashed-line {
+                border-top: 1px dashed #000;
+                margin: 6px 0;
+            }
+            .double-line {
+                border-top: 2px solid #000;
+                margin: 8px 0;
+            }
+            .logo {
+                max-width: 120px;
+                margin: 0 auto;
+            }
+            .empresa-nombre {
+                font-size: 14px;
+                font-weight: bold;
+                margin: 5px 0 2px;
+            }
+            .empresa-info {
+                font-size: 9px;
+                color: #666;
+                margin: 2px 0;
+            }
+            .folio {
+                font-size: 10px;
+                background: #f5f5f5;
+                padding: 4px;
+                margin: 6px 0;
+                text-align: center;
+            }
+            .producto-item {
+                margin: 4px 0;
+            }
+            .producto-nombre {
+                font-size: 10px;
+                font-weight: 500;
+            }
+            .producto-detalle {
+                font-size: 9px;
+                color: #666;
+                margin-left: 5px;
+            }
+            .totales {
+                margin: 8px 0;
+            }
+            .total-final {
+                font-size: 14px;
+                font-weight: bold;
+                color: #2c3e50;
+                margin: 8px 0;
+            }
+            .leyenda {
+                font-size: 8px;
+                color: #888;
+                text-align: center;
+                margin-top: 12px;
+                padding-top: 8px;
+                border-top: 1px dotted #ccc;
+            }
+            .footer {
+                font-size: 9px;
+                text-align: center;
+                margin-top: 10px;
+                padding-top: 5px;
+            }
+            .qr-code {
+                text-align: center;
+                margin: 8px 0;
+                font-family: monospace;
+                font-size: 8px;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            td {
+                padding: 2px 0;
+            }
+            .producto-cantidad {
+                width: 15%;
+                text-align: center;
+            }
+            .producto-precio {
+                width: 20%;
+                text-align: right;
+            }
+            .producto-total {
+                width: 20%;
+                text-align: right;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ticket">
+            <!-- ENCABEZADO -->
+            <div class="text-center">
+                <div class="logo">
+                    <img src="${LOGO_URL}" style="max-width: 100px; height: auto;" onerror="this.style.display='none'">
+                </div>
+                <div class="empresa-nombre">${data.sucursal_nombre || 'EL OFERTÓN'}</div>
+                <div class="empresa-info">${data.sucursal_direccion || 'Dirección no registrada'}</div>
+                <div class="empresa-info">Tel: ${data.telefono || 'Sin teléfono'}</div>
+            </div>
+            
+            <div class="dashed-line"></div>
+            
+            <!-- INFORMACIÓN DEL TICKET -->
+            <div>
+                <div><strong>FOLIO:</strong> ${data.no_venta}</div>
+                <div><strong>TICKET:</strong> ${folioTicket}</div>
+                <div><strong>FECHA:</strong> ${formatearFecha(fechaActual)}</div>
+                <div><strong>CAJERO(A):</strong> ${data.vendedor_nombre}</div>
+                <div><strong>TIPO CLIENTE:</strong> ${data.tipo_cliente === 'mayorista' ? 'MAYORISTA' : 'PÚBLICO GENERAL'}</div>
+                ${data.tipo_cliente === 'mayorista' ? `<div><strong>DESCUENTO:</strong> ${data.descuento || 0}%</div>` : ''}
+            </div>
+            
+            <div class="dashed-line"></div>
+            
+            <!-- PRODUCTOS -->
+            <div class="bold text-center">PRODUCTOS</div>
+            <div class="dashed-line"></div>
+            
+            <table>
+                <thead>
+                    <tr style="font-size: 9px; border-bottom: 1px solid #ccc;">
+                        <th class="text-left">PRODUCTO</th>
+                        <th class="producto-cantidad">CANT</th>
+                        <th class="producto-precio">P.UNIT</th>
+                        <th class="producto-total">TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${productos.map(p => {
+                        const precioUnitario = parseFloat(p.precio_unitario);
+                        const cantidad = parseInt(p.cantidad);
+                        const totalProducto = precioUnitario * cantidad;
+                        const esMayoreo = p.precio_mayoreo && p.precio_mayoreo < p.precio_normal;
+                        const precioOriginal = p.precio_normal ? parseFloat(p.precio_normal) : precioUnitario;
+                        
+                        return `
+                            <tr>
+                                <td colspan="4" class="producto-nombre">
+                                    ${p.nombre.substring(0, 35)}${p.nombre.length > 35 ? '...' : ''}
+                                    ${esMayoreo ? '<br><span style="font-size: 8px; color: #27ae60;">(Precio mayoreo)</span>' : ''}
+                                </td>
+                            </tr>
+                            <tr style="font-size: 9px;">
+                                <td class="text-left"></td>
+                                <td class="producto-cantidad">${cantidad}</td>
+                                <td class="producto-precio">
+                                    ${esMayoreo ? `<span style="text-decoration: line-through; font-size: 8px;">$${formatearNumero(precioOriginal)}</span><br>$${formatearNumero(precioUnitario)}` : `$${formatearNumero(precioUnitario)}`}
+                                </td>
+                                <td class="producto-total">$${formatearNumero(totalProducto)}</td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+            
+            <div class="dashed-line"></div>
+            
+            <!-- TOTALES -->
+            <div class="totales">
+                <table>
+                    <tr>
+                        <td class="text-left">SUBTOTAL:</td>
+                        <td class="text-right">$${formatearNumero(subtotal)}</td>
+                    </tr>
+                    ${data.descuento && data.descuento > 0 ? `
+                    <tr>
+                        <td class="text-left">DESCUENTO (${data.descuento}%):</td>
+                        <td class="text-right">-$${formatearNumero(totalOriginal * (data.descuento / 100))}</td>
+                    </tr>
+                    ` : ''}
+                    <tr class="bold">
+                        <td class="text-left">TOTAL:</td>
+                        <td class="text-right">$${formatearNumero(totalOriginal)}</td>
+                    </tr>
+                    ${totalRedondeado !== totalOriginal ? `
+                    <tr style="font-size: 9px; color: #666;">
+                        <td class="text-left">REDONDEO:</td>
+                        <td class="text-right">${totalRedondeado > totalOriginal ? '+' : ''}$${formatearNumero(totalRedondeado - totalOriginal)}</td>
+                    </tr>
+                    <tr class="bold total-final">
+                        <td class="text-left">TOTAL A PAGAR:</td>
+                        <td class="text-right">$${formatearNumero(totalRedondeado)}</td>
+                    </tr>
+                    ` : `
+                    <tr class="bold total-final">
+                        <td class="text-left">TOTAL A PAGAR:</td>
+                        <td class="text-right">$${formatearNumero(totalOriginal)}</td>
+                    </tr>
+                    `}
+                </table>
+            </div>
+            
+            <div class="dashed-line"></div>
+            
+            <!-- DATOS DE PAGO -->
+            <div>
+                <div><strong>FORMA DE PAGO:</strong> 
+                    ${data.forma_pago === 'efectivo' ? 'EFECTIVO' : 
+                      data.forma_pago === 'tarjeta' ? 'TARJETA DE CRÉDITO/DÉBITO' : 
+                      data.forma_pago === 'transferencia' ? 'TRANSFERENCIA BANCARIA' : 
+                      data.forma_pago === 'mixto' ? 'PAGO MIXTO' : data.forma_pago.toUpperCase()}
+                </div>
+                <div><strong>MONTO PAGADO:</strong> $${formatearNumero(parseFloat(data.monto_pagado))}</div>
+                ${cambio > 0 ? `<div><strong>CAMBIO:</strong> $${formatearNumero(cambio)}</div>` : ''}
+            </div>
+    
+            <div class="double-line"></div>
+            
+            <!-- LEYENDAS FISCALES Y LEGALES -->
+            <div class="leyenda">
+                <div>Este comprobante no tiene validez fiscal</div>
+                <div>www.el-oferton.mx | Atención: ventas@el-oferton.mx</div>
+            </div>
+            
+            <!-- POLÍTICAS DE DEVOLUCIÓN -->
+            <div class="leyenda" style="border-top: none; margin-top: 5px;">
+                <div><strong>POLÍTICAS DE DEVOLUCIÓN</strong></div>
+                <div>• Cambios hasta 3 días después de la compra</div>
+                <div>• Productos en empaque original y sin usar</div>
+                <div>• Presentar este ticket para cualquier aclaración</div>
+            </div>
+            
+            <!-- FOOTER -->
+            <div class="footer">
+                <div>¡Gracias por su compra!</div>
+                <div>¡Vuelva pronto!</div>
+                <div style="font-size: 8px; margin-top: 5px;">
+                    Ticket generado por SISTEMA PUNTO DE VENTA v2.0<br>
+                    ${formatearFecha(fechaActual)} | Caja #${data.caja_id || '01'}
+                </div>
+                <div style="font-size: 7px; margin-top: 5px;">
+                    Este ticket es tu comprobante de compra<br>
+                    Consérvalo para futuras referencias
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            // Auto-impresión al cargar
+            window.onload = function() {
+                setTimeout(function() {
+                    window.print();
+                    setTimeout(function() {
+                        window.close();
+                    }, 500);
+                }, 100);
+            };
+        </script>
+    </body>
+    </html>`;
+    
+    // Abrir ventana de impresión
+    const ventana = window.open('', '_blank', 'width=400,height=600,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
+    if (ventana) {
+        ventana.document.write(ticketHtml);
+        ventana.document.close();
+    } else {
+        // Si el popup es bloqueado, mostrar mensaje
+        Swal.fire({
+            icon: 'warning',
+            title: 'Ventana bloqueada',
+            text: 'Permite las ventanas emergentes para imprimir el ticket',
+            confirmButtonText: 'Entendido'
+        });
+    }
+    
+    // No recargar inmediatamente para permitir impresión
+    setTimeout(() => {
+        if (confirm('¿Venta completada correctamente. ¿Desea continuar?')) {
+            location.reload();
+        }
+    }, 3000);
+}
 /***************************************
  * DOCUMENT READY - INICIALIZACIÓN
  ***************************************/
 $(document).ready(function () {
-    // Inicializar primera fila
     agregarFila();
-    
-    setTimeout(function () {
-        $('#tabla-productos tbody tr:first input[data-tipo="no_folio"]').focus();
-    }, 50);
+    setTimeout(() => $('#tabla-productos tbody tr:first input[data-tipo="no_folio"]').focus(), 50);
 
-    // Validar stock al cambiar cantidad
+    // Validar stock al cambiar cantidad (VERSIÓN SIMPLE)
     $('#tabla-productos').on('input', '.cantidad', function () {
         const cantidad = parseInt($(this).val()) || 0;
         const stock_fisico = parseInt($(this).data('stock_fisico')) || 0;
 
         if (cantidad > stock_fisico) {
+            const productoNombre = $(this).closest('tr').find('input[data-tipo="nombre"]').val();
             Swal.fire({
-                title: "Stock insuficiente",
-                text: "Solo hay " + stock_fisico + " unidades disponibles.",
-                icon: "warning",
-                timer: 1500,
-                showConfirmButton: false
+                icon: 'warning',
+                title: 'Stock insuficiente',
+                html: `<p><strong>${productoNombre}</strong></p><p>Stock disponible: ${stock_fisico}</p><p>Solo se agregarán ${stock_fisico} unidades</p>`,
+                confirmButtonText: 'Aceptar'
             });
             $(this).val(stock_fisico);
         }
@@ -740,295 +831,130 @@ $(document).ready(function () {
         $('#monto_pagado').trigger('input');
     });
 
-    // Seleccionar fila al hacer click
-    $('#tabla-productos').on('click', 'tr', function () {
-        if ($(this).attr('id') === 'fila-vacia') return;
-        
-        filaSeleccionada = $(this);
-        $('#tabla-productos tbody tr').removeClass('table-primary');
-        filaSeleccionada.addClass('table-primary');
-    });
-
-    // Seleccionar fila al enfocar input
-    $('#tabla-productos').on('focus', 'input', function () {
-        const fila = $(this).closest('tr');
-        if (fila.attr('id') === 'fila-vacia') return;
-        
-        filaSeleccionada = fila;
-        $('#tabla-productos tbody tr').removeClass('table-primary');
-        filaSeleccionada.addClass('table-primary');
-    });
-
-    // Botón eliminar fila
-    $('#tabla-productos').on('click', '.btn-eliminar-fila', function () {
-        const fila = $(this).closest('tr');
-        eliminarFila(fila);
-    });
-
-    // Enter en campo código
-    $('#tabla-productos').on('keypress', 'input[data-tipo="no_folio"]', function (e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-
-            const input = $(this);
-            const codigo = input.val().trim();
-            const fila = input.closest('tr');
-
-            if (!codigo) return;
-
-            $.ajax({
-                url: BUSCAR_PRODUCTO_URL,
-                data: { q: codigo, tipo: 'no_folio' },
-                success: function (data) {
-                    if (!data || !data.length) {
-                        Swal.fire({
-                            title: "No encontrado",
-                            text: "Producto no existe",
-                            icon: "error",
-                            timer: 1000,
-                            showConfirmButton: false
-                        });
-                        input.select();
-                        return;
-                    }
-
-                    const producto = data[0];
-
-                    if (parseInt(producto.stock_fisico) <= 0) {
-                        Swal.fire({
-                            title: "Sin stock",
-                            icon: "warning",
-                            timer: 1000,
-                            showConfirmButton: false
-                        });
-                        input.select();
-                        return;
-                    }
-
-                    seleccionarProducto(producto, fila);
-                }
-            });
-        }
-    });
-
-    // Validación de pago y cambio
+    // Validación de pago
     $('#monto_pagado').on('input', function () {
         const total = actualizarTotales();
         const pagado = parseFloat($(this).val()) || 0;
         const cambio = pagado - total;
-
         const $cambioInput = $('#cambio');
         const $btnCobrar = $('#btn-registrar-venta');
 
         if (pagado === 0) {
             $cambioInput.val('');
             $btnCobrar.prop('disabled', true);
-            return;
-        }
-
-        if (cambio < 0) {
-            $cambioInput
-                .val('Pago insuficiente')
-                .addClass('is-invalid')
-                .removeClass('is-valid');
+        } else if (cambio < 0) {
+            $cambioInput.val('Pago insuficiente').addClass('is-invalid').removeClass('is-valid');
             $btnCobrar.prop('disabled', true);
         } else {
-            $cambioInput
-                .val(cambio.toFixed(2))
-                .removeClass('is-invalid')
-                .addClass('is-valid');
+            $cambioInput.val(cambio.toFixed(2)).removeClass('is-invalid').addClass('is-valid');
             $btnCobrar.prop('disabled', false);
         }
     });
 
-    // Submit del form
-    $('form').on('submit', function (e) {
-        e.preventDefault();
-        registrarVenta();
-    });
-
-    // Confirmar password admin
+    // Eventos
+    $('#formVentaCompleta').on('submit', function (e) { e.preventDefault(); registrarVenta(); });
     $('#formPagoConPassword').on('submit', function (e) {
         e.preventDefault();
         const inputPassword = $('#password_admin_input').val().trim();
-
         if (!inputPassword) {
-            Swal.fire({
-                title: "Error!",
-                text: "Debes ingresar la contraseña del administrador.",
-                icon: "error"
-            });
+            Swal.fire({ title: "Error!", text: "Ingresa la contraseña del administrador.", icon: "error" });
             return;
         }
-
         password_admin = inputPassword;
         $('#modalPassword').modal('hide');
         enviarVenta(productos_temporales);
     });
+    $('#btnBuscarProducto').on('click', () => $('#modalBuscarProducto').modal('show'));
+    $('#btnLimpiarTodo').on('click', () => { if (confirm('¿Limpiar todos los productos?')) limpiarVentaCompleta(); });
+    $('#btnVentaRapida').on('click', () => { const total = parseFloat($('#total-general').text()); $('#monto_pagado').val(total.toFixed(2)).trigger('input'); });
+    
+    // Eventos de tabla
+    $('#tabla-productos').on('click', 'tr', function () { if ($(this).attr('id') !== 'fila-vacia') { filaSeleccionada = $(this); $('#tabla-productos tbody tr').removeClass('table-primary'); filaSeleccionada.addClass('table-primary'); } });
+    $('#tabla-productos').on('focus', 'input', function () { const fila = $(this).closest('tr'); if (fila.attr('id') !== 'fila-vacia') { filaSeleccionada = fila; $('#tabla-productos tbody tr').removeClass('table-primary'); filaSeleccionada.addClass('table-primary'); } });
+    $('#tabla-productos').on('click', '.btn-eliminar-fila', function () { eliminarFila($(this).closest('tr')); });
+    
+  // Enter en campo código
+$('#tabla-productos').on('keypress', 'input[data-tipo="no_folio"]', function (e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const input = $(this);  // <--- Guardar referencia
+        const codigo = input.val().trim();
+        const fila = input.closest('tr');
+        if (!codigo) return;
 
-    // Botón buscar producto
-    $('#btnBuscarProducto').on('click', function () {
-        $('#modalBuscarProducto').modal('show');
-        setTimeout(() => $('#inputBuscarProducto').focus(), 200);
-    });
-
-    // Botón limpiar todo
-    $('#btnLimpiarTodo').on('click', function () {
-        if (confirm('¿Limpiar todos los productos?')) {
-            limpiarVentaCompleta();
-        }
-    });
-
-    // Botón venta rápida
-    $('#btnVentaRapida').on('click', function () {
-        const total = parseFloat($('#total-general').text());
-        $('#monto_pagado').val(total.toFixed(2)).trigger('input');
-    });
-
+        $.ajax({
+            url: BUSCAR_PRODUCTO_URL,
+            data: { q: codigo, tipo: 'no_folio' },
+            success: function (data) {
+                if (!data || !data.length) {
+                    Swal.fire({ title: "No encontrado", text: "Producto no existe", icon: "error", timer: 1000, showConfirmButton: false });
+                    input.select();  // <--- Usar input en lugar de $(this)
+                    return;
+                }
+                const producto = data[0];
+                if (parseInt(producto.stock_fisico) <= 0) {
+                    Swal.fire({ title: "Sin stock", icon: "warning", timer: 1000, showConfirmButton: false });
+                    input.select();  // <--- Usar input en lugar de $(this)
+                    return;
+                }
+                seleccionarProducto(producto, fila);
+            }
+        });
+    }
+});
     console.log("✅ Sistema de caja inicializado");
 });
-
-/***************************************
- * EVENTOS GLOBALES (fuera de document.ready)
- ***************************************/
 
 // Navegación con teclado
 $(document).on('keydown', function (e) {
     if ($('.ui-autocomplete').is(':visible')) return;
-
-    // F2 - Abrir modal de búsqueda
-    if (e.key === 'F2') {
-        e.preventDefault();
-        $('#btnBuscarProducto').click();
-        return;
-    }
-
-    // F4 - Limpiar todo
-    if (e.key === 'F4') {
-        e.preventDefault();
-        if (confirm('¿Limpiar todos los productos?')) {
-            limpiarVentaCompleta();
-        }
-        return;
-    }
-
-    // F5 - Venta rápida
-    if (e.key === 'F5') {
-        e.preventDefault();
-        $('#btnVentaRapida').click();
-        return;
-    }
-
-    // F10 - Registrar venta
-    if (e.key === 'F10') {
-        e.preventDefault();
-        registrarVenta();
-        return;
-    }
+    if (e.key === 'F2') { e.preventDefault(); $('#btnBuscarProducto').click(); }
+    if (e.key === 'F4') { e.preventDefault(); if (confirm('¿Limpiar todos los productos?')) limpiarVentaCompleta(); }
+    if (e.key === 'F5') { e.preventDefault(); $('#btnVentaRapida').click(); }
+    if (e.key === 'F10') { e.preventDefault(); registrarVenta(); }
 
     const filas = $('#tabla-productos tbody tr.fila-producto');
     if (!filas.length || !filaSeleccionada) return;
-
-    // Flecha Abajo
     if (e.key === 'ArrowDown') {
         e.preventDefault();
         const siguiente = filaSeleccionada.next('.fila-producto');
-        if (siguiente.length) {
-            filaSeleccionada = siguiente;
-            $('#tabla-productos tbody tr').removeClass('table-primary');
-            filaSeleccionada.addClass('table-primary');
-            filaSeleccionada.find('input[data-tipo="no_folio"]').focus();
-        }
+        if (siguiente.length) { filaSeleccionada = siguiente; $('#tabla-productos tbody tr').removeClass('table-primary'); filaSeleccionada.addClass('table-primary'); filaSeleccionada.find('input[data-tipo="no_folio"]').focus(); }
     }
-
-    // Flecha Arriba
     if (e.key === 'ArrowUp') {
         e.preventDefault();
         const anterior = filaSeleccionada.prev('.fila-producto');
-        if (anterior.length) {
-            filaSeleccionada = anterior;
-            $('#tabla-productos tbody tr').removeClass('table-primary');
-            filaSeleccionada.addClass('table-primary');
-            filaSeleccionada.find('input[data-tipo="no_folio"]').focus();
-        }
+        if (anterior.length) { filaSeleccionada = anterior; $('#tabla-productos tbody tr').removeClass('table-primary'); filaSeleccionada.addClass('table-primary'); filaSeleccionada.find('input[data-tipo="no_folio"]').focus(); }
     }
-
-    // Delete - Eliminar fila
-    if (e.key === 'Delete' && filaSeleccionada) {
-        e.preventDefault();
-        eliminarFila(filaSeleccionada);
-    }
+    if (e.key === 'Delete' && filaSeleccionada) { e.preventDefault(); eliminarFila(filaSeleccionada); }
 });
 
-/***************************************
- * EVENTOS PARA MODAL DE BÚSQUEDA
- ***************************************/
-
-// Búsqueda en modal
+// Modal de búsqueda
 $('#inputBuscarProducto').on('input', function () {
     const texto = $(this).val().trim();
-
-    if (texto.length < 2) {
-        $('#listaProductos').empty();
-        return;
-    }
-
+    if (texto.length < 2) { $('#listaProductos').empty(); return; }
     $.ajax({
         url: BUSCAR_PRODUCTO_URL,
         data: { q: texto, tipo: 'nombre' },
         success: function (data) {
             let html = '';
             data.forEach(p => {
-                html += `
-                <button class="list-group-item list-group-item-action item-producto"
-                    data-producto='${JSON.stringify(p)}'>
+                html += `<button class="list-group-item list-group-item-action item-producto" data-producto='${JSON.stringify(p)}'>
                     <div><strong>${p.nombre}</strong></div>
-                    <small>
-                        ${p.descripcion || ''} |
-                        $${parseFloat(p.precio).toFixed(2)} |
-                        Stock: ${p.stock_fisico}
-                    </small>
-                </button>
-                `;
+                    <small>$${parseFloat(p.precio).toFixed(2)} | Stock: ${p.stock_fisico}</small>
+                </button>`;
             });
             $('#listaProductos').html(html || '<div class="text-muted p-2">Sin resultados</div>');
         }
     });
 });
 
-// Click en producto del modal
 $(document).on('click', '.item-producto', function () {
     const producto = $(this).data('producto');
     const fila = $('#tabla-productos tbody tr:last');
-    
     seleccionarProducto(producto, fila);
     $('#modalBuscarProducto').modal('hide');
-    
-    setTimeout(() => {
-        const nuevaFila = $('#tabla-productos tbody tr:last');
-        nuevaFila.find('input[data-tipo="no_folio"]').focus();
-    }, 300);
+    setTimeout(() => $('#tabla-productos tbody tr:last input[data-tipo="no_folio"]').focus(), 300);
 });
-
-// Enter en búsqueda modal
-$('#inputBuscarProducto').on('keydown', function (e) {
-    if (e.key === 'Enter') {
-        const primer = $('#listaProductos .item-producto').first();
-        if (primer.length) {
-            primer.click();
-        }
-    }
-});
-
-// Limpiar búsqueda
-$('#btnLimpiarBusqueda').on('click', function () {
-    $('#inputBuscarProducto').val('');
-    $('#listaProductos').empty();
-});
-
-/***************************************
- * CONFIGURACIÓN INICIAL
- ***************************************/
 
 // Configuración de tipo de cliente
 document.addEventListener('DOMContentLoaded', function () {
@@ -1036,21 +962,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const descuentoContainer = document.getElementById("descuento_container");
     const descuento = document.getElementById("descuento");
     const permisoPiezaContainer = document.getElementById("permiso_pieza_container");
-
     if (!tipoCliente) return;
 
-    // Establecer valores por defecto
     tipoCliente.value = 'publico';
-    
     const vendedor = document.getElementById('id_vendedor');
-    if (vendedor && vendedor.options.length > 0) {
-        vendedor.selectedIndex = 1;
-    }
+    if (vendedor && vendedor.options.length > 0) vendedor.selectedIndex = 1;
 
-    // Evento change en tipo de cliente
     tipoCliente.addEventListener("change", function () {
-        console.log("Tipo cliente cambiado a:", this.value);
-        
         if (this.value === "mayorista") {
             descuentoContainer?.classList.remove("d-none");
             permisoPiezaContainer?.classList.remove("d-none");
@@ -1064,25 +982,146 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Evento change en descuento
     $('#descuento').on('change', function () {
-        console.log("Descuento cambiado a:", $(this).val());
-        
-        if ($(this).val() === 'producto') {
-            usarMayoreo = true;
-            console.log("Activando mayoreo");
-            aplicarPrecioMayoreo(true);
-        } else {
-            usarMayoreo = false;
-            console.log("Desactivando mayoreo");
-            aplicarPrecioMayoreo(false);
-        }
+        usarMayoreo = $(this).val() === 'producto';
+        aplicarPrecioMayoreo(usarMayoreo);
         actualizarTotales();
     });
 
-    // Estado inicial
-    usarMayoreo = false;
-    $('#descuento_container').addClass('d-none');
-    $('#permiso_pieza_container').addClass('d-none');
+    $('#descuento_container, #permiso_pieza_container').addClass('d-none');
     $('#permitir_pieza').prop('checked', false);
+});
+// ================= ACTUALIZAR PRODUCTO =================
+let productoIdActualizar = null;
+
+document.addEventListener('click', function(e) {
+    const btnActualizar = e.target.closest('.btn-actualizar-producto');
+    if (btnActualizar && !btnActualizar.disabled) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        productoIdActualizar = btnActualizar.dataset.productoId;
+        document.getElementById('producto_id_actualizar').value = productoIdActualizar;
+        document.getElementById('producto_nombre_actualizar').innerHTML = `<i class="bi bi-box"></i> ${btnActualizar.dataset.productoNombre}`;
+        document.getElementById('precio_actual').textContent = `$${parseFloat(btnActualizar.dataset.precio).toFixed(2)}`;
+        document.getElementById('precio_mayoreo_actual').textContent = `$${parseFloat(btnActualizar.dataset.precioMayoreo).toFixed(2)}`;
+        
+        document.getElementById('nuevo_precio').value = '';
+        document.getElementById('nuevo_precio_mayoreo').value = '';
+        document.getElementById('nuevo_stock_fisico').value = '';
+        document.getElementById('nuevo_stock_virtual').value = '';
+        document.getElementById('password_admin_actualizar').value = '';
+        
+        document.getElementById('password-error-actualizar')?.classList.add('d-none');
+        
+        fetch(`/api/obtener-stock-producto/?producto_id=${productoIdActualizar}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('stock_fisico_actual').textContent = data.stock_fisico;
+                    document.getElementById('stock_virtual_actual').textContent = data.stock_virtual;
+                }
+            })
+            .catch(err => console.error('Error al obtener stock:', err));
+        
+        new bootstrap.Modal(document.getElementById('modalActualizarProducto')).show();
+    }
+});
+
+document.getElementById('formActualizarProducto')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const btnSubmit = document.getElementById('btnActualizarProducto');
+    const originalHtml = btnSubmit.innerHTML;
+    const formData = new FormData(this);
+    const productoId = formData.get('producto_id');
+    
+    // Deshabilitar botón y mostrar loading
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Actualizando...';
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // IMPORTANTE: Siempre restaurar el botón primero
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = originalHtml;
+        
+        if (data.success) {
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalActualizarProducto'));
+            if (modal) modal.hide();
+            
+            // Actualizar la fila en la tabla
+            const fila = document.querySelector(`tr[data-producto-id="${productoId}"]`);
+            if (fila) {
+                if (data.precio_actualizado && data.nuevo_precio) {
+                    const precioCell = fila.querySelector('.precio');
+                    if (precioCell) {
+                        precioCell.textContent = data.nuevo_precio.toFixed(2);
+                    }
+                    const cantidadInput = fila.querySelector('.cantidad');
+                    const cantidad = cantidadInput ? parseInt(cantidadInput.value) || 0 : 0;
+                    const totalCell = fila.querySelector('.total');
+                    if (totalCell) {
+                        totalCell.textContent = (cantidad * data.nuevo_precio).toFixed(2);
+                    }
+                    // Actualizar el dataset del botón
+                    const btnActualizar = fila.querySelector('.btn-actualizar-producto');
+                    if (btnActualizar) {
+                        btnActualizar.dataset.precio = data.nuevo_precio;
+                    }
+                }
+                
+                // Actualizar stock si se modificó
+                const nuevoStockFisico = formData.get('nuevo_stock_fisico');
+                if (nuevoStockFisico) {
+                    const cantidadInput = fila.querySelector('.cantidad');
+                    if (cantidadInput) {
+                        cantidadInput.dataset.stock_fisico = nuevoStockFisico;
+                    }
+                }
+            }
+            
+            // Recalcular totales
+            actualizarTotales();
+            $('#monto_pagado').trigger('input');
+            
+            // Mostrar mensaje de éxito
+            Swal.fire({ 
+                icon: 'success', 
+                title: 'Éxito', 
+                text: data.message, 
+                timer: 2000, 
+                showConfirmButton: false 
+            });
+            
+        } else {
+            // Error en la respuesta
+            if (data.error === 'password') {
+                const errorDiv = document.getElementById('password-error-actualizar');
+                if (errorDiv) {
+                    errorDiv.classList.remove('d-none');
+                    errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${data.message}`;
+                }
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.message });
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Restaurar botón en caso de error
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = originalHtml;
+        Swal.fire({ 
+            icon: 'error', 
+            title: 'Error', 
+            text: 'Error al conectar con el servidor' 
+        });
+    });
 });

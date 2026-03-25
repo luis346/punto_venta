@@ -1,3 +1,4 @@
+from venv import logger
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
@@ -366,36 +367,98 @@ def eliminar_vendedor(request, id):
     return redirect('configuracion')
 
 
-
 def buscar_productos_ajax(request):
-
-    query = request.GET.get('q', '').strip()
-
-    stocks = Stock.objects.select_related('producto')
-
-    if query:
-        stocks = stocks.filter(
-            Q(producto__nombre__icontains=query) |
-            Q(producto__no_folio__icontains=query)
+    try:
+        # Obtener y validar query
+        query = request.GET.get('q', '').strip()
+        
+        # Base queryset optimizada
+        # Usamos select_related para la relación producto
+        # Usamos only para cargar SOLO los campos que necesitamos en la tabla
+        stocks = Stock.objects.select_related('producto__categoria').only(
+            # Campos de Stock
+            'id', 'stock_fisico', 'stock_virtual', 'sucursal_id',
+            # Campos de Producto (los que se muestran en la tabla)
+            'producto__id',
+            'producto__no_folio',
+            'producto__referencia', 
+            'producto__nombre',
+            'producto__precio',
+            'producto__precio_mayoreo',
+            'producto__unidad_medida',
+            'producto__umbral_mayoreo',
+            # Campos de Categoría (si la muestras)
+            'producto__categoria__id',
+            'producto__categoria__nombre'
         )
-
-    paginator = Paginator(stocks, 25)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    html = render_to_string(
-        "partials/tabla_productos.html",
-        {"page_obj": page_obj},
-        request=request
-    )
-
-    return JsonResponse({
-        "tabla": html
-    })
+        
+        # Aplicar filtros SOLO si hay query
+        if query:
+            # Optimización: usar Q objects complejos
+            stocks = stocks.filter(
+                Q(producto__nombre__icontains=query) |
+                Q(producto__no_folio__icontains=query) |
+                Q(producto__referencia__icontains=query)  # Agregué referencia también
+            )
+        
+        # Paginación con manejo robusto
+        try:
+            page_number = int(request.GET.get('page', 1))
+        except (TypeError, ValueError):
+            page_number = 1
+        
+        paginator = Paginator(stocks, 25)
+        
+        # Asegurar página válida
+        if page_number < 1:
+            page_number = 1
+        elif page_number > paginator.num_pages and paginator.num_pages > 0:
+            page_number = paginator.num_pages
+        
+        page_obj = paginator.get_page(page_number)
+        
+        # Preparar datos adicionales para el template
+        context = {
+            "page_obj": page_obj,
+            "query": query,
+            "total_resultados": paginator.count,
+            "mostrando_desde": (page_number - 1) * 25 + 1 if page_obj else 0,
+            "mostrando_hasta": min(page_number * 25, paginator.count),
+            "sin_resultados": paginator.count == 0
+        }
+        
+        # Renderizar template
+        html = render_to_string(
+            "partials/tabla_productos.html",
+            context,
+            request=request
+        )
+        
+        # Respuesta enriquecida
+        return JsonResponse({
+            "success": True,
+            "tabla": html,
+            "total": paginator.count,
+            "page": page_number,
+            "total_pages": paginator.num_pages,
+            "has_next": page_obj.has_next(),
+            "has_previous": page_obj.has_previous(),
+            "query": query,
+            "por_pagina": 25
+        })
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error en buscar_productos_ajax: {str(e)}", exc_info=True)
+        
+        return JsonResponse({
+            "success": False,
+            "error": "Error al cargar los productos. Por favor, recarga la página."
+        }, status=500)
 
 def generar_ean13(base):
     base = str(base).zfill(12)
-
     suma = 0
     for i, digito in enumerate(base):
         n = int(digito)
@@ -2029,78 +2092,122 @@ def checador_publico(request, sucursal_id):
 
 
 def imprimir_etiquetas_masivo(request):
-
     if request.method == "POST":
-        ids = request.POST.getlist('productos')
-
+        # Recibir productos seleccionados
+        productos_json = request.POST.get('productos', '[]')
+        try:
+            ids = json.loads(productos_json)
+        except:
+            ids = request.POST.getlist('productos')
+        
         if not ids:
-            messages.warning(request, 'No existen productos en la lista, seleccione uno por favor!')
+            messages.warning(request, 'No existen productos en la lista')
             return redirect('inventario')
-
+        
         productos = Producto.objects.filter(id__in=ids)
-
+        
+        # ========== RECIBIR CONFIGURACIÓN DEL FRONTEND ==========
+        # Tamaño de etiqueta
+        tamano = request.POST.get('tamano_etiqueta', '4x2.5')
+        if tamano == 'custom':
+            ancho_cm = float(request.POST.get('ancho_personalizado', 4))
+            alto_cm = float(request.POST.get('alto_personalizado', 2.5))
+        else:
+            tamaños = {
+                '3x2': (3, 2),
+                '4x2.5': (4, 2.5),
+                '5x3': (5, 3),
+                '6x4': (6, 4),
+            }
+            ancho_cm, alto_cm = tamaños.get(tamano, (4, 2.5))
+        
+        # Qué mostrar
+        mostrar_nombre = request.POST.get('mostrar_nombre') == 'on'
+        mostrar_folio = request.POST.get('mostrar_folio') == 'on'
+        mostrar_referencia = request.POST.get('mostrar_referencia') == 'on'
+        mostrar_precio = request.POST.get('mostrar_precio') == 'on'
+        mostrar_numero_codigo = request.POST.get('mostrar_numero_codigo') == 'on'
+        
+        # Configuración del código de barras
+        altura_codigo = float(request.POST.get('altura_codigo', 0.8))
+        ancho_barra = float(request.POST.get('ancho_barra', 0.03))
+        fuente_numero = int(request.POST.get('fuente_numero', 8))
+        
+        # =======================================================
+        
         buffer = io.BytesIO()
-        ancho = 5 * cm
-        alto = 2.5 * cm
-
+        ancho = ancho_cm * cm
+        alto = alto_cm * cm
+        
         c = canvas.Canvas(buffer, pagesize=(ancho, alto))
-
+        
+        # Calcular espaciado según altura
+        espaciado = 0.3 * cm
+        
         for producto in productos:
-
-            # ===== VALORES =====
-            folio = str(producto.no_folio).strip() if producto.no_folio else str(producto.id)
-            referencia = str(producto.referencia).strip() if hasattr(producto, 'referencia') and producto.referencia else ""
-
-            # El código de barras será SOLO el FOLIO
-            valor_codigo = folio
-
-            # ===== NOMBRE =====
-            c.setFont("Helvetica-Bold", 8)
-            c.drawCentredString(ancho / 2, alto - 8, producto.nombre[:30])
-
-            # ===== FOLIO =====
-            c.setFont("Helvetica", 6)
-            c.drawCentredString(ancho / 2, alto - 15, f"FOLIO: {folio}")
-
-            # ===== REFERENCIA =====
-            c.setFont("Helvetica", 6)
-            c.drawCentredString(ancho / 2, alto - 22, f"REF: {referencia}")
-
-            # ===== PRECIO GRANDE =====
-            c.setFont("Helvetica-Bold", 14)
-            c.drawCentredString(ancho / 2, alto - 35, f"$ {producto.precio:.2f}")
-
-            # ===== CÓDIGO DE BARRAS (FOLIO) =====
-            barcode = code128.Code128(
-                valor_codigo,
-                barHeight=0.6 * cm,
-                barWidth=0.03 * cm
-            )
-
-            barcode_width = barcode.width
-            barcode_x = (ancho - barcode_width) / 2
-            barcode_y = 12
-
-            barcode.drawOn(c, barcode_x, barcode_y)
-
-            # ===== TEXTO DEBAJO DEL CÓDIGO =====
-            c.setFont("Helvetica", 7)
-            c.drawCentredString(ancho / 2, 5, valor_codigo)
-
+            codigo = str(producto.no_folio).strip() if producto.no_folio else str(producto.id)
+            pos_y = alto - 0.2 * cm
+            
+            # Nombre
+            if mostrar_nombre and producto.nombre:
+                c.setFont("Helvetica-Bold", 8)
+                nombre = producto.nombre[:25]
+                c.drawCentredString(ancho / 2, pos_y, nombre)
+                pos_y -= 0.35 * cm
+            
+            # Folio
+            if mostrar_folio:
+                c.setFont("Helvetica", 6)
+                c.drawCentredString(ancho / 2, pos_y, f"FOLIO: {codigo}")
+                pos_y -= 0.3 * cm
+            
+            # Referencia
+            if mostrar_referencia and hasattr(producto, 'referencia') and producto.referencia:
+                c.setFont("Helvetica", 6)
+                c.drawCentredString(ancho / 2, pos_y, f"REF: {producto.referencia}")
+                pos_y -= 0.3 * cm
+            
+            # Precio
+            if mostrar_precio:
+                c.setFont("Helvetica-Bold", 10)
+                c.drawCentredString(ancho / 2, pos_y, f"${producto.precio:.2f}")
+                pos_y -= 0.4 * cm
+            
+            # Código de barras
+            try:
+                barcode = code128.Code128(
+                    codigo,
+                    barHeight=altura_codigo * cm,
+                    barWidth=ancho_barra * cm
+                )
+                
+                barcode_width = barcode.width
+                barcode_x = (ancho - barcode_width) / 2
+                barcode_y = 0.2 * cm + (0.25 * cm if mostrar_numero_codigo else 0.1 * cm)
+                
+                barcode.drawOn(c, barcode_x, barcode_y)
+                
+                if mostrar_numero_codigo:
+                    c.setFont("Helvetica", fuente_numero)
+                    c.drawCentredString(ancho / 2, barcode_y - 0.2 * cm, codigo)
+                    
+            except Exception as e:
+                c.setFont("Helvetica", 8)
+                c.drawCentredString(ancho / 2, alto / 2, codigo)
+            
             c.showPage()
-
-
+        
         c.save()
-
+        
         pdf = buffer.getvalue()
         buffer.close()
-
+        
         response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = 'inline; filename="etiquetas_termicas.pdf"'
+        response['Content-Disposition'] = 'inline; filename="etiquetas_impresion.pdf"'
         response.write(pdf)
-
+        
         return response
-
+    
     return redirect('inventario')
 
 @login_required
@@ -2154,3 +2261,125 @@ def ultimas_ventas(request):
         })
     
     return JsonResponse(data, safe=False)
+@login_required
+def actualizar_producto_desde_venta(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'})
+    
+    try:
+        producto_id = request.POST.get('producto_id')
+        nuevo_precio = request.POST.get('nuevo_precio', '').strip()
+        nuevo_precio_mayoreo = request.POST.get('nuevo_precio_mayoreo', '').strip()
+        nuevo_stock_fisico = request.POST.get('nuevo_stock_fisico', '').strip()
+        nuevo_stock_virtual = request.POST.get('nuevo_stock_virtual', '').strip()
+        password_admin = request.POST.get('password_admin', '').strip()
+        
+        ADMIN_MASTER_PASSWORD = "admin123"
+        
+        if not producto_id:
+            return JsonResponse({'success': False, 'message': 'ID de producto no proporcionado'})
+        
+        if not password_admin:
+            return JsonResponse({'success': False, 'message': 'Se requiere contraseña', 'error': 'password'})
+        
+        if password_admin != ADMIN_MASTER_PASSWORD:
+            return JsonResponse({'success': False, 'message': 'Contraseña incorrecta', 'error': 'password'})
+        
+        with transaction.atomic():
+            producto = get_object_or_404(Producto, id=producto_id)
+            precio_actualizado = False
+            
+            if nuevo_precio:
+                try:
+                    nuevo_precio_val = float(nuevo_precio)
+                    if nuevo_precio_val > 0:
+                        producto.precio = nuevo_precio_val
+                        precio_actualizado = True
+                except ValueError:
+                    pass
+            
+            if nuevo_precio_mayoreo:
+                try:
+                    nuevo_precio_mayoreo_val = float(nuevo_precio_mayoreo)
+                    if nuevo_precio_mayoreo_val > 0:
+                        producto.precio_mayoreo = nuevo_precio_mayoreo_val
+                except ValueError:
+                    pass
+            
+            producto.save()
+            
+            if hasattr(request.user, 'sucursal') and request.user.sucursal:
+                stock = Stock.objects.filter(producto=producto, sucursal=request.user.sucursal).first()
+                if stock:
+                    if nuevo_stock_fisico:
+                        try:
+                            stock.stock_fisico = int(nuevo_stock_fisico)
+                        except ValueError:
+                            pass
+                    if nuevo_stock_virtual:
+                        try:
+                            stock.stock_virtual = int(nuevo_stock_virtual)
+                        except ValueError:
+                            pass
+                    stock.save()
+        
+        mensajes = []
+        if precio_actualizado:
+            mensajes.append(f'Precio actualizado a ${producto.precio:.2f}')
+        if nuevo_stock_fisico:
+            mensajes.append(f'Stock actualizado a {nuevo_stock_fisico}')
+        
+        return JsonResponse({
+            'success': True,
+            'message': ' / '.join(mensajes) if mensajes else 'Producto actualizado',
+            'precio_actualizado': precio_actualizado,
+            'nuevo_precio': float(producto.precio) if precio_actualizado else None
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }, status=500)
+    
+def obtener_stock_producto_api(request):
+    """API para obtener stock actual de un producto"""
+    producto_id = request.GET.get('producto_id')
+    if not producto_id:
+        return JsonResponse({'success': False, 'error': 'Producto no especificado'})
+    
+    try:
+        from core.models import Producto, Stock
+        
+        producto = get_object_or_404(Producto, id=producto_id)
+        
+        # Obtener la sucursal del usuario
+        sucursal = None
+        if hasattr(request.user, 'sucursal'):
+            sucursal = request.user.sucursal
+        
+        if sucursal:
+            stock = Stock.objects.filter(producto=producto, sucursal=sucursal).first()
+            
+            return JsonResponse({
+                'success': True,
+                'stock_fisico': stock.stock_fisico if stock else 0,
+                'stock_virtual': stock.stock_virtual if stock else 0,
+                'precio': float(producto.precio),
+                'precio_mayoreo': float(producto.precio_mayoreo) if producto.precio_mayoreo else 0
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'stock_fisico': 0,
+                'stock_virtual': 0,
+                'precio': float(producto.precio),
+                'precio_mayoreo': float(producto.precio_mayoreo) if producto.precio_mayoreo else 0
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False, 
+            'error': str(e)
+        }, status=500)
+

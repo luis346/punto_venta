@@ -4,6 +4,124 @@
 
 {% block content %}
 
+
+
+<!-- ================= MODAL ACTUALIZAR PRODUCTO (ADMIN) ================= -->
+<div class="modal fade" id="modalActualizarProducto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <form id="formActualizarProducto" method="POST" action="{% url 'actualizar_producto_desde_venta' %}">
+            {% csrf_token %}
+            <input type="hidden" name="producto_id" id="producto_id_actualizar">
+            <input type="hidden" name="no_venta" value="{{ no_venta }}">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil-square"></i> Actualizar Producto
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-3">
+                        <i class="bi bi-box-seam fs-1 text-warning"></i>
+                    </div>
+                    <div class="alert alert-info">
+                        <strong id="producto_nombre_actualizar"></strong>
+                        <br>
+                        <small class="text-muted" id="producto_datos_actuales"></small>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-tag"></i> Nuevo Precio
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" 
+                                       name="nuevo_precio" 
+                                       id="nuevo_precio" 
+                                       class="form-control" 
+                                       step="0.01" 
+                                       min="0"
+                                       placeholder="Dejar vacío para no modificar">
+                            </div>
+                            <small class="text-muted">Precio actual: <span id="precio_actual"></span></small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-calculator"></i> Precio Mayoreo
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" 
+                                       name="nuevo_precio_mayoreo" 
+                                       id="nuevo_precio_mayoreo" 
+                                       class="form-control" 
+                                       step="0.01" 
+                                       min="0"
+                                       placeholder="Dejar vacío para no modificar">
+                            </div>
+                            <small class="text-muted">Precio mayoreo actual: <span id="precio_mayoreo_actual"></span></small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-cpu"></i> Nuevo Stock Físico
+                            </label>
+                            <input type="number" 
+                                   name="nuevo_stock_fisico" 
+                                   id="nuevo_stock_fisico" 
+                                   class="form-control" 
+                                   min="0" 
+                                   step="1"
+                                   placeholder="Dejar vacío para no modificar">
+                            <small class="text-muted">Stock físico actual: <span id="stock_fisico_actual"></span></small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-database"></i> Nuevo Stock Virtual
+                            </label>
+                            <input type="number" 
+                                   name="nuevo_stock_virtual" 
+                                   id="nuevo_stock_virtual" 
+                                   class="form-control" 
+                                   min="0" 
+                                   step="1"
+                                   placeholder="Dejar vacío para no modificar">
+                            <small class="text-muted">Stock virtual actual: <span id="stock_virtual_actual"></span></small>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-shield-lock"></i> Contraseña de Administrador
+                            </label>
+                            <input type="password" 
+                                   name="password_admin" 
+                                   id="password_admin_actualizar" 
+                                   class="form-control" 
+                                   placeholder="Ingrese su contraseña para autorizar cambios"
+                                   required>
+                            <div id="password-error-actualizar" class="text-danger small mt-1 d-none">
+                                <i class="bi bi-exclamation-triangle"></i> Contraseña incorrecta
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-warning" id="btnActualizarProducto">
+                        <i class="bi bi-save"></i> Actualizar Producto
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- MODAL BUSCAR PRODUCTO MEJORADO -->
 <div class="modal fade" id="modalBuscarProducto" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -321,6 +439,14 @@
     const LOGO_URL = "{% static 'img/logo.jpg' %}";
     const ULTIMAS_VENTAS_URL = "{% url 'ultimas_ventas' %}";
 </script>
+
+<!-- Pasar datos del usuario a JavaScript -->
+<script>
+    window.USER_ROL = "{{ user.rol|default:'USUARIO' }}";
+    window.USER_IS_SUPERUSER = {{ user.is_superuser|yesno:"true,false" }};
+    window.tipoCliente = "{{ form.tipo_cliente.value|default:'publico' }}";
+</script>
+
 
 <script src="{% static 'js/funciones_caja.js' %}"></script>
 

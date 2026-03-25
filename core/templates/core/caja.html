@@ -239,6 +239,7 @@
     }
 </style>
 
+
 <!-- =======================
  MODAL AGREGAR PRODUCTO MEJORADO
 ======================== -->
@@ -611,84 +612,282 @@
 </div>
 
 <!-- =======================
- TICKET MEJORADO
+ TICKET PROFESIONAL MEJORADO
 ======================== -->
 <div id="ticket" style="display: none;">
-    <div style="text-align:center;">
-        <img src="{% static 'img/logo.jpg' %}" style="width:160px;margin-bottom:5px;">
-        <div style="font-weight:bold;font-size:14px;">EL OFERTÓN</div>
-        <div>{{ venta.sucursal.nombre }}</div>
-        <div>{{ venta.sucursal.direccion }}</div>
-    </div>
-    <div style="border-top:1px dashed #000;margin:8px 0;"></div>
-    <div>
-        <div><strong>Folio:</strong> {{ venta.no_venta }}</div>
-        <div><strong>Fecha:</strong> {{ venta.fecha|date:"d/m/Y H:i" }}</div>
-        <div><strong>Cliente:</strong> {{ venta.get_tipo_cliente_display }}</div>
-        <div><strong>Vendedor:</strong> {{ venta.vendedor }}</div>
-    </div>
-    <div style="border-top:1px dashed #000;margin:8px 0;"></div>
-    <table style="width:100%;font-size:11px;">
-        <thead>
-            <tr>
-                <th style="text-align:left;">Producto</th>
-                <th style="text-align:center;">Cant</th>
-                <th style="text-align:right;">Total</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for detalle in venta.detalles.all %}
-            <tr>
-                <td colspan="3" style="padding-top:4px;">
-                    {{ detalle.producto.nombre }}
-                </td>
-            </tr>
-            <tr>
-                <td style="font-size:10px;">
-                    {% if detalle.precio_unitario < detalle.producto.precio %}
-                        <span style="text-decoration:line-through;">${{ detalle.producto.precio|floatformat:2 }}</span>
-                        ${{ detalle.precio_unitario|floatformat:2 }}
-                    {% else %}
-                        ${{ detalle.precio_unitario|floatformat:2 }}
-                    {% endif %}
-                </td>
-                <td style="text-align:center;">x{{ detalle.cantidad }}</td>
-                <td style="text-align:right;">${{ detalle.total|floatformat:2 }}</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-    <div style="border-top:1px dashed #000;margin:8px 0;"></div>
-    <div style="font-size:12px;">
-        <div style="display:flex;justify-content:space-between;">
-            <span>Subtotal:</span>
-            <span>${{ total|floatformat:2 }}</span>
+    <style>
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            .ticket-paper {
+                width: 80mm;
+                margin: 0 auto;
+                font-family: 'Courier New', monospace;
+            }
+        }
+        .ticket-paper {
+            width: 80mm;
+            max-width: 80mm;
+            margin: 0 auto;
+            padding: 8px 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            background: white;
+            color: #000;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .bold { font-weight: bold; }
+        .dashed-line {
+            border-top: 1px dashed #000;
+            margin: 6px 0;
+        }
+        .double-line {
+            border-top: 2px solid #000;
+            margin: 8px 0;
+        }
+        .logo {
+            max-width: 120px;
+            margin: 0 auto;
+        }
+        .empresa-nombre {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px 0 2px;
+        }
+        .empresa-info {
+            font-size: 9px;
+            color: #444;
+            margin: 2px 0;
+        }
+        .folio-ticket {
+            background: #f5f5f5;
+            padding: 4px;
+            margin: 6px 0;
+            text-align: center;
+            font-size: 10px;
+        }
+        .producto-item {
+            margin: 4px 0;
+        }
+        .producto-nombre {
+            font-size: 10px;
+            font-weight: 500;
+        }
+        .producto-detalle {
+            font-size: 8px;
+            color: #666;
+            margin-left: 5px;
+        }
+        .totales {
+            margin: 8px 0;
+        }
+        .total-final {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 8px 0;
+        }
+        .leyenda {
+            font-size: 8px;
+            color: #666;
+            text-align: center;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dotted #ccc;
+        }
+        .footer {
+            font-size: 9px;
+            text-align: center;
+            margin-top: 10px;
+            padding-top: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        td, th {
+            padding: 3px 0;
+            vertical-align: top;
+        }
+        .producto-cantidad {
+            width: 12%;
+            text-align: center;
+        }
+        .producto-precio {
+            width: 28%;
+            text-align: right;
+        }
+        .producto-total {
+            width: 20%;
+            text-align: right;
+        }
+        .producto-nombre-cell {
+            width: 40%;
+            text-align: left;
+        }
+        hr {
+            margin: 5px 0;
+            border: none;
+            border-top: 1px dashed #000;
+        }
+    </style>
+
+    <div class="ticket-paper">
+        <!-- ================= ENCABEZADO ================= -->
+        <div class="text-center">
+            <div class="logo">
+                <img src="{% static 'img/logo.jpg' %}" style="max-width: 100px; height: auto;" alt="Logo">
+            </div>
+            <div class="empresa-nombre">EL OFERTÓN</div>
+            <div class="empresa-info">{{ venta.sucursal.nombre }}</div>
+            <div class="empresa-info">{{ venta.sucursal.direccion }}</div>
+            <div class="empresa-info">Tel: Sin numero</div>
         </div>
-        {% if venta.descuento > 0 %}
-        <div style="display:flex;justify-content:space-between;">
-            <span>Descuento ({{ venta.descuento }}%)</span>
-            <span>-</span>
+
+        <div class="dashed-line"></div>
+
+        <!-- ================= INFORMACIÓN DEL TICKET ================= -->
+        <div>
+            <div><strong>FOLIO:</strong> {{ venta.no_venta }}</div>
+            <div><strong>TICKET:</strong> {{ venta.no_venta }}-{{ venta.id|default:'000' }}</div>
+            <div><strong>FECHA:</strong> {{ venta.fecha|date:"d/m/Y H:i:s" }}</div>
+            <div><strong>CAJERO(A):</strong> {{ venta.vendedor }}</div>
+            <div><strong>CLIENTE:</strong> {{ venta.get_tipo_cliente_display|upper }}</div>
+            {% if venta.descuento > 0 %}
+            <div><strong>DESCUENTO:</strong> {{ venta.descuento }}%</div>
+            {% endif %}
         </div>
-        {% endif %}
-        <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:13px;margin-top:4px;">
-            <span>TOTAL:</span>
-            <span>${{ total|floatformat:2 }}</span>
+
+        <div class="dashed-line"></div>
+
+        <!-- ================= PRODUCTOS ================= -->
+        <div class="bold text-center">PRODUCTOS</div>
+        <div class="dashed-line"></div>
+
+        <table>
+            <thead>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <th class="producto-nombre-cell text-left">DESCRIPCIÓN</th>
+                    <th class="producto-cantidad">CANT</th>
+                    <th class="producto-precio">P.UNIT</th>
+                    <th class="producto-total">TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for detalle in venta.detalles.all %}
+                <tr>
+                    <td colspan="4" class="producto-nombre">
+                        {{ detalle.producto.nombre|truncatechars:35 }}
+                    </td>
+                </tr>
+                <tr style="font-size: 10px;">
+                    <td class="producto-nombre-cell">
+                        {% if detalle.precio_unitario < detalle.producto.precio %}
+                            <span style="text-decoration: line-through; font-size: 8px;">${{ detalle.producto.precio|floatformat:2 }}</span>
+                            <span style="color: #27ae60;">(Mayoreo)</span>
+                        {% else %}
+                            &nbsp;
+                        {% endif %}
+                    </td>
+                    <td class="producto-cantidad">{{ detalle.cantidad }}</td>
+                    <td class="producto-precio">
+                        {% if detalle.precio_unitario < detalle.producto.precio %}
+                            ${{ detalle.precio_unitario|floatformat:2 }}
+                        {% else %}
+                            ${{ detalle.precio_unitario|floatformat:2 }}
+                        {% endif %}
+                    </td>
+                    <td class="producto-total">${{ detalle.total|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center">Sin productos</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="dashed-line"></div>
+
+        <!-- ================= TOTALES ================= -->
+        <div class="totales">
+            <table>
+                {% with subtotal=total|add:descuento_monetario %}
+                <tr>
+                    <td class="text-left">SUBTOTAL:</td>
+                    <td class="text-right">${{ subtotal|floatformat:2 }}</td>
+                </tr>
+                {% endwith %}
+                {% if venta.descuento > 0 %}
+                <tr>
+                    <td class="text-left">DESCUENTO ({{ venta.descuento }}%):</td>
+                    <td class="text-right">-${{ descuento_monetario|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+                <tr class="bold" style="font-size: 13px;">
+                    <td class="text-left">TOTAL:</td>
+                    <td class="text-right">${{ total|floatformat:2 }}</td>
+                </tr>
+            </table>
         </div>
+
+        <div class="dashed-line"></div>
+
+        <!-- ================= DATOS DE PAGO ================= -->
         {% with ultimo_pago=venta.pagos.last %}
-        <div style="margin-top:6px;">
-            <div><strong>Pago:</strong> {{ ultimo_pago.forma_pago }}</div>
-            <div><strong>Recibido:</strong> ${{ ultimo_pago.monto_pagado|floatformat:2 }}</div>
-            <div><strong>Cambio:</strong> ${{ cambio|floatformat:2 }}</div>
+        <div>
+            <div><strong>FORMA DE PAGO:</strong> 
+                {% if ultimo_pago.forma_pago == 'efectivo' %}EFECTIVO
+                {% elif ultimo_pago.forma_pago == 'tarjeta' %}TARJETA
+                {% elif ultimo_pago.forma_pago == 'transferencia' %}TRANSFERENCIA
+                {% elif ultimo_pago.forma_pago == 'mixto' %}PAGO MIXTO
+                {% else %}{{ ultimo_pago.forma_pago|upper }}{% endif %}
+            </div>
+            <div><strong>RECIBIDO:</strong> ${{ ultimo_pago.monto_pagado|floatformat:2 }}</div>
+            {% if cambio > 0 %}
+            <div><strong>CAMBIO:</strong> ${{ cambio|floatformat:2 }}</div>
+            {% endif %}
         </div>
         {% endwith %}
-    </div>
-    <div style="border-top:1px dashed #000;margin:8px 0;"></div>
-    <div style="text-align:center;font-size:11px;">
-        Gracias por su compra<br>
-        Conserve su ticket
+
+        <div class="double-line"></div>
+
+        <!-- ================= LEYENDAS FISCALES ================= -->
+        <div class="leyenda">
+            <div><strong>COMPROBANTE SIN VALIDEZ FISCAL</strong></div>
+            <div>www.el-oferton.mx | ventas@el-oferton.mx</div>
+        </div>
+
+        <!-- ================= POLÍTICAS DE DEVOLUCIÓN ================= -->
+        <div class="leyenda" style="border-top: none; margin-top: 5px;">
+            <div><strong>POLÍTICAS DE DEVOLUCIÓN</strong></div>
+            <div>• Cambios hasta 7 días después de la compra</div>
+            <div>• Producto en empaque original y sin uso</div>
+            <div>• Presentar este ticket para cualquier aclaración</div>
+        </div>
+
+        <!-- ================= FOOTER ================= -->
+        <div class="footer">
+            <div style="font-size: 11px; font-weight: bold;">¡GRACIAS POR SU COMPRA!</div>
+            <div>¡Vuelva pronto!</div>
+            <div style="font-size: 8px; margin-top: 5px;">
+                Ticket generado por SISTEMA PUNTO DE VENTA v2.0<br>
+                {{ venta.fecha|date:"d/m/Y H:i:s" }} | Caja #01
+            </div>
+            <div style="font-size: 7px; margin-top: 5px;">
+                Este ticket es tu comprobante de compra<br>
+                Consérvalo para futuras referencias
+            </div>
+            <div style="font-size: 7px; margin-top: 5px;">
+                * Este documento no es factura, solo es comprobante de venta
+            </div>
+        </div>
     </div>
 </div>
-
 <!-- =======================
  SCRIPTS MEJORADOS
 ======================== -->
