@@ -53,8 +53,6 @@ class VendedorForm(forms.ModelForm):
             'direccion': forms.TextInput(attrs={'class': 'form-control'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control'}),
         }
-
-
 class ProductoForm(forms.ModelForm):
 
     class Meta:
@@ -62,6 +60,7 @@ class ProductoForm(forms.ModelForm):
         fields = [
             'no_folio',
             'nombre',
+            'referencia',      # ← AGREGADO
             'descripcion',
             'categoria',
             'precio',
@@ -72,6 +71,7 @@ class ProductoForm(forms.ModelForm):
         widgets = {
             'no_folio': forms.TextInput(attrs={'class': 'form-control'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'referencia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Déjalo vacío para auto-generar'}),  # ← AGREGADO
             'categoria': forms.Select(attrs={'class': 'form-select'}),
             'descripcion': forms.TextInput(attrs={'class': 'form-control'}),
             'precio': forms.NumberInput(attrs={'class': 'form-control'}),
@@ -80,21 +80,21 @@ class ProductoForm(forms.ModelForm):
         }
 
     def clean_no_folio(self):
-
         no_folio = self.cleaned_data.get('no_folio')
-
         if no_folio:
             no_folio = no_folio.strip().upper()
-
         return no_folio
 
+    def clean_referencia(self):  # ← NUEVO MÉTODO PARA LIMPIAR REFERENCIA
+        referencia = self.cleaned_data.get('referencia')
+        if referencia:
+            referencia = referencia.strip().upper()
+        return referencia
+
     def clean_precio(self):
-
         precio = self.cleaned_data.get('precio')
-
         if precio is not None and precio <= 0:
             raise forms.ValidationError("El precio debe ser mayor que cero.")
-
         return precio
 
 class CategoriaForm(forms.ModelForm):

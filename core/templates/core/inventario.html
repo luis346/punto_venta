@@ -745,11 +745,22 @@
                         {% endif %}
                     </div>
 
-                    <!-- REFERENCIA -->
+                    <!-- REFERENCIA - CAMPO HABILITADO -->
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">Referencia</label>
+                        <label class="form-label fw-semibold">
+                            Referencia 
+                            <span class="text-muted small">(Código interno)</span>
+                        </label>
                         {{ form_producto.referencia }}
-                        <small class="text-muted">Código interno</small>
+                        <small class="text-muted d-block mt-1">
+                            <i class="bi bi-info-circle"></i> 
+                            Déjalo vacío para generación automática o escribe tu propia referencia
+                        </small>
+                        {% if form_producto.referencia.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form_producto.referencia.errors.0 }}
+                            </div>
+                        {% endif %}
                     </div>
 
                     <!-- CATEGORIA -->
@@ -849,7 +860,6 @@
         </form>
     </div>
 </div>
-
 <!-- Estilos adicionales -->
 <style>
 /* CONTENEDOR DEL SCANNER */
