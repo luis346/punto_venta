@@ -972,11 +972,23 @@ def validar_folio(request):
     })
 
 @login_required
+@user_passes_test(es_admin)
 def eliminar_categoria(request, id):
     categoria = get_object_or_404(Categoria, id=id)
-    if request.user.is_superuser:
-        categoria.delete()
-        messages.success(request, "Categoría eliminada correctamente.")
+        
+    nombre_categoria = categoria.nombre
+    productos_count = categoria.producto_set.count()
+    
+    categoria.delete()
+    
+    if productos_count > 0:
+        messages.success(
+            request, 
+            f"Categoría '{nombre_categoria}' eliminada. {productos_count} producto(s) quedaron sin categoría."
+        )
+    else:
+        messages.success(request, f"Categoría '{nombre_categoria}' eliminada correctamente.")
+    
     return redirect('inventario')
 
 @login_required

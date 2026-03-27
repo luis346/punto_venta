@@ -1,0 +1,67 @@
+#notificacion {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+#total-general-container {
+    transition: transform 0.2s;
+}
+
+#total-general-container:hover {
+    transform: scale(1.05);
+}
+
+.cantidad-input {
+    width: 80px;
+    text-align: center;
+}
+
+.table tbody tr {
+    transition: background-color 0.2s;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(0,123,255,0.05) !important;
+}
+
+.btn-group .btn {
+    margin-right: 2px;
+}
+
+.modal-content {
+    border: none;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+.list-group-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}

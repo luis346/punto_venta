@@ -361,7 +361,6 @@ function obtenerProductos() {
 
     return productos;
 }
-
 /***************************************
  * ENVÍO DE VENTA
  ***************************************/
@@ -445,6 +444,7 @@ function registrarVenta() {
         enviarVenta(productos);
     }
 }
+
 /***************************************
  * IMPRIMIR TICKET - VERSIÓN PROFESIONAL
  ***************************************/
@@ -796,114 +796,12 @@ function armarYImprimirTicket(data) {
         });
     }
     
-    // No recargar inmediatamente para permitir impresión
+    // SOLO ESTO CAMBIÓ: recarga automática sin confirm
     setTimeout(() => {
-        if (confirm('¿Venta completada correctamente. ¿Desea continuar?')) {
-            location.reload();
-        }
-    }, 3000);
+        location.reload();
+    }, 1500);
 }
-/***************************************
- * DOCUMENT READY - INICIALIZACIÓN
- ***************************************/
-$(document).ready(function () {
-    agregarFila();
-    setTimeout(() => $('#tabla-productos tbody tr:first input[data-tipo="no_folio"]').focus(), 50);
 
-    // Validar stock al cambiar cantidad (VERSIÓN SIMPLE)
-    $('#tabla-productos').on('input', '.cantidad', function () {
-        const cantidad = parseInt($(this).val()) || 0;
-        const stock_fisico = parseInt($(this).data('stock_fisico')) || 0;
-
-        if (cantidad > stock_fisico) {
-            const productoNombre = $(this).closest('tr').find('input[data-tipo="nombre"]').val();
-            Swal.fire({
-                icon: 'warning',
-                title: 'Stock insuficiente',
-                html: `<p><strong>${productoNombre}</strong></p><p>Stock disponible: ${stock_fisico}</p><p>Solo se agregarán ${stock_fisico} unidades</p>`,
-                confirmButtonText: 'Aceptar'
-            });
-            $(this).val(stock_fisico);
-        }
-        
-        validarStockGlobal();
-        actualizarTotales();
-        $('#monto_pagado').trigger('input');
-    });
-
-    // Validación de pago
-    $('#monto_pagado').on('input', function () {
-        const total = actualizarTotales();
-        const pagado = parseFloat($(this).val()) || 0;
-        const cambio = pagado - total;
-        const $cambioInput = $('#cambio');
-        const $btnCobrar = $('#btn-registrar-venta');
-
-        if (pagado === 0) {
-            $cambioInput.val('');
-            $btnCobrar.prop('disabled', true);
-        } else if (cambio < 0) {
-            $cambioInput.val('Pago insuficiente').addClass('is-invalid').removeClass('is-valid');
-            $btnCobrar.prop('disabled', true);
-        } else {
-            $cambioInput.val(cambio.toFixed(2)).removeClass('is-invalid').addClass('is-valid');
-            $btnCobrar.prop('disabled', false);
-        }
-    });
-
-    // Eventos
-    $('#formVentaCompleta').on('submit', function (e) { e.preventDefault(); registrarVenta(); });
-    $('#formPagoConPassword').on('submit', function (e) {
-        e.preventDefault();
-        const inputPassword = $('#password_admin_input').val().trim();
-        if (!inputPassword) {
-            Swal.fire({ title: "Error!", text: "Ingresa la contraseña del administrador.", icon: "error" });
-            return;
-        }
-        password_admin = inputPassword;
-        $('#modalPassword').modal('hide');
-        enviarVenta(productos_temporales);
-    });
-    $('#btnBuscarProducto').on('click', () => $('#modalBuscarProducto').modal('show'));
-    $('#btnLimpiarTodo').on('click', () => { if (confirm('¿Limpiar todos los productos?')) limpiarVentaCompleta(); });
-    $('#btnVentaRapida').on('click', () => { const total = parseFloat($('#total-general').text()); $('#monto_pagado').val(total.toFixed(2)).trigger('input'); });
-    
-    // Eventos de tabla
-    $('#tabla-productos').on('click', 'tr', function () { if ($(this).attr('id') !== 'fila-vacia') { filaSeleccionada = $(this); $('#tabla-productos tbody tr').removeClass('table-primary'); filaSeleccionada.addClass('table-primary'); } });
-    $('#tabla-productos').on('focus', 'input', function () { const fila = $(this).closest('tr'); if (fila.attr('id') !== 'fila-vacia') { filaSeleccionada = fila; $('#tabla-productos tbody tr').removeClass('table-primary'); filaSeleccionada.addClass('table-primary'); } });
-    $('#tabla-productos').on('click', '.btn-eliminar-fila', function () { eliminarFila($(this).closest('tr')); });
-    
-  // Enter en campo código
-$('#tabla-productos').on('keypress', 'input[data-tipo="no_folio"]', function (e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        const input = $(this);  // <--- Guardar referencia
-        const codigo = input.val().trim();
-        const fila = input.closest('tr');
-        if (!codigo) return;
-
-        $.ajax({
-            url: BUSCAR_PRODUCTO_URL,
-            data: { q: codigo, tipo: 'no_folio' },
-            success: function (data) {
-                if (!data || !data.length) {
-                    Swal.fire({ title: "No encontrado", text: "Producto no existe", icon: "error", timer: 1000, showConfirmButton: false });
-                    input.select();  // <--- Usar input en lugar de $(this)
-                    return;
-                }
-                const producto = data[0];
-                if (parseInt(producto.stock_fisico) <= 0) {
-                    Swal.fire({ title: "Sin stock", icon: "warning", timer: 1000, showConfirmButton: false });
-                    input.select();  // <--- Usar input en lugar de $(this)
-                    return;
-                }
-                seleccionarProducto(producto, fila);
-            }
-        });
-    }
-});
-    console.log("✅ Sistema de caja inicializado");
-});
 
 // Navegación con teclado
 $(document).on('keydown', function (e) {
@@ -956,172 +854,3 @@ $(document).on('click', '.item-producto', function () {
     setTimeout(() => $('#tabla-productos tbody tr:last input[data-tipo="no_folio"]').focus(), 300);
 });
 
-// Configuración de tipo de cliente
-document.addEventListener('DOMContentLoaded', function () {
-    const tipoCliente = document.getElementById("id_tipo_cliente");
-    const descuentoContainer = document.getElementById("descuento_container");
-    const descuento = document.getElementById("descuento");
-    const permisoPiezaContainer = document.getElementById("permiso_pieza_container");
-    if (!tipoCliente) return;
-
-    tipoCliente.value = 'publico';
-    const vendedor = document.getElementById('id_vendedor');
-    if (vendedor && vendedor.options.length > 0) vendedor.selectedIndex = 1;
-
-    tipoCliente.addEventListener("change", function () {
-        if (this.value === "mayorista") {
-            descuentoContainer?.classList.remove("d-none");
-            permisoPiezaContainer?.classList.remove("d-none");
-        } else {
-            descuentoContainer?.classList.add("d-none");
-            permisoPiezaContainer?.classList.add("d-none");
-            $('#permitir_pieza').prop('checked', false);
-            usarMayoreo = false;
-            if (descuento) descuento.value = "";
-            aplicarPrecioMayoreo(false);
-        }
-    });
-
-    $('#descuento').on('change', function () {
-        usarMayoreo = $(this).val() === 'producto';
-        aplicarPrecioMayoreo(usarMayoreo);
-        actualizarTotales();
-    });
-
-    $('#descuento_container, #permiso_pieza_container').addClass('d-none');
-    $('#permitir_pieza').prop('checked', false);
-});
-// ================= ACTUALIZAR PRODUCTO =================
-let productoIdActualizar = null;
-
-document.addEventListener('click', function(e) {
-    const btnActualizar = e.target.closest('.btn-actualizar-producto');
-    if (btnActualizar && !btnActualizar.disabled) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        productoIdActualizar = btnActualizar.dataset.productoId;
-        document.getElementById('producto_id_actualizar').value = productoIdActualizar;
-        document.getElementById('producto_nombre_actualizar').innerHTML = `<i class="bi bi-box"></i> ${btnActualizar.dataset.productoNombre}`;
-        document.getElementById('precio_actual').textContent = `$${parseFloat(btnActualizar.dataset.precio).toFixed(2)}`;
-        document.getElementById('precio_mayoreo_actual').textContent = `$${parseFloat(btnActualizar.dataset.precioMayoreo).toFixed(2)}`;
-        
-        document.getElementById('nuevo_precio').value = '';
-        document.getElementById('nuevo_precio_mayoreo').value = '';
-        document.getElementById('nuevo_stock_fisico').value = '';
-        document.getElementById('nuevo_stock_virtual').value = '';
-        document.getElementById('password_admin_actualizar').value = '';
-        
-        document.getElementById('password-error-actualizar')?.classList.add('d-none');
-        
-        fetch(`/api/obtener-stock-producto/?producto_id=${productoIdActualizar}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('stock_fisico_actual').textContent = data.stock_fisico;
-                    document.getElementById('stock_virtual_actual').textContent = data.stock_virtual;
-                }
-            })
-            .catch(err => console.error('Error al obtener stock:', err));
-        
-        new bootstrap.Modal(document.getElementById('modalActualizarProducto')).show();
-    }
-});
-
-document.getElementById('formActualizarProducto')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const btnSubmit = document.getElementById('btnActualizarProducto');
-    const originalHtml = btnSubmit.innerHTML;
-    const formData = new FormData(this);
-    const productoId = formData.get('producto_id');
-    
-    // Deshabilitar botón y mostrar loading
-    btnSubmit.disabled = true;
-    btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Actualizando...';
-    
-    fetch(this.action, {
-        method: 'POST',
-        body: formData,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    })
-    .then(response => response.json())
-    .then(data => {
-        // IMPORTANTE: Siempre restaurar el botón primero
-        btnSubmit.disabled = false;
-        btnSubmit.innerHTML = originalHtml;
-        
-        if (data.success) {
-            // Cerrar modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modalActualizarProducto'));
-            if (modal) modal.hide();
-            
-            // Actualizar la fila en la tabla
-            const fila = document.querySelector(`tr[data-producto-id="${productoId}"]`);
-            if (fila) {
-                if (data.precio_actualizado && data.nuevo_precio) {
-                    const precioCell = fila.querySelector('.precio');
-                    if (precioCell) {
-                        precioCell.textContent = data.nuevo_precio.toFixed(2);
-                    }
-                    const cantidadInput = fila.querySelector('.cantidad');
-                    const cantidad = cantidadInput ? parseInt(cantidadInput.value) || 0 : 0;
-                    const totalCell = fila.querySelector('.total');
-                    if (totalCell) {
-                        totalCell.textContent = (cantidad * data.nuevo_precio).toFixed(2);
-                    }
-                    // Actualizar el dataset del botón
-                    const btnActualizar = fila.querySelector('.btn-actualizar-producto');
-                    if (btnActualizar) {
-                        btnActualizar.dataset.precio = data.nuevo_precio;
-                    }
-                }
-                
-                // Actualizar stock si se modificó
-                const nuevoStockFisico = formData.get('nuevo_stock_fisico');
-                if (nuevoStockFisico) {
-                    const cantidadInput = fila.querySelector('.cantidad');
-                    if (cantidadInput) {
-                        cantidadInput.dataset.stock_fisico = nuevoStockFisico;
-                    }
-                }
-            }
-            
-            // Recalcular totales
-            actualizarTotales();
-            $('#monto_pagado').trigger('input');
-            
-            // Mostrar mensaje de éxito
-            Swal.fire({ 
-                icon: 'success', 
-                title: 'Éxito', 
-                text: data.message, 
-                timer: 2000, 
-                showConfirmButton: false 
-            });
-            
-        } else {
-            // Error en la respuesta
-            if (data.error === 'password') {
-                const errorDiv = document.getElementById('password-error-actualizar');
-                if (errorDiv) {
-                    errorDiv.classList.remove('d-none');
-                    errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${data.message}`;
-                }
-            } else {
-                Swal.fire({ icon: 'error', title: 'Error', text: data.message });
-            }
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        // Restaurar botón en caso de error
-        btnSubmit.disabled = false;
-        btnSubmit.innerHTML = originalHtml;
-        Swal.fire({ 
-            icon: 'error', 
-            title: 'Error', 
-            text: 'Error al conectar con el servidor' 
-        });
-    });
-});
